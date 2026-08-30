@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-02T10:53:40.665Z",
+  "status": 200,
+  "body": {
+    "success": true,
+    "requiresOtp": false,
+    "reference": "sdk_mr3dzf1b_dfea8241f5fec2f3",
+    "message": "Paiement initié. Le client va recevoir une demande de confirmation sur son téléphone."
+  },
+  "sentPayload": {
+    "paymentToken": "pay_tok_6ae5660495809d151e2201d578039c3ba0bbfe41",
+    "payerName": "Administrateur Principal",
+    "payerPhone": "+22890123456",
+    "payerCountry": "TG",
+    "operatorId": "37",
+    "operatorSlug": "t-money-togo"
+  }
+}

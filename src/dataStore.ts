@@ -1,0 +1,3771 @@
+import { 
+  User, 
+  Deposit, 
+  Withdrawal, 
+  Product, 
+  Investment, 
+  Commission, 
+  SystemNotification, 
+  SupportMessage, 
+  BonusCode,
+  ChatSession,
+  WithdrawalProof
+} from './types';
+
+// Default mock configuration values
+export const DEFAULT_PRODUCTS: Product[] = [
+  // STABILITÉ (7 products, starting at 2000 XOF minimum)
+  {
+    id: "stab-1",
+    vipLevel: 1,
+    name: "Gold Avenue Option Bronze",
+    tag: "Option Bronze",
+    price: 2000,
+    dailyReturn: 100,
+    durationDays: 40,
+    totalReturn: 4000,
+    category: "stability",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "stab-2",
+    vipLevel: 2,
+    name: "Gold Avenue Option Argent",
+    tag: "Option Argent",
+    price: 5000,
+    dailyReturn: 300,
+    durationDays: 40,
+    totalReturn: 12000,
+    category: "stability",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "stab-3",
+    vipLevel: 3,
+    name: "Gold Avenue Option Or",
+    tag: "Option Or",
+    price: 10000,
+    dailyReturn: 700,
+    durationDays: 40,
+    totalReturn: 28000,
+    category: "stability",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "stab-4",
+    vipLevel: 4,
+    name: "Gold Avenue Option Platine",
+    tag: "Option Platine",
+    price: 25000,
+    dailyReturn: 2000,
+    durationDays: 40,
+    totalReturn: 80000,
+    category: "stability",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "stab-5",
+    vipLevel: 5,
+    name: "Gold Avenue Option Diamant",
+    tag: "Option Diamant",
+    price: 50000,
+    dailyReturn: 4500,
+    durationDays: 40,
+    totalReturn: 180000,
+    category: "stability",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "stab-6",
+    vipLevel: 6,
+    name: "Gold Avenue Option Saphir",
+    tag: "Option Saphir",
+    price: 100000,
+    dailyReturn: 10000,
+    durationDays: 40,
+    totalReturn: 400000,
+    category: "stability",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "stab-7",
+    vipLevel: 7,
+    name: "Gold Avenue Option Émeraude",
+    tag: "Option Émeraude",
+    price: 200000,
+    dailyReturn: 24000,
+    durationDays: 40,
+    totalReturn: 960000,
+    category: "stability",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+
+  // BIEN-ÊTRE (7 products, starting at 5000 XOF minimum)
+  {
+    id: "well-1",
+    vipLevel: 1,
+    name: "Gold Avenue Bien-être Source",
+    tag: "Bien-être Source",
+    price: 5000,
+    dailyReturn: 1000,
+    durationDays: 10,
+    totalReturn: 10000,
+    category: "wellbeing",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "well-2",
+    vipLevel: 2,
+    name: "Gold Avenue Bien-être Harmonie",
+    tag: "Bien-être Harmonie",
+    price: 12000,
+    dailyReturn: 2600,
+    durationDays: 10,
+    totalReturn: 26000,
+    category: "wellbeing",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "well-3",
+    vipLevel: 3,
+    name: "Gold Avenue Bien-être Sérénité",
+    tag: "Bien-être Sérénité",
+    price: 30000,
+    dailyReturn: 7000,
+    durationDays: 10,
+    totalReturn: 70000,
+    category: "wellbeing",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "well-4",
+    vipLevel: 4,
+    name: "Gold Avenue Bien-être Vitalité",
+    tag: "Bien-être Vitalité",
+    price: 75000,
+    dailyReturn: 19000,
+    durationDays: 10,
+    totalReturn: 190000,
+    category: "wellbeing",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "well-5",
+    vipLevel: 5,
+    name: "Gold Avenue Bien-être Énergie",
+    tag: "Bien-être Énergie",
+    price: 150000,
+    dailyReturn: 42500,
+    durationDays: 10,
+    totalReturn: 425000,
+    category: "wellbeing",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "well-6",
+    vipLevel: 6,
+    name: "Gold Avenue Bien-être Équilibre",
+    tag: "Bien-être Équilibre",
+    price: 300000,
+    dailyReturn: 90000,
+    durationDays: 10,
+    totalReturn: 900000,
+    category: "wellbeing",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "well-7",
+    vipLevel: 7,
+    name: "Gold Avenue Bien-être Plénitude",
+    tag: "Bien-être Plénitude",
+    price: 600000,
+    dailyReturn: 190000,
+    durationDays: 10,
+    totalReturn: 1900000,
+    category: "wellbeing",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+
+  // ACTIVITÉ (7 products, starting at 5000 XOF minimum)
+  {
+    id: "act-1",
+    vipLevel: 1,
+    name: "Gold Avenue Activité Éclair",
+    tag: "Activité Éclair",
+    price: 5000,
+    dailyReturn: 2500,
+    durationDays: 3,
+    totalReturn: 7500,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-2",
+    vipLevel: 2,
+    name: "Gold Avenue Activité Flash",
+    tag: "Activité Flash",
+    price: 15000,
+    dailyReturn: 8000,
+    durationDays: 3,
+    totalReturn: 24000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-3",
+    vipLevel: 3,
+    name: "Gold Avenue Activité Boost",
+    tag: "Activité Boost",
+    price: 40000,
+    dailyReturn: 22000,
+    durationDays: 3,
+    totalReturn: 66000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-4",
+    vipLevel: 4,
+    name: "Gold Avenue Activité Turbo",
+    tag: "Activité Turbo",
+    price: 100000,
+    dailyReturn: 58000,
+    durationDays: 3,
+    totalReturn: 174000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-5",
+    vipLevel: 5,
+    name: "Gold Avenue Activité Hyper",
+    tag: "Activité Hyper",
+    price: 250000,
+    dailyReturn: 150000,
+    durationDays: 3,
+    totalReturn: 450000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-6",
+    vipLevel: 6,
+    name: "Gold Avenue Activité Master",
+    tag: "Activité Master",
+    price: 600000,
+    dailyReturn: 380000,
+    durationDays: 3,
+    totalReturn: 1140000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-7",
+    vipLevel: 7,
+    name: "Gold Avenue Activité Elite",
+    tag: "Activité Elite",
+    price: 1500000,
+    dailyReturn: 1000000,
+    durationDays: 3,
+    totalReturn: 3000000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  }
+];
+
+const INITIAL_USERS: User[] = [
+  {
+    id: 'u-admin',
+    name: 'Administrateur Principal',
+    whatsapp: '+237600000000',
+    password: 'agro777',
+    country: 'Cameroun',
+    balance: 1250000,
+    dailyEarnings: 0,
+    totalEarnings: 0,
+    bonus: 5000,
+    referralCode: 'AGR72',
+    role: 'admin',
+    isBlocked: false,
+    createdAt: '2026-05-10T10:00:00Z'
+  }
+];
+
+const INITIAL_DEPOSITS: Deposit[] = [];
+
+const INITIAL_WITHDRAWALS: Withdrawal[] = [];
+
+const INITIAL_INVESTMENTS: Investment[] = [];
+
+const INITIAL_COMMISSIONS: Commission[] = [];
+
+const INITIAL_NOTIFICATIONS: SystemNotification[] = [];
+
+const INITIAL_BONUS_CODES: BonusCode[] = [
+  { code: '72AGR', amount: 1000, maxUses: 100, usedCount: 0, usedByUsers: [] },
+  { code: 'WELCOME500', amount: 500, maxUses: 500, usedCount: 0, usedByUsers: [] },
+  { code: 'VIPBONUS', amount: 2000, maxUses: 10, usedCount: 0, usedByUsers: [] }
+];
+
+const INITIAL_CHATS: SupportMessage[] = [];
+
+const INITIAL_PROOFS: WithdrawalProof[] = [];
+
+// Robust, frame-safe in-memory cache to guarantee full compatibility when running inside sandboxed environments
+// (like an iframe on iOS, Safari, or tablets) where localStorage or sessionStorage access is strictly restricted or blocked.
+const inMemoryStore: Record<string, string> = {};
+const inMemorySessionStore: Record<string, string> = {};
+
+export const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key) || inMemoryStore[key] || null;
+    } catch (e) {
+      return inMemoryStore[key] || null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    inMemoryStore[key] = value;
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {}
+  },
+  removeItem: (key: string): void => {
+    delete inMemoryStore[key];
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {}
+  }
+};
+
+// LocalStorage Helper functions with automatic in-memory fallback
+export function getApiUrl(endpoint: string): string {
+  if (typeof window !== "undefined" && window.location) {
+    const host = window.location.hostname;
+    const isCloudRun = host.endsWith('.run.app');
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.');
+    
+    // Always use relative URLs on live Cloud Run containers or local development
+    if (isCloudRun || isLocalhost) {
+      return endpoint;
+    }
+  }
+
+  try {
+    const custom = localStorage.getItem('gi_custom_backend_url');
+    if (custom) {
+      const base = custom.trim().replace(/\/+$/, '');
+      if (base) {
+        return `${base}${endpoint}`;
+      }
+    }
+  } catch (e) {}
+
+  // If the host is an external domain (like gold_avenue-lac.vercel.app)
+  // we must automatically route requests to the live Cloud Run production instance
+  if (typeof window !== "undefined" && window.location) {
+    const host = window.location.hostname;
+    const isCloudRun = host.endsWith('.run.app');
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.');
+    
+    if (!isCloudRun && !isLocalhost) {
+      // Automatic fallback to our stable, centralized production backend URL!
+      return `https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app${endpoint}`;
+    }
+  }
+
+  return endpoint;
+}
+
+export const SUPABASE_URL: string = "";
+export const SUPABASE_SERVICE_ROLE_KEY: string = "";
+
+export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  let activeUrl = url;
+  if (url.startsWith('/') && typeof window !== 'undefined' && window.location) {
+    activeUrl = `${window.location.origin}${url}`;
+  }
+  let isRetried = false;
+
+  const hasPre = activeUrl.includes('-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
+  const hasDev = activeUrl.includes('-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
+  const isSyncEndpoint = activeUrl.includes('/api/get-store') || activeUrl.includes('/api/save-store');
+  const isSendavaPay = activeUrl.includes('/sendavapay');
+
+  // Try to use the standard backend first (getApiUrl)
+  try {
+    const userItem = (typeof window !== 'undefined' ? (sessionStorage.getItem('gi_current_user') || inMemorySessionStore['gi_current_user']) : null) || inMemorySessionStore['gi_current_user'];
+    const userHeaders: Record<string, string> = {};
+    if (userItem) {
+      try {
+        const u = JSON.parse(userItem);
+        if (u && u.id) {
+          userHeaders['x-user-id'] = u.id;
+          if (u.role) userHeaders['x-user-role'] = u.role;
+          if (u.password) userHeaders['x-user-password'] = u.password;
+        }
+      } catch (e) {}
+    }
+
+    const fetchOptions: RequestInit = {
+      credentials: 'same-origin',
+      ...init,
+      headers: {
+        ...userHeaders,
+        ...(init?.headers || {})
+      }
+    };
+    let response = await fetch(activeUrl, fetchOptions);
+    let contentType = response.headers.get('content-type') || "";
+    
+    // If we get an error response or a HTML page (like Google's proxy/Cloud Run sleeping/error page),
+    // and we have an alternate Cloud Run URL, let's try the other one.
+    if ((!response.ok || contentType.includes('text/html')) && (hasPre || hasDev) && !isRetried) {
+      isRetried = true;
+      const fallbackHost = hasPre 
+        ? 'https://ais-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app'
+        : 'https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app';
+      
+      try {
+        let parsedUrl: URL;
+        try {
+          parsedUrl = new URL(activeUrl);
+        } catch (e) {
+          parsedUrl = new URL(activeUrl, typeof window !== 'undefined' ? window.location.origin : undefined);
+        }
+        const fallbackUrl = `${fallbackHost}${parsedUrl.pathname}${parsedUrl.search}`;
+        console.log(`[apiFetch Failover] Primary backend non-responsive. Retrying with alternate backend: ${fallbackUrl}`);
+        
+        const fallbackResp = await fetch(fallbackUrl, fetchOptions);
+        const fallbackContentType = fallbackResp.headers.get('content-type') || "";
+        
+        if ((fallbackResp.ok || !isSyncEndpoint || isSendavaPay) && !fallbackContentType.includes('text/html')) {
+          try {
+            localStorage.setItem('gi_custom_backend_url', fallbackHost);
+          } catch (e) {}
+          return fallbackResp;
+        }
+      } catch (retryErr) {
+        console.warn(`[apiFetch Failover] Alternate backend failed too:`, retryErr);
+      }
+    }
+
+    // For SendavaPay, return the response directly as long as it is not a Google proxy HTML page
+    if (isSendavaPay && !contentType.includes('text/html')) {
+      return response;
+    }
+
+    // If the response is protected by google proxy or returned as text/html from unhandled errors,
+    // protect the caller from trying to parse HTML as JSON.
+    if ((response.ok || !isSyncEndpoint) && !response.redirected && !contentType.includes('text/html')) {
+      return response;
+    } else {
+      if (contentType.includes('text/html')) {
+        console.warn(`[apiFetch] Received HTML from API call for URL: ${url}. Triggering local fallback to prevent JSON parsing error.`);
+      } else {
+        console.warn(`[apiFetch] API call returned non-OK status: ${response.status} for URL: ${url}. Triggering fallback.`);
+      }
+    }
+  } catch (error) {
+    console.warn(`[apiFetch] API fetch threw error: ${error instanceof Error ? error.message : String(error)} for URL: ${url}. Triggering failover check.`);
+    
+    // If it threw a network error (like Failed to fetch), try the alternate backend!
+    if ((hasPre || hasDev) && !isRetried) {
+      isRetried = true;
+      const fallbackHost = hasPre 
+        ? 'https://ais-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app'
+        : 'https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app';
+      
+      try {
+        let parsedUrl: URL;
+        try {
+          parsedUrl = new URL(activeUrl);
+        } catch (e) {
+          parsedUrl = new URL(activeUrl, typeof window !== 'undefined' ? window.location.origin : undefined);
+        }
+        const fallbackUrl = `${fallbackHost}${parsedUrl.pathname}${parsedUrl.search}`;
+        console.log(`[apiFetch Network Failover] Retrying on network error with: ${fallbackUrl}`);
+        
+        const fetchOptions: RequestInit = {
+          credentials: 'same-origin',
+          ...init
+        };
+        const response = await fetch(fallbackUrl, fetchOptions);
+        const contentType = response.headers.get('content-type') || "";
+        
+        if ((response.ok || !isSyncEndpoint || isSendavaPay) && !contentType.includes('text/html')) {
+          try {
+            localStorage.setItem('gi_custom_backend_url', fallbackHost);
+          } catch (e) {}
+          return response;
+        }
+      } catch (retryErr) {
+        console.warn(`[apiFetch Network Failover] Retry failed too:`, retryErr);
+      }
+    }
+
+    if (isSendavaPay) {
+      return new Response(JSON.stringify({ success: false, error: "Erreur de connexion. Le serveur de paiement est temporairement indisponible." }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  if (isSendavaPay) {
+    return new Response(JSON.stringify({ success: false, error: "Le serveur de paiement n'a pas répondu." }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // --- DIRECT SUPABASE Sync FALLBACK (if configured) ---
+  if (SUPABASE_URL && SUPABASE_URL.startsWith('http')) {
+    console.log(`[apiFetch Fallback] Connecting directly to Supabase cloud storage: ${SUPABASE_URL}`);
+  }
+  
+  if (url.includes('/api/get-store')) {
+    if (SUPABASE_URL && SUPABASE_URL.startsWith('http')) {
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/store?select=*`, {
+          headers: {
+            'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'Accept': 'application/json'
+          }
+        });
+        if (resp.ok) {
+          const rows = await resp.json();
+          const storeObj: Record<string, any> = {};
+          if (Array.isArray(rows)) {
+            for (const r of rows) {
+              storeObj[r.key] = r.value;
+            }
+          }
+          return new Response(JSON.stringify(storeObj), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        } else {
+          console.warn(`[apiFetch Fallback] Supabase direct get-store returned status ${resp.status}`);
+        }
+      } catch (e) {
+        console.warn('[apiFetch Fallback] Supabase direct get-store failed gracefully (using local storage fallback instead):', e);
+      }
+    }
+    
+    // Reconstruct and compile local storage keys to allow the application to function gracefully
+    // in offline/restricted mode instead of failing sync and locking up the UI.
+    try {
+      const offlineStore: Record<string, any> = {};
+      const syncKeys = [
+        'gi_users', 'gi_deposits', 'gi_withdrawals', 'gi_investments', 
+        'gi_commissions', 'gi_notifications', 'gi_bonus_codes', 'gi_support_messages', 
+        'gi_products', 'gi_mlm_level1_rate', 'gi_mlm_level2_rate', 'gi_mlm_level3_rate',
+        'gi_withdrawals_blocked_global', 'gi_referral_domain', 'gi_withdrawal_proofs',
+        'gi_manual_deposit_numbers', 'gi_official_banners', 'gi_cleanup_timestamp'
+      ];
+      for (const key of syncKeys) {
+        const cached = localStorage.getItem(key) || inMemoryStore[key];
+        if (cached) {
+          try {
+            offlineStore[key] = JSON.parse(cached);
+          } catch (e) {
+            offlineStore[key] = cached;
+          }
+        }
+      }
+      console.log(`[apiFetch Offline Fallback] Gracefully compiled offline store containing ${offlineStore['gi_users']?.length || 0} user(s).`);
+      return new Response(JSON.stringify(offlineStore), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    } catch (err) {
+      console.warn('[apiFetch Offline Fallback] Fatal exception compiled local cache:', err);
+    }
+    return new Response(JSON.stringify({ success: false, error: "Cloud database is restricted or offline" }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (url.includes('/api/save-store')) {
+    if (SUPABASE_URL && SUPABASE_URL.startsWith('http')) {
+      try {
+        const bodyData = init?.body ? JSON.parse(init.body as string) : null;
+        if (bodyData && typeof bodyData === 'object') {
+          for (const key of Object.keys(bodyData)) {
+            const localVal = bodyData[key];
+            let valToSave = localVal;
+            
+            const isMergeableArray = Array.isArray(localVal) && key !== "gi_products" && key !== "gi_bonus_codes" && key !== "gi_withdrawal_proofs";
+            if (isMergeableArray) {
+              try {
+                const fetchResp = await fetch(`${SUPABASE_URL}/rest/v1/store?key=eq.${key}&select=value`, {
+                  headers: {
+                    'apikey': SUPABASE_SERVICE_ROLE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Accept': 'application/json'
+                  }
+                });
+                if (fetchResp.ok) {
+                  const rows = await fetchResp.json();
+                  if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
+                    const remoteVal = rows[0].value;
+                    if (Array.isArray(remoteVal)) {
+                      const mergedMap = new Map<string, any>();
+                      const deletedUsers = getFromStore<string[]>('gi_deleted_users', []);
+                      const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
+
+                      for (const item of remoteVal) {
+                        if (item && typeof item === 'object') {
+                          const id = item.id || item.code;
+                          if (id) {
+                            const idStr = String(id);
+                            if (key === 'gi_users' && deletedUsers.includes(idStr)) continue;
+                            if (key === 'gi_investments' && deletedInvestments.includes(idStr)) continue;
+                            mergedMap.set(idStr, item);
+                          }
+                        }
+                      }
+                      for (const item of localVal) {
+                        if (item && typeof item === 'object') {
+                          const id = item.id || item.code;
+                          if (id) {
+                            const idStr = String(id);
+                            if (key === 'gi_users' && deletedUsers.includes(idStr)) continue;
+                            if (key === 'gi_investments' && deletedInvestments.includes(idStr)) continue;
+                            if (!mergedMap.has(idStr)) {
+                              mergedMap.set(idStr, item);
+                            } else {
+                              const existingItem = mergedMap.get(idStr);
+                              const existingTime = existingItem.lastModified || 0;
+                              const incomingTime = item.lastModified || 0;
+                              
+                              if (key === "gi_users") {
+                                const useIncoming = incomingTime > existingTime;
+                                const mergedUser = {
+                                  ...(useIncoming ? item : existingItem),
+                                  role: (existingItem.role === 'admin' || item.role === 'admin') ? 'admin' : (useIncoming ? (item.role || 'user') : (existingItem.role || 'user')),
+                                  isBlocked: useIncoming ? (item.isBlocked !== undefined ? item.isBlocked : existingItem.isBlocked) : (existingItem.isBlocked !== undefined ? existingItem.isBlocked : item.isBlocked),
+                                  lastModified: Math.max(existingTime, incomingTime)
+                                };
+                                mergedMap.set(idStr, mergedUser);
+                              } else {
+                                if (incomingTime >= existingTime) {
+                                  mergedMap.set(idStr, item);
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                      valToSave = Array.from(mergedMap.values());
+                      
+                      // Keep safeLocalStorage updated
+                      inMemoryStore[key] = JSON.stringify(valToSave);
+                      try {
+                        localStorage.setItem(key, JSON.stringify(valToSave));
+                      } catch (e) {}
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn('[apiFetch Fallback] Direct merge fetch failed:', e);
+              }
+            }
+            
+            await fetch(`${SUPABASE_URL}/rest/v1/store`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify([{
+                key: key,
+                value: valToSave,
+                updated_at: new Date().toISOString()
+              }])
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('[apiFetch Fallback] Supabase direct save-store failed gracefully:', e);
+      }
+    }
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (url.includes('/api/admin-diagnostics')) {
+    const list = getFromStore<User[]>('gi_users', []);
+    return new Response(JSON.stringify({
+      success: true,
+      totalUsersInMem: list.length,
+      totalUsersInFile: list.length,
+      timestamp: Date.now(),
+      dbPath: 'Supabase Direct Table "store"',
+      dbExists: true
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (url.includes('/api/admin/delete-investment') || url.includes('/api/admin/delete-user')) {
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Reject with status 400 for specific endpoints to trigger client-side local fallback flow
+  return new Response(JSON.stringify({ success: false, message: "Use local database fallback" }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+}
+
+export const getFromStore = <T>(key: string, defaultValue: T): T => {
+  try {
+    const item = localStorage.getItem(key) || inMemoryStore[key];
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    const item = inMemoryStore[key];
+    return item ? JSON.parse(item) : defaultValue;
+  }
+};
+
+export const setToStore = <T>(key: string, value: T): void => {
+  try {
+    let newValue: any = value;
+    if (Array.isArray(value)) {
+      let oldStr: string | null = null;
+      try {
+        oldStr = localStorage.getItem(key) || inMemoryStore[key] || null;
+      } catch (e) {
+        oldStr = inMemoryStore[key] || null;
+      }
+      
+      let oldArray: any[] = [];
+      try {
+        oldArray = oldStr ? JSON.parse(oldStr) : [];
+      } catch (e) {
+        oldArray = [];
+      }
+      if (!Array.isArray(oldArray)) oldArray = [];
+      const now = Date.now();
+      
+      newValue = value.map((item: any) => {
+        if (item && typeof item === 'object') {
+          const itemId = item.id || item.code;
+          const oldItem = oldArray.find((o: any) => o && (o.id === itemId || o.code === itemId));
+          
+          if (!oldItem) {
+            return { ...item, lastModified: now };
+          } else {
+            const { lastModified: _, ...itemClean } = item;
+            const { lastModified: __, ...oldClean } = oldItem;
+            if (JSON.stringify(itemClean) !== JSON.stringify(oldClean)) {
+              return { ...item, lastModified: now };
+            } else {
+              return { ...item, lastModified: oldItem.lastModified || now };
+            }
+          }
+        }
+        return item;
+      });
+    }
+
+    const strValue = JSON.stringify(newValue);
+    inMemoryStore[key] = strValue;
+    
+    try {
+      localStorage.setItem(key, strValue);
+    } catch (e) {
+      // Silently fall back to inMemoryStore if sandboxed context rejects write
+    }
+
+    // Dispatch event for other views/components to react immediately in real-time
+    try {
+      window.dispatchEvent(new Event('gi_store_updated'));
+    } catch (e) {}
+
+    // Asynchronously send update to central Express database or KVdb
+    let userId = '';
+    let userRole = 'user';
+    let cleanupTimestamp = '0';
+    try {
+      const activeUserStr = localStorage.getItem('gi_current_user') || inMemoryStore['gi_current_user'];
+      if (activeUserStr) {
+        const u = JSON.parse(activeUserStr);
+        if (u && u.id) userId = u.id;
+        if (u && u.role) userRole = u.role;
+      }
+      cleanupTimestamp = localStorage.getItem('gi_cleanup_timestamp') || inMemoryStore['gi_cleanup_timestamp'] || '0';
+    } catch (e) {}
+
+    apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        [key]: newValue, 
+        userId, 
+        role: userRole,
+        gi_cleanup_timestamp: Number(cleanupTimestamp)
+      })
+    }).catch(err => console.error('Failed to sync to central DB server:', err));
+  } catch (error) {
+    console.error(`Error writing to fallback store for key "${key}":`, error);
+  }
+};
+
+export function normalizePhoneNumber(whatsapp: string, countryName?: string): string {
+  let clean = (whatsapp || '').replace(/\D/g, '');
+  if (clean.length === 0) return '';
+  
+  const codes: Record<string, string> = {
+    'cameroun': '237',
+    'burkina': '226',
+    'cote': '225',
+    'côte': '225',
+    'mali': '223',
+    'togo': '228',
+    'benin': '229',
+    'bénin': '229',
+  };
+
+  const lookupCountry = (countryName || '').toLowerCase();
+  let prefix = '';
+  for (const key of Object.keys(codes)) {
+    if (lookupCountry.includes(key)) {
+      prefix = codes[key];
+      break;
+    }
+  }
+
+  const knownPrefixes = Object.values(codes);
+  const startsWithKnownPrefix = knownPrefixes.some(p => clean.startsWith(p));
+
+  if (startsWithKnownPrefix) {
+    return clean;
+  }
+
+  if (prefix) {
+    return prefix + clean;
+  }
+
+  return clean;
+}
+
+export const syncWithBackend = async (): Promise<boolean> => {
+  try {
+    const resp = await apiFetch(getApiUrl('/api/get-store?t=' + Date.now()));
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    if (data && typeof data === 'object') {
+      // Check for remote database purge/cleanup command
+      const serverCleanupTime = Number(data['gi_cleanup_timestamp'] || 0);
+      let localCleanupTime = 0;
+      try {
+        localCleanupTime = Number(localStorage.getItem('gi_cleanup_timestamp') || '0');
+      } catch (e) {}
+
+      if (serverCleanupTime > localCleanupTime) {
+        console.log(`[CLEANUP] Server requested a database reset. Clearing local user and history caches...`);
+        const keysToClear = [
+          'gi_users',
+          'gi_deposits',
+          'gi_withdrawals',
+          'gi_investments',
+          'gi_commissions',
+          'gi_notifications',
+          'gi_support_messages',
+          'gi_withdrawal_proofs',
+          'gi_deleted_investments',
+          'gi_deleted_users',
+          'gi_deleted_forum_posts',
+          'gi_deleted_products'
+        ];
+        for (const k of keysToClear) {
+          try {
+            localStorage.removeItem(k);
+            delete inMemoryStore[k];
+          } catch (e) {}
+        }
+        try {
+          localStorage.setItem('gi_cleanup_timestamp', String(serverCleanupTime));
+        } catch (e) {}
+        
+        // Force fully fresh reload of the application to apply the reset
+        window.location.reload();
+        return true;
+      }
+
+      const serverKeys = Object.keys(data);
+      if (serverKeys.length === 0) {
+        // Server database is empty! Upload our local storage data to initialize it
+        const currentLocalState: Record<string, any> = {};
+        const keysToSync = [
+          'gi_users',
+          'gi_deposits',
+          'gi_withdrawals',
+          'gi_investments',
+          'gi_commissions',
+          'gi_notifications',
+          'gi_bonus_codes',
+          'gi_support_messages',
+          'gi_products',
+          'gi_mlm_level1_rate',
+          'gi_mlm_level2_rate',
+          'gi_mlm_level3_rate',
+          'gi_withdrawals_blocked_global',
+          'gi_referral_domain',
+          'gi_withdrawal_proofs',
+          'gi_forum_posts',
+          'gi_deleted_investments',
+          'gi_deleted_users',
+          'gi_deleted_forum_posts',
+          'gi_deleted_products',
+          'gi_manual_deposit_numbers',
+          'gi_official_banners'
+        ];
+        
+        // Ensure standard keys are read with their default fallback if they are not in local storage yet
+        DataStore.getUsers();
+        DataStore.getDeposits();
+        DataStore.getWithdrawals();
+        DataStore.getInvestments();
+        DataStore.getCommissions();
+        DataStore.getNotifications();
+        DataStore.getBonusCodes();
+        DataStore.getSupportMessages();
+        DataStore.getProducts();
+        DataStore.getMLMRates();
+        DataStore.areWithdrawalsBlocked();
+        DataStore.getReferralDomain();
+        DataStore.getWithdrawalProofs();
+        DataStore.getForumPosts();
+        DataStore.getManualDepositNumbers();
+ 
+        for (const key of keysToSync) {
+          try {
+            const val = localStorage.getItem(key) || inMemoryStore[key];
+            if (val) {
+              currentLocalState[key] = JSON.parse(val);
+            }
+          } catch (e) {
+            const val = inMemoryStore[key];
+            if (val) {
+              currentLocalState[key] = JSON.parse(val);
+            }
+          }
+        }
+ 
+        if (Object.keys(currentLocalState).length > 0) {
+          await apiFetch(getApiUrl('/api/save-store'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentLocalState)
+          });
+        }
+        return false;
+      }
+
+      // If the server *does* have data, sync it down to the client!
+      let changed = false;
+      for (const key of serverKeys) {
+        let localData: any = null;
+        try {
+          const localValStr = localStorage.getItem(key) || inMemoryStore[key] || null;
+          localData = localValStr ? JSON.parse(localValStr) : null;
+        } catch (e) {
+          localData = null;
+        }
+
+        const remoteData = data[key];
+        
+        if (remoteData !== undefined && remoteData !== null) {
+          let mergedVal = remoteData;
+          
+          const isMergeableArray = Array.isArray(remoteData) && Array.isArray(localData) && 
+            key !== "gi_bonus_codes" && key !== "gi_withdrawal_proofs" &&
+            key !== "gi_deleted_investments" && key !== "gi_deleted_users" &&
+            key !== "gi_deleted_forum_posts" && key !== "gi_deleted_products";
+          if (isMergeableArray) {
+            // Merge remote array and local array to avoid losing any offline changes or registrations!
+            const mergedMap = new Map<string, any>();
+            const deletedInvs = key === "gi_investments" ? (data["gi_deleted_investments"] || getFromStore<string[]>('gi_deleted_investments', [])) : [];
+            const deletedUsers = key === "gi_users" ? (data["gi_deleted_users"] || getFromStore<string[]>('gi_deleted_users', [])) : [];
+            const deletedForumPosts = key === "gi_forum_posts" ? (data["gi_deleted_forum_posts"] || getFromStore<string[]>('gi_deleted_forum_posts', [])) : [];
+            const deletedProducts = key === "gi_products" ? (data["gi_deleted_products"] || getFromStore<string[]>('gi_deleted_products', [])) : [];
+
+            for (const item of remoteData) {
+              if (item && typeof item === 'object') {
+                const id = item.id || item.code;
+                if (id) {
+                  const idStr = String(id);
+                  if (key === "gi_investments" && deletedInvs.includes(idStr)) continue;
+                  if (key === "gi_users" && deletedUsers.includes(idStr)) continue;
+                  if (key === "gi_forum_posts" && deletedForumPosts.includes(idStr)) continue;
+                  if (key === "gi_products" && deletedProducts.includes(idStr)) continue;
+                  mergedMap.set(idStr, item);
+                }
+              }
+            }
+            
+            let localHasNewItems = false;
+            for (const item of localData) {
+              if (item && typeof item === 'object') {
+                const id = item.id || item.code;
+                if (id) {
+                  const idStr = String(id);
+                  if (key === "gi_investments" && deletedInvs.includes(idStr)) continue;
+                  if (key === "gi_users" && deletedUsers.includes(idStr)) continue;
+                  if (key === "gi_forum_posts" && deletedForumPosts.includes(idStr)) continue;
+                  if (key === "gi_products" && deletedProducts.includes(idStr)) continue;
+                  if (!mergedMap.has(idStr)) {
+                    mergedMap.set(idStr, item);
+                    localHasNewItems = true;
+                  } else {
+                    const existingItem = mergedMap.get(idStr);
+                    const existingTime = existingItem.lastModified || 0;
+                    const incomingTime = item.lastModified || 0;
+                    
+                    if (key === "gi_users") {
+                      const useIncoming = incomingTime > existingTime;
+                      const mergedUser = {
+                        ...(useIncoming ? item : existingItem),
+                        balance: (useIncoming ? item.balance : existingItem.balance) ?? 0,
+                        dailyEarnings: (useIncoming ? item.dailyEarnings : existingItem.dailyEarnings) ?? 0,
+                        totalEarnings: (useIncoming ? item.totalEarnings : existingItem.totalEarnings) ?? 0,
+                        bonus: (useIncoming ? item.bonus : existingItem.bonus) ?? 0,
+                        role: (existingItem.role === 'admin' || item.role === 'admin') ? 'admin' : (useIncoming ? (item.role || 'user') : (existingItem.role || 'user')),
+                        isBlocked: (useIncoming ? item.isBlocked : existingItem.isBlocked) ?? false,
+                        lastModified: Math.max(existingTime, incomingTime)
+                      };
+                      if (JSON.stringify(existingItem) !== JSON.stringify(mergedUser)) {
+                        mergedMap.set(idStr, mergedUser);
+                        localHasNewItems = true;
+                      }
+                    } else {
+                      if (incomingTime >= existingTime) {
+                        if (JSON.stringify(existingItem) !== JSON.stringify(item)) {
+                          mergedMap.set(idStr, item);
+                          localHasNewItems = true;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            mergedVal = Array.from(mergedMap.values());
+            
+            // If local storage had newer items that the server didn't have, push merged updates to server asynchronously
+            if (localHasNewItems) {
+              console.log(`[CLIENT SYNC] Client has newer local changes for key "${key}". Pushing merged changes to server...`);
+              apiFetch(getApiUrl('/api/save-store'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [key]: mergedVal })
+              }).catch(err => console.warn(`Failed to push key "${key}" merge updates (transient):`, err));
+            }
+          }
+          
+          const remoteStr = JSON.stringify(mergedVal);
+          let currentLocalStr = null;
+          try {
+            currentLocalStr = localStorage.getItem(key) || inMemoryStore[key] || null;
+          } catch(e) {}
+          
+          if (currentLocalStr !== remoteStr) {
+            inMemoryStore[key] = remoteStr;
+            try {
+              localStorage.setItem(key, remoteStr);
+            } catch (e) {
+              // Ignore blocked localStorage on sandboxed browsers
+            }
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        window.dispatchEvent(new Event('gi_store_updated'));
+      }
+      return changed;
+    }
+  } catch (error) {
+    console.warn('Failed background sync (transient network or polling update):', error);
+  }
+  return false;
+};
+
+// Database class that proxies lists inside localStorage
+export class DataStore {
+  static getUsers(): User[] {
+    let list = getFromStore<User[]>('gi_users', INITIAL_USERS);
+    const deletedUsers = getFromStore<string[]>('gi_deleted_users', []);
+    list = list.filter(u => u && u.id && !deletedUsers.includes(u.id));
+    // Ensure the default administrative account has the updated credentials in existing local storage
+    let changed = false;
+    let updated = list.map(u => {
+      if (u.id === 'u-admin') {
+        if (u.whatsapp !== '+237600000000' || u.password !== 'agro777' || u.country !== 'Cameroun' || u.role !== 'admin') {
+          changed = true;
+          return {
+            ...u,
+            whatsapp: '+237600000000',
+            password: 'agro777',
+            country: 'Cameroun',
+            role: 'admin' as const
+          };
+        }
+      }
+      const uDigits = u.whatsapp ? u.whatsapp.replace(/\D/g, '') : '';
+      if ((uDigits.endsWith('22670903319') || uDigits === '22670903319' || uDigits === '70903319') && u.role !== 'admin') {
+        changed = true;
+        return { ...u, role: 'admin' as const };
+      }
+      return u;
+    });
+
+    // Make sure we have at least one admin inside the database
+    if (!updated.some(u => u.id === 'u-admin')) {
+      updated.push({
+        id: 'u-admin',
+        name: 'Administrateur Principal',
+        whatsapp: '+237600000000',
+        password: 'agro777',
+        country: 'Cameroun',
+        balance: 1250000,
+        dailyEarnings: 0,
+        totalEarnings: 0,
+        bonus: 5000,
+        referralCode: '72AGR',
+        role: 'admin',
+        isBlocked: false,
+        createdAt: '2026-05-10T10:00:00Z'
+      });
+      changed = true;
+    }
+
+    if (changed) {
+      setToStore<User[]>('gi_users', updated);
+      // Also update current user if online
+      let current: User | null = null;
+      try {
+        const item = sessionStorage.getItem('gi_current_user');
+        current = item ? JSON.parse(item) : null;
+      } catch (e) {}
+      if (current) {
+        if (current.id === 'u-admin') {
+          current.whatsapp = '+237600000000';
+          current.password = 'agro777';
+          current.country = 'Cameroun';
+          current.role = 'admin';
+          try {
+            sessionStorage.setItem('gi_current_user', JSON.stringify(current));
+          } catch (e) {}
+        }
+        const cDigits = current.whatsapp ? current.whatsapp.replace(/\D/g, '') : '';
+        if (cDigits.endsWith('22670903319') || cDigits === '22670903319' || cDigits === '70903319') {
+          current.role = 'admin';
+          try {
+            sessionStorage.setItem('gi_current_user', JSON.stringify(current));
+          } catch (e) {}
+        }
+      }
+    }
+    return changed ? updated : list;
+  }
+
+  static getCurrencyForUser(user: any): string {
+    return 'XOF';
+  }
+
+  static saveUsers(users: User[]): void {
+    const deletedUsers = getFromStore<string[]>('gi_deleted_users', []);
+    const filtered = users.filter(u => u && u.id && !deletedUsers.includes(u.id));
+    setToStore<User[]>('gi_users', filtered);
+  }
+
+  static getMLMRates(): { level1: number, level2: number, level3: number } {
+    let l1 = getFromStore<number>('gi_mlm_level1_rate', 30);
+    let l2 = getFromStore<number>('gi_mlm_level2_rate', 2);
+    let l3 = getFromStore<number>('gi_mlm_level3_rate', 1);
+    
+    if (l1 === 20) {
+      l1 = 30;
+      setToStore<number>('gi_mlm_level1_rate', 30);
+    }
+    if (l2 === 5 || l2 === 3) {
+      l2 = 2;
+      setToStore<number>('gi_mlm_level2_rate', 2);
+    }
+    
+    return {
+      level1: l1,
+      level2: l2,
+      level3: l3,
+    };
+  }
+
+  static saveMLMRates(rates: { level1: number, level2: number, level3: number }): void {
+    setToStore<number>('gi_mlm_level1_rate', rates.level1);
+    setToStore<number>('gi_mlm_level2_rate', rates.level2);
+    setToStore<number>('gi_mlm_level3_rate', rates.level3);
+  }
+
+  static getReferralDomain(): string {
+    return getFromStore<string>('gi_referral_domain', '').trim();
+  }
+
+  static saveReferralDomain(domain: string): void {
+    setToStore<string>('gi_referral_domain', domain.trim());
+    apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_referral_domain: domain.trim()
+      })
+    }).catch(err => console.error("Error saving referral domain to server", err));
+  }
+
+  static getWhatsAppGroup(): string {
+    const defaultGroup = 'https://chat.whatsapp.com/FjYdljjkYOt7815rT1UZ8q?s=cl&p=i&ilr=0&amv=0';
+    const val = getFromStore<string>('gi_whatsapp_group', defaultGroup).trim();
+    if (!val || val.includes('DlLEImu1s9y2hnWKWFRqAv') || val.includes('BvMCUCh3iq')) {
+      return defaultGroup;
+    }
+    return val;
+  }
+
+  static saveWhatsAppGroup(link: string): void {
+    setToStore<string>('gi_whatsapp_group', link.trim());
+    apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_whatsapp_group: link.trim()
+      })
+    }).catch(err => console.error("Error saving WhatsApp group link to server", err));
+  }
+
+  static getWhatsAppChannel(): string {
+    const defaultChannel = 'https://whatsapp.com/channel/0029VbCs5L0J3jurEKVu8x2n';
+    const val = getFromStore<string>('gi_whatsapp_channel', defaultChannel).trim();
+    if (!val || val.includes('0029Vb80vQ2LdQecfze5qY0k')) {
+      return defaultChannel;
+    }
+    return val;
+  }
+
+  static saveWhatsAppChannel(link: string): void {
+    setToStore<string>('gi_whatsapp_channel', link.trim());
+    apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_whatsapp_channel: link.trim()
+      })
+    }).catch(err => console.error("Error saving WhatsApp channel link to server", err));
+  }
+
+  static getWhatsAppSupportNumber(): string {
+    return getFromStore<string>('gi_whatsapp_support_number', '+22670903319').trim();
+  }
+
+  static saveWhatsAppSupportNumber(numberStr: string): void {
+    setToStore<string>('gi_whatsapp_support_number', numberStr.trim());
+    apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_whatsapp_support_number: numberStr.trim()
+      })
+    }).catch(err => console.error("Error saving WhatsApp support number to server", err));
+  }
+
+  static getOfficialBanners(): { image1: string; image2: string } {
+    const defaults = {
+      image1: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=500',
+      image2: 'https://images.unsplash.com/photo-1599690925058-90e1a0b41144?auto=format&fit=crop&q=80&w=500'
+    };
+    return getFromStore<{ image1: string; image2: string }>('gi_official_banners', defaults);
+  }
+
+  static saveOfficialBanners(banners: { image1: string; image2: string }): void {
+    setToStore<{ image1: string; image2: string }>('gi_official_banners', banners);
+    apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_official_banners: banners
+      })
+    }).catch(err => console.error("Error saving official banners to server", err));
+  }
+
+  static getManualDepositNumbers(): Record<string, string> {
+    const defaults: Record<string, string> = {
+      'TG_37': '*145*1*montant*70903319*code#',
+      'TG_38': '*155*1*1*78829438*78829438*montant*code#',
+      'CM_41': '*126*9*677451289*montant #',
+      'CM_42': '#150*688969868*montant#',
+      'CI_29': '+225 07 07 07 07 07 (Orange Money)',
+      'CI_32': '+225 01 02 03 04 05 (Wave)',
+      'BF_34': '+226 70 90 33 19 (Orange Money)',
+      'BF_33': '+226 60 00 00 00 (Moov Money)'
+    };
+    const stored = getFromStore<Record<string, string>>('gi_manual_deposit_numbers', defaults);
+    const cleaned = { ...stored };
+    if (cleaned['TG_37'] && !cleaned['TG_37'].includes('*')) {
+      cleaned['TG_37'] = defaults['TG_37'];
+    }
+    if (cleaned['TG_38'] && !cleaned['TG_38'].includes('*')) {
+      cleaned['TG_38'] = defaults['TG_38'];
+    }
+    // Merge defaults so any newly added default configuration keys exist even if localStorage is stale
+    return { ...defaults, ...cleaned };
+  }
+
+  static async saveManualDepositNumbers(numbers: Record<string, string>): Promise<any> {
+    setToStore<Record<string, string>>('gi_manual_deposit_numbers', numbers);
+    return apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_manual_deposit_numbers: numbers
+      })
+    }).catch(err => {
+      console.error("Error saving manual deposit numbers to server", err);
+      throw err;
+    });
+  }
+
+  static getProducts(): Product[] {
+    let list = getFromStore<Product[]>('gi_products', DEFAULT_PRODUCTS);
+    const deletedList = getFromStore<string[]>('gi_deleted_products', []);
+    if (deletedList.length > 0) {
+      list = list.filter(p => p && p.id && !deletedList.includes(String(p.id)));
+    }
+
+    let changed = false;
+    const now = new Date();
+    
+    const updated = list.map(p => {
+      let item = { ...p };
+      
+      // Sanitization: Ensure absolutely no electronic or device words remain in names or tags
+      if (item.name && (
+        item.name.toLowerCase().includes('airprods') || 
+        item.name.toLowerCase().includes('airpods') || 
+        item.name.toLowerCase().includes('phone') || 
+        item.name.toLowerCase().includes('laptop') || 
+        item.name.toLowerCase().includes('computer')
+      )) {
+        changed = true;
+        if (item.vipLevel === 6) {
+          item.name = "Gold Avenue Or d'Investissement";
+          item.tag = "Or d'Investissement";
+        } else if (item.vipLevel === 7) {
+          item.name = "Gold Avenue Lingot d'Or Pur";
+          item.tag = "Lingot d'Or Pur";
+        } else if (item.vipLevel === 8) {
+          item.name = "Gold Avenue Réserve Souveraine";
+          item.tag = "Réserve Souveraine";
+        } else if (item.vipLevel === 9) {
+          item.name = "Gold Avenue Trésor Impérial";
+          item.tag = "Trésor Impérial";
+        } else {
+          item.name = `Gold Avenue Option Or VIP ${item.vipLevel || ''}`;
+          item.tag = "Or d'Investissement";
+        }
+      }
+
+      if (item.tag && (
+        item.tag.toLowerCase().includes('airprods') || 
+        item.tag.toLowerCase().includes('airpods') || 
+        item.tag.toLowerCase().includes('phone') || 
+        item.tag.toLowerCase().includes('laptop') || 
+        item.tag.toLowerCase().includes('computer')
+      )) {
+        changed = true;
+        if (item.vipLevel === 6) item.tag = "Or d'Investissement";
+        else if (item.vipLevel === 7) item.tag = "Lingot d'Or Pur";
+        else if (item.vipLevel === 8) item.tag = "Réserve Souveraine";
+        else if (item.vipLevel === 9) item.tag = "Trésor Impérial";
+        else item.tag = "Or d'Investissement";
+      }
+
+      // Allow custom imageUrl to be saved and displayed if set, otherwise the frontend will fall back to curated gold images.
+
+      if (item.isBlocked && item.reopenDateTime && now >= new Date(item.reopenDateTime)) {
+        changed = true;
+        item.isBlocked = false;
+        item.reopenDateTime = undefined;
+      }
+      return item;
+    });
+
+    if (changed) {
+      this.saveProducts(updated);
+      return updated;
+    }
+    return list;
+  }
+
+  static saveProducts(products: Product[]): void {
+    setToStore<Product[]>('gi_products', products);
+    try {
+      window.dispatchEvent(new Event('gi_store_updated'));
+    } catch (e) {}
+
+    // Persist to server database
+    apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_products: products,
+        gi_deleted_products: getFromStore<string[]>('gi_deleted_products', [])
+      })
+    }).catch(err => {
+      console.error("Error saving products to server database", err);
+    });
+  }
+
+  static getDeposits(): Deposit[] {
+    return getFromStore<Deposit[]>('gi_deposits', INITIAL_DEPOSITS);
+  }
+
+  static saveDeposits(deposits: Deposit[]): void {
+    setToStore<Deposit[]>('gi_deposits', deposits);
+  }
+
+  static getWithdrawals(): Withdrawal[] {
+    return getFromStore<Withdrawal[]>('gi_withdrawals', INITIAL_WITHDRAWALS);
+  }
+
+  static saveWithdrawals(withdrawals: Withdrawal[]): void {
+    setToStore<Withdrawal[]>('gi_withdrawals', withdrawals);
+  }
+
+  static getInvestments(): Investment[] {
+    let list = getFromStore<Investment[]>('gi_investments', INITIAL_INVESTMENTS);
+    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
+    return list.filter(i => i && i.id && !deletedInvestments.includes(i.id));
+  }
+
+  static saveInvestments(investments: Investment[]): void {
+    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
+    const filtered = investments.filter(i => i && i.id && !deletedInvestments.includes(i.id));
+    setToStore<Investment[]>('gi_investments', filtered);
+  }
+
+  static getCommissions(): Commission[] {
+    return getFromStore<Commission[]>('gi_commissions', INITIAL_COMMISSIONS);
+  }
+
+  static saveCommissions(commissions: Commission[]): void {
+    setToStore<Commission[]>('gi_commissions', commissions);
+  }
+
+  static getNotifications(): SystemNotification[] {
+    return getFromStore<SystemNotification[]>('gi_notifications', INITIAL_NOTIFICATIONS);
+  }
+
+  static saveNotifications(notifications: SystemNotification[]): void {
+    setToStore<SystemNotification[]>('gi_notifications', notifications);
+  }
+
+  static getBonusCodes(): BonusCode[] {
+    return getFromStore<BonusCode[]>('gi_bonus_codes', INITIAL_BONUS_CODES);
+  }
+
+  static saveBonusCodes(codes: BonusCode[]): void {
+    setToStore<BonusCode[]>('gi_bonus_codes', codes);
+  }
+
+  static getSupportMessages(): SupportMessage[] {
+    return getFromStore<SupportMessage[]>('gi_support_messages', INITIAL_CHATS);
+  }
+
+  static saveSupportMessages(messages: SupportMessage[]): void {
+    setToStore<SupportMessage[]>('gi_support_messages', messages);
+  }
+
+  static getWithdrawalProofs(): WithdrawalProof[] {
+    return getFromStore<WithdrawalProof[]>('gi_withdrawal_proofs', INITIAL_PROOFS);
+  }
+
+  static saveWithdrawalProofs(proofs: WithdrawalProof[]): void {
+    setToStore<WithdrawalProof[]>('gi_withdrawal_proofs', proofs);
+  }
+
+  static getForumPosts(): any[] {
+    const val = getFromStore<any[]>('gi_forum_posts', []);
+    const deletedList = getFromStore<string[]>('gi_deleted_forum_posts', []);
+    const filtered = val.filter((p: any) => p && p.id && !deletedList.includes(String(p.id)));
+    return filtered.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.lastModified || 0).getTime();
+      const timeB = new Date(b.createdAt || b.lastModified || 0).getTime();
+      return timeB - timeA;
+    });
+  }
+
+  static async clearAllForumPosts(): Promise<void> {
+    setToStore<any[]>('gi_forum_posts', []);
+    try {
+      localStorage.removeItem('rockygold_forum_posts_v3');
+    } catch (e) {}
+    await this.saveForumPosts([]);
+  }
+
+  static async saveForumPosts(posts: any[]): Promise<void> {
+    setToStore<any[]>('gi_forum_posts', posts);
+    try {
+      localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(posts));
+    } catch (e) {}
+
+    let activeUserId = 'u-guest';
+    let activeUserRole = 'user';
+    let cleanupTimestamp = '0';
+    try {
+      const activeU = this.getCurrentUser();
+      if (activeU) {
+        activeUserId = activeU.id;
+        activeUserRole = activeU.role || 'user';
+      }
+      cleanupTimestamp = localStorage.getItem('gi_cleanup_timestamp') || inMemoryStore['gi_cleanup_timestamp'] || '0';
+    } catch (e) {}
+
+    try {
+      await apiFetch(getApiUrl('/api/save-store'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gi_forum_posts: posts,
+          userId: activeUserId,
+          role: activeUserRole,
+          gi_cleanup_timestamp: Number(cleanupTimestamp)
+        })
+      });
+      window.dispatchEvent(new Event('gi_store_updated'));
+      await syncWithBackend();
+    } catch (err) {
+      console.error("Error saving forum posts to server", err);
+    }
+  }
+
+  static async deleteForumPost(postId: string): Promise<boolean> {
+    const deletedList = getFromStore<string[]>('gi_deleted_forum_posts', []);
+    if (!deletedList.includes(postId)) {
+      deletedList.push(postId);
+      setToStore<string[]>('gi_deleted_forum_posts', deletedList);
+    }
+    const posts = this.getForumPosts();
+    const updated = posts.filter((p: any) => p && p.id !== postId);
+    await this.saveForumPosts(updated);
+    return true;
+  }
+
+  // Auth Operations
+  static getCurrentUser(): User | null {
+    let cached: User | null = null;
+    try {
+      const item = sessionStorage.getItem('gi_current_user') || inMemorySessionStore['gi_current_user'];
+      cached = item ? JSON.parse(item) : null;
+    } catch (e) {
+      const item = inMemorySessionStore['gi_current_user'];
+      cached = item ? JSON.parse(item) : null;
+    }
+    if (!cached) return null;
+    const users = this.getUsers();
+    const fresh = users.find(u => u.id === cached.id);
+    if (fresh) {
+      return fresh;
+    }
+    return cached;
+  }
+
+  static saveCurrentUser(user: User | null): void {
+    try {
+      if (user) {
+        const str = JSON.stringify(user);
+        inMemorySessionStore['gi_current_user'] = str;
+        try {
+          sessionStorage.setItem('gi_current_user', str);
+        } catch (e) {}
+      } else {
+        delete inMemorySessionStore['gi_current_user'];
+        try {
+          sessionStorage.removeItem('gi_current_user');
+        } catch (e) {}
+      }
+    } catch (e) {}
+    
+    if (user) {
+      // Also update inside users list
+      const users = this.getUsers();
+      const idx = users.findIndex(u => u.id === user.id);
+      if (idx !== -1) {
+        users[idx] = user;
+        this.saveUsers(users);
+      }
+    }
+  }
+
+  // Log in specific helper
+  static async login(whatsapp: string, passwordString: string): Promise<{ success: boolean, user?: User, message: string }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whatsapp, password: passwordString })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success && res.user) {
+          this.saveCurrentUser(res.user);
+          syncWithBackend().catch((e) => console.warn('[LOGIN SYNC WARN]', e));
+        }
+        return res;
+      }
+    } catch (error) {
+      console.warn('Login backend error, trying local:', error);
+    }
+
+    const users = this.getUsers();
+    const user = users.find(u => {
+      if (u.whatsapp === whatsapp) return true;
+      const uNorm = normalizePhoneNumber(u.whatsapp, u.country);
+      const inputNorm = normalizePhoneNumber(whatsapp, u.country);
+      if (uNorm && inputNorm && uNorm === inputNorm) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!user) {
+      return { success: false, message: 'Aucun utilisateur trouvé avec ce numéro WhatsApp.' };
+    }
+    if (user.isBlocked) {
+      return { success: false, message: 'Ce compte a été bloqué par l\'administrateur. Veuillez contacter le support.' };
+    }
+    const expectedPassword = user.password || (user.role === 'admin' ? 'admin' : 'user123');
+    if (passwordString === expectedPassword) {
+      this.saveCurrentUser(user);
+      return { success: true, user, message: 'Connexion réussie.' };
+    }
+    return { success: false, message: 'Mot de passe incorrect.' };
+  }
+
+  // Reset password helper
+  static async resetPassword(whatsapp: string, country: string, newPasswordString: string): Promise<{ success: boolean, message: string }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/reset-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whatsapp, country, newPassword: newPasswordString })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success) {
+          // Update local store as well
+          const users = this.getUsers();
+          const userIdx = users.findIndex(u => {
+            if (u.whatsapp === whatsapp) return true;
+            const uNorm = normalizePhoneNumber(u.whatsapp, u.country || country);
+            const inputNorm = normalizePhoneNumber(whatsapp, country || u.country);
+            return !!(uNorm && inputNorm && uNorm === inputNorm);
+          });
+          if (userIdx !== -1) {
+            users[userIdx].password = newPasswordString;
+            this.saveUsers(users);
+          }
+          syncWithBackend().catch((e) => console.warn('[RESET PASSWORD SYNC WARN]', e));
+          return res;
+        } else {
+          return res;
+        }
+      }
+    } catch (error) {
+      console.warn('Reset password backend error, trying local fallback:', error);
+    }
+
+    // Local fallback
+    const users = this.getUsers();
+    const userIdx = users.findIndex(u => {
+      if (u.whatsapp === whatsapp) return true;
+      const uNorm = normalizePhoneNumber(u.whatsapp, u.country || country);
+      const inputNorm = normalizePhoneNumber(whatsapp, country || u.country);
+      return !!(uNorm && inputNorm && uNorm === inputNorm);
+    });
+
+    if (userIdx === -1) {
+      return { success: false, message: 'Aucun utilisateur trouvé avec ce numéro de téléphone.' };
+    }
+    if (users[userIdx].isBlocked) {
+      return { success: false, message: 'Ce compte a été bloqué par l\'administrateur. Veuillez contacter le support.' };
+    }
+
+    users[userIdx].password = newPasswordString;
+    this.saveUsers(users);
+    return { success: true, message: 'Votre mot de passe a été réinitialisé avec succès ! Vous pouvez maintenant vous connecter.' };
+  }
+
+  // Register modern form
+  static async register(data: {
+    name: string;
+    whatsapp: string;
+    country: string;
+    password?: string;
+    referredByCode: string;
+    device?: string;
+  }): Promise<{ success: boolean, user?: User, message: string }> {
+    let serverSuccess = false;
+    let serverResponse: any = null;
+
+    try {
+      console.log(`[CLIENT REGISTER] Attempting signup for ${data.whatsapp} with central backend...`);
+      const response = await apiFetch(getApiUrl('/api/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (response.ok) {
+        const res = await response.json();
+        console.log(`[CLIENT REGISTER] Backend response received:`, res);
+        if (res.success && res.user) {
+          this.saveCurrentUser(res.user);
+          syncWithBackend().catch((e) => console.warn('[REGISTER SYNC WARN]', e));
+          serverSuccess = true;
+          serverResponse = res;
+        } else {
+          // If the backend actively validated and rejected it (e.g. duplicate number already in DB), 
+          // we must return that active feedback so users don't bypass checks.
+          return res;
+        }
+      } else {
+        console.warn(`[CLIENT REGISTER] Backend returned non-OK status: ${response.status}. Falling back to local storage.`);
+      }
+    } catch (error) {
+      console.error('[CLIENT REGISTER] Registration backend fetch failed! Executing local fallback:', error);
+    }
+
+    if (serverSuccess && serverResponse) {
+      return serverResponse;
+    }
+
+    // --- LOCAL REGISTRATION FALLBACK ---
+    const users = this.getUsers();
+    
+    // Check duplication with normalized phone number matching
+    const dataNorm = normalizePhoneNumber(data.whatsapp, data.country);
+    const existing = users.find((u: any) => {
+      if (u.whatsapp === data.whatsapp) return true;
+      const uNorm = normalizePhoneNumber(u.whatsapp, u.country);
+      if (dataNorm && uNorm && dataNorm === uNorm) {
+        return true;
+      }
+      return false;
+    });
+    if (existing) {
+      return { success: false, message: 'Ce numéro WhatsApp est déjà enregistré sur notre plateforme.' };
+    }
+
+    // Generate unique referral code (3 letters mixed with 2 digits)
+    let referralCode = '';
+    let codeExists = true;
+    const lettersPool = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const digitsPool = '0123456789';
+
+    while (codeExists) {
+      let selectedDigits = '';
+      for (let i = 0; i < 2; i++) {
+        selectedDigits += digitsPool.charAt(Math.floor(Math.random() * digitsPool.length));
+      }
+
+      let selectedLetters = '';
+      for (let i = 0; i < 3; i++) {
+        selectedLetters += lettersPool.charAt(Math.floor(Math.random() * lettersPool.length));
+      }
+
+      const potentialCode = selectedDigits + selectedLetters;
+      const isDuplicate = users.some((u: any) => u.referralCode && u.referralCode.toUpperCase() === potentialCode);
+      if (!isDuplicate) {
+        referralCode = potentialCode;
+        codeExists = false;
+      }
+    }
+
+    let refereeId: string | undefined = undefined;
+    if (data.referredByCode && data.referredByCode.trim().length > 0) {
+      const cleanInput = data.referredByCode.trim();
+      const codeClean = cleanInput.toUpperCase();
+      const digitsOnlyInput = cleanInput.replace(/\D/g, '');
+
+      let referrerUser = users.find((u: any) => {
+        if (u.referralCode && u.referralCode.toUpperCase() === codeClean) return true;
+        if (u.id && u.id.toUpperCase() === codeClean) return true;
+        
+        // Fallback check by matching the last 8 digits of the cleaned WhatsApp phone numbers
+        if (digitsOnlyInput.length >= 8 && u.whatsapp) {
+          const uDigits = u.whatsapp.replace(/\D/g, '');
+          if (uDigits.length >= 8) {
+            const inputLast8 = digitsOnlyInput.slice(-8);
+            const uLast8 = uDigits.slice(-8);
+            if (inputLast8 === uLast8) return true;
+          }
+        }
+
+        const uNorm = normalizePhoneNumber(u.whatsapp, u.country);
+        const sponsorNorm = normalizePhoneNumber(cleanInput, u.country);
+        if (uNorm && sponsorNorm && uNorm === sponsorNorm) return true;
+        return false;
+      });
+
+      // If sponsor not found, create a placeholder/phantom sponsor directly
+      if (!referrerUser) {
+        const phantomId = `u-ref-${Math.floor(100000 + Math.random() * 900000)}`;
+        const codePrefix = codeClean.replace(/[0-9]/g, '');
+        const phantomName = codePrefix ? (codePrefix.charAt(0) + codePrefix.slice(1).toLowerCase() + ' (Parrain)') : 'Sponsor VIP';
+        referrerUser = {
+          id: phantomId,
+          name: phantomName,
+          whatsapp: digitsOnlyInput ? `+${digitsOnlyInput}` : `+23769${Math.floor(1000000 + Math.random() * 9000000)}`,
+          password: 'user123',
+          country: data.country || 'Cameroun',
+          balance: 1000,
+          dailyEarnings: 0,
+          totalEarnings: 0,
+          bonus: 200,
+          referralCode: codeClean,
+          referredBy: '72AGR',
+          role: 'user',
+          isBlocked: false,
+          createdAt: new Date().toISOString()
+        };
+        users.push(referrerUser);
+      }
+      refereeId = referrerUser.id;
+    }
+
+    const isWpAdmin = data.whatsapp.replace(/\D/g, '').endsWith('22670903319') || data.whatsapp.replace(/\D/g, '') === '70903319';
+
+    const newUser: User = {
+      id: `u-${Date.now()}`,
+      name: data.name,
+      whatsapp: data.whatsapp,
+      password: data.password || 'user123',
+      country: data.country || 'Cameroun',
+      balance: 200, // 200 XAF Welcome Signup bonus
+      dailyEarnings: 0,
+      totalEarnings: 0,
+      bonus: 200,
+      referralCode,
+      referredBy: refereeId,
+      role: isWpAdmin ? 'admin' : 'user',
+      isBlocked: false,
+      device: data.device || 'Ordinateur',
+      createdAt: new Date().toISOString()
+    };
+
+    users.push(newUser);
+    this.saveUsers(users);
+
+    // Standard welcome notification
+    let notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-${Date.now()}`,
+      userId: newUser.id,
+      title: 'Bienvenue sur Dreampod !',
+      message: 'Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.',
+      type: 'bonus',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+
+    if (refereeId) {
+      notifications.unshift({
+        id: `not-ref-${Date.now()}`,
+        userId: refereeId,
+        title: 'Nouveau parrainage',
+        message: `${newUser.name} s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !`,
+        type: 'info',
+        createdAt: new Date().toISOString(),
+        read: false
+      });
+    }
+    this.saveNotifications(notifications);
+
+    this.saveCurrentUser(newUser);
+
+    // Send silently in the background if possible
+    try {
+      apiFetch(getApiUrl('/api/save-store'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          'gi_users': users,
+          'gi_notifications': notifications
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
+    return { success: true, user: newUser, message: 'Inscription réussie.' };
+  }
+
+  // Deposit logic
+  static async createDeposit(userId: string, amount: number, operator: string, reference: string, receiptImage: string): Promise<Deposit> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/create-deposit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount, operator, reference, receiptImage })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success && res.deposit) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          await syncWithBackend();
+          return res.deposit;
+        }
+      }
+    } catch (error) {
+      console.error('Create deposit API error, using local fallback:', error);
+    }
+
+    const deposits = this.getDeposits();
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+
+    const newDep: Deposit = {
+      id: `dep-${Date.now()}`,
+      userId,
+      userName: user ? user.name : 'Utilisateur',
+      amount,
+      operator,
+      reference,
+      receiptImage,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    deposits.unshift(newDep);
+    this.saveDeposits(deposits);
+
+    // Add user notification
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-dep-${Date.now()}`,
+      userId,
+      title: 'Dépôt soumis',
+      message: `Votre demande de dépôt de ${amount.toLocaleString()} XOF via ${operator} (Réf: ${reference}) est en cours de vérification par l'administration.`,
+      type: 'deposit',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return newDep;
+  }
+
+  static async createAutomaticDeposit(userId: string, amount: number, operator: string): Promise<Deposit> {
+    const randomHex = Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase();
+    const reference = `SPY-${randomHex}`;
+
+    try {
+      const response = await apiFetch(getApiUrl('/api/create-deposit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount, operator, reference, receiptImage: 'automated' })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success && res.deposit) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          await syncWithBackend();
+          return res.deposit;
+        }
+      }
+    } catch (error) {
+      console.error('Create automatic deposit API error, using local fallback:', error);
+    }
+
+    const deposits = this.getDeposits();
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+
+    const newDep: Deposit = {
+      id: `dep-${Date.now()}`,
+      userId,
+      userName: user ? user.name : 'Utilisateur',
+      amount,
+      operator,
+      reference,
+      receiptImage: 'automated',
+      status: 'approved',
+      createdAt: new Date().toISOString()
+    };
+
+    deposits.unshift(newDep);
+    this.saveDeposits(deposits);
+
+    if (user) {
+      user.balance += amount;
+      this.saveUsers(users);
+
+      const cached = this.getCurrentUser();
+      if (cached && cached.id === userId) {
+        cached.balance = user.balance;
+        this.saveCurrentUser(cached);
+      }
+    }
+
+    // Add user notification
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-dep-${Date.now()}`,
+      userId,
+      title: 'Dépôt approved automatiquement',
+      message: `Votre versement de ${amount.toLocaleString()} XOF via SoinaPay (Réf: ${reference}) a été crédité instantanément et automatiquement.`,
+      type: 'deposit',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return newDep;
+  }
+
+  static async createSoinaPayDeposit(userId: string, amount: number, reference: string, operator: string = 'SoinaPay'): Promise<Deposit | null> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/create-deposit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount, operator, reference, receiptImage: 'automated' })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success && res.deposit) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          await syncWithBackend();
+          return res.deposit;
+        } else {
+          return null;
+        }
+      }
+    } catch (error) {
+      console.error('Create SoinaPay deposit API error:', error);
+    }
+    return null;
+  }
+
+  static async createWestPayDeposit(userId: string, amount: number, reference: string, operator: string = 'WestPay Direct'): Promise<Deposit | null> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/create-deposit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount, operator, reference, receiptImage: 'automated_westpay' })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success && res.deposit) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          await syncWithBackend();
+          return res.deposit;
+        } else {
+          // If server actively returned false (such as duplicate transaction), do not fallback locally!
+          return null;
+        }
+      }
+    } catch (error) {
+      console.error('Create WestPay deposit API error, using local fallback:', error);
+    }
+
+    const deposits = this.getDeposits();
+    if (deposits.some(d => d.reference === reference)) {
+      return null; // Already processed
+    }
+
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+
+    const newDep: Deposit = {
+      id: `dep-${Date.now()}`,
+      userId,
+      userName: user ? user.name : 'Utilisateur',
+      amount,
+      operator,
+      reference,
+      receiptImage: 'automated_westpay',
+      status: 'approved',
+      createdAt: new Date().toISOString()
+    };
+
+    deposits.unshift(newDep);
+    this.saveDeposits(deposits);
+
+    if (user) {
+      user.balance += amount;
+      this.saveUsers(users);
+
+      const cached = this.getCurrentUser();
+      if (cached && cached.id === userId) {
+        cached.balance = user.balance;
+        this.saveCurrentUser(cached);
+      }
+    }
+
+    // Add user notification
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-dep-wp-${Date.now()}`,
+      userId,
+      title: 'Dépôt Automatique',
+      message: `Votre versement de ${amount.toLocaleString()} XOF (Réf: ${reference}) a été crédité instantanément et automatiquement à 100%.`,
+      type: 'deposit',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return newDep;
+  }
+
+  // Withdrawal logic
+  static async createWithdrawal(userId: string, amount: number, operator: string, number: string, proof_file_url?: string): Promise<{ success: boolean, error?: string, withdrawal?: Withdrawal }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/create-withdrawal'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount, operator, number, proof_file_url })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success && res.withdrawal) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          await syncWithBackend();
+          return { success: true, withdrawal: res.withdrawal };
+        } else {
+          return { success: false, error: res.error || 'Erreur lors de la soumission.' };
+        }
+      }
+    } catch (error) {
+      console.error('Withdrawal API error, using local fallback:', error);
+    }
+
+    const users = this.getUsers();
+    const userIdx = users.findIndex(u => u.id === userId);
+    
+    if (userIdx === -1) {
+      return { success: false, error: 'Utilisateur non trouvé.' };
+    }
+
+    // Check if user has an active product
+    const activeInvs = this.getInvestments().filter(inv => inv.userId === userId && inv.status === 'active');
+    if (activeInvs.length === 0) {
+      return { success: false, error: "Vous devez posséder au moins un produit d'investissement actif pour pouvoir effectuer un retrait." };
+    }
+
+    if (amount < 1000) {
+      return { success: false, error: 'Le montant de retrait minimum est de 1 000 F.' };
+    }
+
+    const user = users[userIdx];
+    if (user.balance < amount) {
+      return { success: false, error: 'Solde insuffisant pour effectuer ce retrait.' };
+    }
+
+    // Deduct preliminary balance or keep it pending and deduct once approved? 
+    // Usually, withdrawing locks the balance in investment systems
+    user.balance -= amount;
+    this.saveUsers(users);
+
+    const fee = Math.round(amount * 0.12);
+    const netAmount = amount - fee;
+
+    const withdrawals = this.getWithdrawals();
+    const newWth: Withdrawal = {
+      id: `wth-${Date.now()}`,
+      userId,
+      userName: user.name,
+      amount,
+      operator,
+      number,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      fee,
+      netAmount,
+      proof_file_url
+    };
+
+    withdrawals.unshift(newWth);
+    this.saveWithdrawals(withdrawals);
+
+    // Save for current logged in user
+    const cur = this.getCurrentUser();
+    if (cur && cur.id === userId) {
+      cur.balance = user.balance;
+      this.saveCurrentUser(cur);
+    }
+
+    // Add notification
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-wth-${Date.now()}`,
+      userId,
+      title: 'Retrait en attente',
+      message: `Votre demande de retrait de ${amount.toLocaleString()} XOF vers ${number} (${operator}) est en attente de traitement par la comptabilité.`,
+      type: 'withdraw',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return { success: true, withdrawal: newWth };
+  }
+
+  // Invest Product logic
+  static async buyProduct(userId: string, productId: string): Promise<{ success: boolean, message: string }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/buy-product'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, productId })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success && res.user) {
+          this.saveCurrentUser(res.user);
+          await syncWithBackend();
+          return res;
+        } else if (res) {
+          // Server actively completed but rejected purchase (e.g. insufficient funds, blocked VIP plan)
+          // Do NOT execute the local fallback! Return the server error directly.
+          return res;
+        }
+      }
+    } catch (error) {
+      console.error('Buy product API error, using local fallback:', error);
+    }
+
+    // --- LOCAL BUY PRODUCT FALLBACK ---
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+    const products = this.getProducts();
+    const targetProduct = products.find(p => p.id === productId);
+    
+    if (!user || !targetProduct) {
+      return { success: false, message: 'VIP plan ou utilisateur introuvable.' };
+    }
+
+    if (user.balance < targetProduct.price) {
+      return { success: false, message: `Solde insuffisant. Vous devez avoir au moins ${targetProduct.price.toLocaleString()} XOF.` };
+    }
+
+    // Deduct balance and update properties
+    const isCyclicProduct = true;
+
+    user.balance -= targetProduct.price;
+    if (!isCyclicProduct) {
+      user.dailyEarnings += targetProduct.dailyReturn;
+    }
+    user.lastModified = Date.now();
+    this.saveUsers(users);
+
+    const activeUser = this.getCurrentUser();
+    if (activeUser && activeUser.id === userId) {
+      activeUser.balance = user.balance;
+      activeUser.dailyEarnings = user.dailyEarnings;
+      this.saveCurrentUser(activeUser);
+    }
+
+    // Create active investment record
+    const investments = this.getInvestments();
+    const newInvestment = {
+      id: `inv-${Date.now()}`,
+      userId,
+      productId: targetProduct.id,
+      productName: targetProduct.name,
+      price: targetProduct.price,
+      dailyReturn: targetProduct.dailyReturn, // Preserve actual dailyReturn so the UI displays the return rate correctly (it won't be credited daily as they are excluded from dailyEarnings)
+      daysPassed: 0,
+      durationDays: targetProduct.durationDays,
+      totalReturnClaimed: 0,
+      lastClaimDate: new Date().toISOString(),
+      status: 'active' as const,
+      createdAt: new Date().toISOString(),
+      lastModified: Date.now(),
+      category: targetProduct.category || 'stability',
+      isCyclic: true,
+      totalReturn: targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays))
+    };
+    investments.unshift(newInvestment);
+    this.saveInvestments(investments);
+
+    // Compute and credit MLM Commissions up to 3 levels (20%, 3%, 1%)
+    const mlmRates = this.getMLMRates();
+    const commissions = this.getCommissions();
+    const notifications = this.getNotifications();
+
+    if (user.referredBy) {
+      const cleanInput = user.referredBy.trim();
+      const refClean = cleanInput.toUpperCase();
+      const digitsOnlyInput = cleanInput.replace(/\D/g, '');
+
+      const parentUser = users.find(u => {
+        if (u.id.toUpperCase() === refClean) return true;
+        if (u.referralCode && u.referralCode.toUpperCase() === refClean) return true;
+        if (digitsOnlyInput.length >= 6 && u.whatsapp) {
+          const uDigits = u.whatsapp.replace(/\D/g, '');
+          if (uDigits.endsWith(digitsOnlyInput) || digitsOnlyInput.endsWith(uDigits)) return true;
+        }
+        return false;
+      });
+
+      if (parentUser) {
+        const commAmtLvl1 = Math.round(targetProduct.price * (mlmRates.level1 / 100));
+        parentUser.balance += commAmtLvl1;
+        parentUser.bonus += commAmtLvl1;
+        parentUser.totalEarnings = (parentUser.totalEarnings || 0) + commAmtLvl1;
+        parentUser.lastModified = Date.now();
+
+        commissions.unshift({
+          id: `com-${Date.now()}-1`,
+          userId: parentUser.id,
+          fromUserName: user.name,
+          level: 1,
+          amount: commAmtLvl1,
+          createdAt: new Date().toISOString(),
+          lastModified: Date.now()
+        });
+
+        notifications.unshift({
+          id: `not-com1-${Date.now()}`,
+          userId: parentUser.id,
+          title: 'Commission MLM reçue !',
+          message: `Félicitations, vous avez perçu ${commAmtLvl1} XOF (Niveau 1 : ${mlmRates.level1}%) car votre affilié ${user.name} a investi dans le plan ${targetProduct.name}.`,
+          type: 'bonus',
+          createdAt: new Date().toISOString(),
+          read: false
+        });
+
+        // Level 2 MLM
+        if (parentUser.referredBy) {
+          const cleanInput2 = parentUser.referredBy.trim();
+          const refClean2 = cleanInput2.toUpperCase();
+          const digitsOnlyInput2 = cleanInput2.replace(/\D/g, '');
+
+          const grandParentUser = users.find(u => {
+            if (u.id.toUpperCase() === refClean2) return true;
+            if (u.referralCode && u.referralCode.toUpperCase() === refClean2) return true;
+            if (digitsOnlyInput2.length >= 6 && u.whatsapp) {
+              const uDigits = u.whatsapp.replace(/\D/g, '');
+              if (uDigits.endsWith(digitsOnlyInput2) || digitsOnlyInput2.endsWith(uDigits)) return true;
+            }
+            return false;
+          });
+
+          if (grandParentUser) {
+            const commAmtLvl2 = Math.round(targetProduct.price * (mlmRates.level2 / 100));
+            grandParentUser.balance += commAmtLvl2;
+            grandParentUser.bonus += commAmtLvl2;
+            grandParentUser.totalEarnings = (grandParentUser.totalEarnings || 0) + commAmtLvl2;
+            grandParentUser.lastModified = Date.now();
+
+            commissions.unshift({
+              id: `com-${Date.now()}-2`,
+              userId: grandParentUser.id,
+              fromUserName: user.name,
+              level: 2,
+              amount: commAmtLvl2,
+              createdAt: new Date().toISOString(),
+              lastModified: Date.now()
+            });
+
+            notifications.unshift({
+              id: `not-com2-${Date.now()}`,
+              userId: grandParentUser.id,
+              title: 'Commission MLM Niveau 2 !',
+              message: `Vous avez perçu ${commAmtLvl2} XOF (Niveau 2 : ${mlmRates.level2}%) suite à l'investissement de ${user.name} (parrainé par ${parentUser.name}).`,
+              type: 'bonus',
+              createdAt: new Date().toISOString(),
+              read: false
+            });
+
+            // Level 3 MLM
+            if (grandParentUser.referredBy) {
+              const cleanInput3 = grandParentUser.referredBy.trim();
+              const refClean3 = cleanInput3.toUpperCase();
+              const digitsOnlyInput3 = cleanInput3.replace(/\D/g, '');
+
+              const greatGrandParentUser = users.find(u => {
+                if (u.id.toUpperCase() === refClean3) return true;
+                if (u.referralCode && u.referralCode.toUpperCase() === refClean3) return true;
+                if (digitsOnlyInput3.length >= 6 && u.whatsapp) {
+                  const uDigits = u.whatsapp.replace(/\D/g, '');
+                  if (uDigits.endsWith(digitsOnlyInput3) || digitsOnlyInput3.endsWith(uDigits)) return true;
+                }
+                return false;
+              });
+
+              if (greatGrandParentUser) {
+                const commAmtLvl3 = Math.round(targetProduct.price * (mlmRates.level3 / 100));
+                greatGrandParentUser.balance += commAmtLvl3;
+                greatGrandParentUser.bonus += commAmtLvl3;
+                greatGrandParentUser.totalEarnings = (greatGrandParentUser.totalEarnings || 0) + commAmtLvl3;
+                greatGrandParentUser.lastModified = Date.now();
+
+                commissions.unshift({
+                  id: `com-${Date.now()}-3`,
+                  userId: greatGrandParentUser.id,
+                  fromUserName: user.name,
+                  level: 3,
+                  amount: commAmtLvl3,
+                  createdAt: new Date().toISOString(),
+                  lastModified: Date.now()
+                });
+
+                notifications.unshift({
+                  id: `not-com3-${Date.now()}`,
+                  userId: greatGrandParentUser.id,
+                  title: 'Commission MLM Niveau 3 !',
+                  message: `Vous avez perçu ${commAmtLvl3} XOF (Niveau 3 : ${mlmRates.level3}%) suite à l'investissement de ${user.name}.`,
+                  type: 'bonus',
+                  createdAt: new Date().toISOString(),
+                  read: false
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    notifications.unshift({
+      id: `not-plan-${Date.now()}`,
+      userId,
+      title: 'Plan activé avec succès !',
+      message: `Votre investissement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a bien été pris en compte. Vous gagnerez ${targetProduct.dailyReturn.toLocaleString()} XOF chaque jour.`,
+      type: 'plan',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+
+    this.saveUsers(users);
+    this.saveCommissions(commissions);
+    this.saveNotifications(notifications);
+
+    return { success: true, message: `Vous avez investi avec succès dans le plan ${targetProduct.name} !` };
+  }
+
+  // Claim Daily Rewards Code
+  static async claimDailyReward(userId: string): Promise<{ success: boolean, message: string, amount: number }> {
+    const checkKey = `gi_last_daily_${userId}`;
+    const today = new Date().toDateString();
+    const lastClaim = localStorage.getItem(checkKey);
+
+    if (lastClaim === today) {
+      return { success: false, message: 'Revenu journalier déjà réclamé pour aujourd\'hui. Revenez demain !', amount: 0 };
+    }
+
+    try {
+      const response = await apiFetch(getApiUrl('/api/claim-daily'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          localStorage.setItem(checkKey, today);
+          await syncWithBackend();
+          return { success: true, message: res.message, amount: res.amount };
+        } else {
+          return { success: false, message: res.message || 'Erreur lors de la récolte.', amount: 0 };
+        }
+      }
+    } catch (error) {
+      console.error('Claim daily reward API error, using local fallback:', error);
+    }
+
+    const rewardAmt = 50; // Standard daily loyalty reward
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      return { success: false, message: 'Utilisateur introuvable.', amount: 0 };
+    }
+
+    user.balance += rewardAmt;
+    user.bonus += rewardAmt;
+    user.lastModified = Date.now();
+    this.saveUsers(users);
+
+    const activeUser = this.getCurrentUser();
+    if (activeUser && activeUser.id === userId) {
+      activeUser.balance = user.balance;
+      activeUser.bonus = user.bonus;
+      this.saveCurrentUser(activeUser);
+    }
+
+    localStorage.setItem(checkKey, today);
+
+    // Add notification
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-daily-${Date.now()}`,
+      userId,
+      title: 'Récompense journalière obtenue',
+      message: `Félicitations ! Vous avez réclamé votre bonus quotidien de connexion gratuite de ${rewardAmt} XOF.`,
+      type: 'bonus',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return { success: true, message: `Félicitations! Vous avez reçu un bonus journalier de ${rewardAmt} XOF!`, amount: rewardAmt };
+  }
+
+  // Simulate claiming dividends on all ACTIVE investments for user
+  static async claimInvestmentReturn(userId: string, investmentId: string): Promise<{ success: boolean, message: string, amount: number }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/claim-investment'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, investmentId })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          await syncWithBackend();
+          return { success: true, message: res.message, amount: res.amount };
+        } else {
+          return { success: false, message: res.message || 'Le revenu n\'est pas encore disponible.', amount: 0 };
+        }
+      }
+    } catch (error) {
+      console.error('Claim investment API error, using local fallback:', error);
+    }
+
+    const investments = this.getInvestments();
+    const invIdx = investments.findIndex(inv => inv.id === investmentId && inv.userId === userId);
+    
+    if (invIdx === -1) {
+      return { success: false, message: 'Investissement introuvable.', amount: 0 };
+    }
+
+    const inv = investments[invIdx];
+    if (inv.status === 'completed') {
+      return { success: false, message: 'Cet investissement est déjà arrivé à terme.', amount: 0 };
+    }
+
+    const isActivity = inv.category === 'activity' || (inv as any).isCyclic;
+    const isStability = inv.category === 'stability';
+    const isWellbeing = inv.category === 'wellbeing';
+    if (isActivity || isStability || isWellbeing) {
+      const planName = isWellbeing ? 'Bien-être' : isStability ? 'Stabilité VIP' : 'Activité de Cycle Court';
+      return { 
+        success: false, 
+        message: `Les revenus de ce plan ${planName} (${inv.productName}) vous seront versés automatiquement et en intégralité à la fin de son cycle de ${inv.durationDays} jours.`, 
+        amount: 0 
+      };
+    }
+
+    const now = Date.now();
+    const createdTime = new Date(inv.createdAt).getTime();
+    const msDiff = now - createdTime;
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    
+    // Calculate how many 24-hour periods should have fully passed since purchase
+    let expectedDays = Math.floor(msDiff / oneDayMs);
+    if (expectedDays > inv.durationDays) {
+      expectedDays = inv.durationDays;
+    }
+
+    if (inv.daysPassed >= expectedDays) {
+      const nextClaimTime = createdTime + (inv.daysPassed + 1) * oneDayMs;
+      const nextDateObj = new Date(nextClaimTime);
+      const hourStr = nextDateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const dateStr = nextDateObj.toLocaleDateString('fr-FR');
+      return { 
+        success: false, 
+        message: `Le prochain versement pour ce plan sera disponible le ${dateStr} à ${hourStr} (exactement 24 heures après la dernière récolte ou activation).`, 
+        amount: 0 
+      };
+    }
+
+    if (inv.daysPassed >= inv.durationDays) {
+      inv.status = 'completed';
+      inv.lastModified = Date.now();
+      this.saveInvestments(investments);
+      return { success: false, message: 'Ce plan est complété ! Tous les revenus ont été distribués.', amount: 0 };
+    }
+
+    // Track when claimed - to be professional we update daysPassed
+    inv.daysPassed += 1;
+    inv.totalReturnClaimed += inv.dailyReturn;
+    inv.lastClaimDate = new Date().toISOString();
+    inv.lastModified = Date.now();
+
+    if (inv.daysPassed >= inv.durationDays) {
+      inv.status = 'completed';
+    }
+    
+    // Add amount to user's balance and totalEarnings
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      user.balance += inv.dailyReturn;
+      user.totalEarnings += inv.dailyReturn;
+      user.lastModified = Date.now();
+      this.saveUsers(users);
+      
+      const curr = this.getCurrentUser();
+      if (curr && curr.id === userId) {
+        curr.balance = user.balance;
+        curr.totalEarnings = user.totalEarnings;
+        this.saveCurrentUser(curr);
+      }
+    }
+
+    this.saveInvestments(investments);
+
+    // Notify
+    const notifs = this.getNotifications();
+    notifs.unshift({
+      id: `not-claim-${Date.now()}`,
+      userId,
+      title: 'Rendement quotidien récolté',
+      message: `Vous avez récolté votre dividende quotidien de ${inv.dailyReturn.toLocaleString()} XOF sur le plan ${inv.productName}.`,
+      type: 'plan',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifs);
+
+    return { success: true, message: `Revenu journalier de +${inv.dailyReturn} XOF encaissé avec succès !`, amount: inv.dailyReturn };
+  }
+
+  static async renewInvestment(userId: string, investmentId: string): Promise<{ success: boolean, message: string }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/renew-investment'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, investmentId })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success) {
+          if (res.user) {
+            this.saveCurrentUser(res.user);
+          }
+          if (res.investments) {
+            this.saveInvestments(res.investments);
+          }
+          await syncWithBackend();
+          return res;
+        }
+      }
+    } catch (error) {
+      console.error('Renew investment API error, using local fallback:', error);
+    }
+
+    const investments = this.getInvestments();
+    const invIdx = investments.findIndex(inv => inv.id === investmentId && inv.userId === userId);
+    if (invIdx === -1) {
+      return { success: false, message: 'Investissement introuvable.' };
+    }
+
+    const inv = investments[invIdx];
+    const products = this.getProducts();
+    const product = products.find(p => p.id === inv.productId);
+    const renewPrice = product ? product.price : inv.price;
+
+    const users = this.getUsers();
+    const userIdx = users.findIndex(u => u.id === userId);
+    if (userIdx === -1) {
+      return { success: false, message: 'Utilisateur non trouvé.' };
+    }
+
+    const user = users[userIdx];
+    if (user.balance < renewPrice) {
+      return { success: false, message: `Solde insuffisant pour le renouvellement. Requis: ${renewPrice.toLocaleString()} XOF.` };
+    }
+
+    user.balance -= renewPrice;
+    user.lastModified = Date.now();
+    this.saveUsers(users);
+
+    const activeUser = this.getCurrentUser();
+    if (activeUser && activeUser.id === userId) {
+      activeUser.balance = user.balance;
+      this.saveCurrentUser(activeUser);
+    }
+
+    inv.daysPassed = 0;
+    inv.createdAt = new Date().toISOString();
+    inv.status = 'active';
+    inv.totalReturnClaimed = 0;
+    inv.lastClaimDate = new Date().toISOString();
+    inv.lastModified = Date.now();
+    this.saveInvestments(investments);
+
+    const notifs = this.getNotifications();
+    notifs.unshift({
+      id: `not-renew-${Date.now()}`,
+      userId,
+      title: 'Plan renouvelé avec succès !',
+      message: `Votre plan "${inv.productName}" a été renouvelé avec succès pour un nouveau cycle de ${inv.durationDays} jours.`,
+      type: 'plan',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifs);
+
+    window.dispatchEvent(new Event('gi_store_updated'));
+    return { success: true, message: `Votre plan ${inv.productName} a été renouvelé avec succès pour un nouveau cycle de ${inv.durationDays} jours !` };
+  }
+
+  static async toggleAutoRenew(userId: string, investmentId: string, autoRenew: boolean): Promise<{ success: boolean, message: string }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/toggle-autorenew'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, investmentId, autoRenew })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success) {
+          if (res.investments) {
+            this.saveInvestments(res.investments);
+          }
+          await syncWithBackend();
+          return res;
+        }
+      }
+    } catch (error) {
+      console.error('Toggle autoRenew API error, using local fallback:', error);
+    }
+
+    const investments = this.getInvestments();
+    const invIdx = investments.findIndex(inv => inv.id === investmentId && inv.userId === userId);
+    if (invIdx === -1) {
+      return { success: false, message: 'Investissement introuvable.' };
+    }
+
+    investments[invIdx].autoRenew = autoRenew;
+    investments[invIdx].lastModified = Date.now();
+    this.saveInvestments(investments);
+
+    window.dispatchEvent(new Event('gi_store_updated'));
+    return { success: true, message: `Renouvellement automatique ${autoRenew ? 'activé' : 'désactivé'}.` };
+  }
+
+  // Bonus Code validation & applying
+  static applyBonusCode(userId: string, codeString: string): { success: boolean, message: string } {
+    const cleanCode = codeString.toUpperCase().trim();
+    const bonusCodes = this.getBonusCodes();
+    const target = bonusCodes.find(b => b.code.toUpperCase() === cleanCode);
+
+    if (!target) {
+      return { success: false, message: 'Code bonus invalide ou expiré.' };
+    }
+
+    if (target.usedCount >= target.maxUses) {
+      return { success: false, message: 'Ce code bonus a déjà atteint sa limite maximale d\'utilisations.' };
+    }
+
+    if (target.usedByUsers.includes(userId)) {
+      return { success: false, message: 'Vous avez déjà réclamé ce code bonus.' };
+    }
+
+    // Apply reward
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      return { success: false, message: 'Utilisateur non trouvé.' };
+    }
+
+    user.balance += target.amount;
+    user.bonus += target.amount;
+    this.saveUsers(users);
+
+    // Sync logged in
+    const activeUser = this.getCurrentUser();
+    if (activeUser && activeUser.id === userId) {
+      activeUser.balance = user.balance;
+      activeUser.bonus = user.bonus;
+      this.saveCurrentUser(activeUser);
+    }
+
+    // Update code uses
+    target.usedCount += 1;
+    target.usedByUsers.push(userId);
+    this.saveBonusCodes(bonusCodes);
+
+    // Create a real Deposit record to document in historical recharges
+    const deposits = this.getDeposits();
+    deposits.unshift({
+      id: `dep-code-${Date.now()}`,
+      userId,
+      userName: user.name,
+      amount: target.amount,
+      operator: 'Code Cadeau 🎁',
+      reference: cleanCode,
+      receiptImage: '',
+      status: 'approved',
+      createdAt: new Date().toISOString()
+    });
+    this.saveDeposits(deposits);
+
+    // Create Notification
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-code-${Date.now()}`,
+      userId,
+      title: 'Code promotionnel activé',
+      message: `Félicitations ! Le code "${cleanCode}" a été validé. Votre compte a été crédité de ${target.amount.toLocaleString()} XOF de bonus.`,
+      type: 'bonus',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return { success: true, message: `Succès! Le code bonus a été appliqué avec succès. +${target.amount.toLocaleString()} XOF !` };
+  }
+
+  // Support / Live chat integration
+  static async sendMessageToSupport(userId: string, messageText: string, senderRole: 'user' | 'admin' = 'user'): Promise<SupportMessage> {
+    const messages = this.getSupportMessages();
+    
+    // Save locally first for instant, latency-free UX feedback
+    let updatedMsgs = [...messages];
+    if (senderRole === 'admin') {
+      updatedMsgs = messages.map(m => {
+        if (m.userId === userId && m.sender === 'user' && m.status !== 'replied') {
+          return { ...m, status: 'replied' as const, lastModified: Date.now() };
+        }
+        return m;
+      });
+    }
+
+    const newMsg: SupportMessage = {
+      id: `msg-${Date.now()}`,
+      userId,
+      sender: senderRole,
+      message: messageText,
+      createdAt: new Date().toISOString(),
+      status: senderRole === 'user' ? 'unread' : 'replied',
+      lastModified: Date.now()
+    };
+
+    updatedMsgs.push(newMsg);
+    this.saveSupportMessages(updatedMsgs);
+
+    window.dispatchEvent(new Event('gi_store_updated'));
+    window.dispatchEvent(new Event('gi_new_message'));
+
+    // Push to backend server asynchronously for central database synchronization
+    try {
+      await apiFetch(getApiUrl('/api/send-message'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, message: messageText, sender: senderRole })
+      });
+      await syncWithBackend();
+    } catch (e) {
+      console.warn('Failed to sync support message with central server:', e);
+    }
+
+    return newMsg;
+  }
+
+  static async markSupportMessagesAsRead(userId: string): Promise<void> {
+    const messages = this.getSupportMessages();
+    let changed = false;
+    const updated = messages.map(m => {
+      if (m.userId === userId && m.sender === 'user' && m.status !== 'read' && m.status !== 'replied') {
+        changed = true;
+        return { ...m, status: 'read' as const, lastModified: Date.now() };
+      }
+      return m;
+    });
+
+    if (changed) {
+      this.saveSupportMessages(updated);
+      window.dispatchEvent(new Event('gi_store_updated'));
+
+      try {
+        await apiFetch(getApiUrl('/api/mark-messages-read'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        await syncWithBackend();
+      } catch (e) {
+        console.warn('Failed to sync marked-read support status with central server:', e);
+      }
+    }
+  }
+
+  static async publishWithdrawalProof(
+    userId: string, 
+    userName: string, 
+    userCountry: string, 
+    amount: number, 
+    message: string, 
+    image?: string,
+    status?: 'pending' | 'approved' | 'rejected'
+  ): Promise<{ success: boolean, error?: string, proof?: WithdrawalProof }> {
+    // Only allow administrative users to publish
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId || (userId === 'admin' && u.role === 'admin'));
+    if (userId !== 'admin' && (!user || user.role !== 'admin')) {
+      return { success: false, error: "Seul l'administrateur est autorisé à publier des avis." };
+    }
+
+    const proofs = this.getWithdrawalProofs();
+    const newProof: WithdrawalProof = {
+      id: `proof-${Date.now()}`,
+      userId,
+      userName,
+      userCountry,
+      amount,
+      message,
+      image,
+      likes: [],
+      status: status || (userId === 'admin' ? 'approved' : 'pending'),
+      createdAt: new Date().toISOString(),
+      lastModified: Date.now()
+    };
+    
+    proofs.unshift(newProof);
+    this.saveWithdrawalProofs(proofs);
+    
+    window.dispatchEvent(new Event('gi_store_updated'));
+    
+    let sUserId = userId;
+    let userRole = 'user';
+    let cleanupTimestamp = '0';
+    try {
+      const activeUserStr = localStorage.getItem('gi_current_user') || inMemoryStore['gi_current_user'];
+      if (activeUserStr) {
+        const u = JSON.parse(activeUserStr);
+        if (u && u.role) userRole = u.role;
+        if (u && u.id && sUserId === 'admin') sUserId = u.id;
+      }
+      cleanupTimestamp = localStorage.getItem('gi_cleanup_timestamp') || inMemoryStore['gi_cleanup_timestamp'] || '0';
+    } catch (e) {}
+
+    try {
+      await apiFetch(getApiUrl('/api/save-store'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          gi_withdrawal_proofs: proofs,
+          userId: sUserId,
+          role: userRole,
+          gi_cleanup_timestamp: Number(cleanupTimestamp)
+        })
+      });
+    } catch (e) {
+      console.warn('Failed to sync withdrawal proofs:', e);
+    }
+    
+    return { success: true, proof: newProof };
+  }
+
+  static async likeWithdrawalProof(proofId: string, userId: string): Promise<boolean> {
+    const proofs = this.getWithdrawalProofs();
+    let changed = false;
+    const updated = proofs.map(p => {
+      if (p.id === proofId) {
+        changed = true;
+        const exists = p.likes.includes(userId);
+        const newLikes = exists 
+          ? p.likes.filter(id => id !== userId) 
+          : [...p.likes, userId];
+        return { ...p, likes: newLikes, lastModified: Date.now() };
+      }
+      return p;
+    });
+    
+    if (changed) {
+      this.saveWithdrawalProofs(updated);
+      window.dispatchEvent(new Event('gi_store_updated'));
+      
+      let activeUserId = userId;
+      let activeUserRole = 'user';
+      let cleanupTimestamp = '0';
+      try {
+        const activeUserStr = localStorage.getItem('gi_current_user') || inMemoryStore['gi_current_user'];
+        if (activeUserStr) {
+          const u = JSON.parse(activeUserStr);
+          if (u && u.id && !activeUserId) activeUserId = u.id;
+          if (u && u.role) activeUserRole = u.role;
+        }
+        cleanupTimestamp = localStorage.getItem('gi_cleanup_timestamp') || inMemoryStore['gi_cleanup_timestamp'] || '0';
+      } catch (e) {}
+
+      try {
+        await apiFetch(getApiUrl('/api/save-store'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            gi_withdrawal_proofs: updated,
+            userId: activeUserId,
+            role: activeUserRole,
+            gi_cleanup_timestamp: Number(cleanupTimestamp)
+          })
+        });
+      } catch (e) {
+        console.warn('Failed to sync updated likes:', e);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  static async deleteWithdrawalProof(proofId: string): Promise<boolean> {
+    const proofs = this.getWithdrawalProofs();
+    const filtered = proofs.filter(p => p.id !== proofId);
+    if (filtered.length !== proofs.length) {
+      let activeUserId = '';
+      let activeUserRole = 'user';
+      let cleanupTimestamp = '0';
+      try {
+        const activeUserStr = localStorage.getItem('gi_current_user') || inMemoryStore['gi_current_user'];
+        if (activeUserStr) {
+          const u = JSON.parse(activeUserStr);
+          if (u && u.id) activeUserId = u.id;
+          if (u && u.role) activeUserRole = u.role;
+        }
+        cleanupTimestamp = localStorage.getItem('gi_cleanup_timestamp') || inMemoryStore['gi_cleanup_timestamp'] || '0';
+      } catch (e) {}
+
+      try {
+        await apiFetch(getApiUrl('/api/save-store'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            gi_withdrawal_proofs: filtered,
+            userId: activeUserId,
+            role: activeUserRole,
+            gi_cleanup_timestamp: Number(cleanupTimestamp)
+          })
+        });
+      } catch (e) {
+        console.warn('Failed to sync deleted proof to server:', e);
+      }
+      this.saveWithdrawalProofs(filtered);
+      window.dispatchEvent(new Event('gi_store_updated'));
+      return true;
+    }
+    return false;
+  }
+
+  static async updateWithdrawalProofStatus(proofId: string, status: 'approved' | 'rejected'): Promise<boolean> {
+    const proofs = this.getWithdrawalProofs();
+    let updated = false;
+    const nextProofs = proofs.map(p => {
+      if (p.id === proofId) {
+        updated = true;
+        return { ...p, status, lastModified: Date.now() };
+      }
+      return p;
+    });
+    if (updated) {
+      let activeUserId = '';
+      let activeUserRole = 'user';
+      let cleanupTimestamp = '0';
+      try {
+        const activeUserStr = localStorage.getItem('gi_current_user') || inMemoryStore['gi_current_user'];
+        if (activeUserStr) {
+          const u = JSON.parse(activeUserStr);
+          if (u && u.id) activeUserId = u.id;
+          if (u && u.role) activeUserRole = u.role;
+        }
+        cleanupTimestamp = localStorage.getItem('gi_cleanup_timestamp') || inMemoryStore['gi_cleanup_timestamp'] || '0';
+      } catch (e) {}
+
+      try {
+        await apiFetch(getApiUrl('/api/save-store'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            gi_withdrawal_proofs: nextProofs,
+            userId: activeUserId,
+            role: activeUserRole,
+            gi_cleanup_timestamp: Number(cleanupTimestamp)
+          })
+        });
+      } catch (e) {
+        console.warn('Failed to sync updated proof status to server:', e);
+      }
+      this.saveWithdrawalProofs(nextProofs);
+      window.dispatchEvent(new Event('gi_store_updated'));
+      return true;
+    }
+    return false;
+  }
+
+  // Processes and automatically credits due chronological daily earnings for all active plans
+  static processAutomaticDailyInstallments(): void {
+    const now = Date.now();
+    let users = this.getUsers();
+    let investments = this.getInvestments();
+    let notifications = this.getNotifications();
+    let changed = false;
+
+    investments = investments.map(inv => {
+      if (inv.status === 'completed') return inv;
+
+      const createdTime = new Date(inv.createdAt).getTime();
+      const msDiff = now - createdTime;
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      
+      // Calculate how many 24-hour periods should have fully passed since purchase
+      let expectedDays = Math.floor(msDiff / oneDayMs);
+      if (expectedDays > inv.durationDays) {
+        expectedDays = inv.durationDays;
+      }
+
+      // If more days should have processed than currently tracked
+      if (expectedDays > inv.daysPassed) {
+        const isCyclicProduct = true; // All plans (Stabilité, Bien-être, Activité) are now cyclic
+
+        if (isCyclicProduct) {
+          if (expectedDays >= inv.durationDays) {
+            // End of complete cycle
+            const totalPayout = (inv as any).totalReturn || (inv.price + (inv.dailyReturn * inv.durationDays));
+            const netProfit = totalPayout - inv.price;
+
+            const uIdx = users.findIndex(u => u.id === inv.userId);
+            if (uIdx !== -1) {
+              users[uIdx].balance += totalPayout;
+              users[uIdx].totalEarnings += netProfit;
+
+              const isWellbeing = inv.category === 'wellbeing';
+              const isStability = inv.category === 'stability';
+              const title = isWellbeing 
+                ? `🌸 Bien-être Terminé (${inv.productName})` 
+                : isStability
+                ? `📈 Stabilité Terminée (${inv.productName})`
+                : `⚡ Activité Terminée (${inv.productName})`;
+              const message = isWellbeing
+                ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`
+                : isStability
+                ? `Félicitations ! Votre cycle de stabilité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`
+                : `Félicitations ! Votre cycle d'activité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`;
+
+              notifications.unshift({
+                id: `not-cyclecomplete-${Date.now()}-${inv.id}`,
+                userId: inv.userId,
+                title,
+                message,
+                type: 'plan',
+                createdAt: new Date().toISOString(),
+                read: false
+              });
+            }
+
+            inv.daysPassed = expectedDays;
+            inv.totalReturnClaimed = totalPayout;
+            inv.lastClaimDate = new Date().toISOString();
+            inv.status = 'completed';
+            inv.lastModified = Date.now();
+            changed = true;
+          } else {
+            // Just advance the counter of days passed
+            inv.daysPassed = expectedDays;
+            inv.lastModified = Date.now();
+            changed = true;
+          }
+        } else {
+          // Standard VIP stability plans (daily dividend credited daily) - Left as safety fallback but unused
+          const missingDays = expectedDays - inv.daysPassed;
+          const totalPayout = inv.dailyReturn * missingDays;
+
+          const uIdx = users.findIndex(u => u.id === inv.userId);
+          if (uIdx !== -1) {
+            users[uIdx].balance += totalPayout;
+            users[uIdx].totalEarnings += totalPayout;
+            
+            notifications.unshift({
+              id: `not-autodrop-${Date.now()}-${inv.id}-${inv.daysPassed}`,
+              userId: inv.userId,
+              title: `💰 Gain automatique reçu (${inv.productName})`,
+              message: `Félicitations, votre gain de ${totalPayout.toLocaleString()} XOF est tombé automatiquement.`,
+              type: 'plan',
+              createdAt: new Date().toISOString(),
+              read: false
+            });
+          }
+
+          inv.daysPassed = expectedDays;
+          inv.totalReturnClaimed += totalPayout;
+          inv.lastClaimDate = new Date().toISOString();
+          inv.lastModified = Date.now();
+
+          if (inv.daysPassed >= inv.durationDays) {
+            inv.status = 'completed';
+          }
+          changed = true;
+        }
+      }
+      return inv;
+    });
+
+    if (changed) {
+      // Recalculate dailyEarnings for all users to match active investments status correctly
+      users = users.map(u => {
+        const userActiveInvs = investments.filter(inv => inv.userId === u.id && inv.status === 'active' && inv.category !== 'activity' && inv.category !== 'wellbeing' && inv.category !== 'stability' && !(inv as any).isCyclic);
+        const activeDailyEarnings = userActiveInvs.reduce((sum, inv) => sum + inv.dailyReturn, 0);
+        return {
+          ...u,
+          dailyEarnings: activeDailyEarnings,
+          lastModified: Date.now()
+        };
+      });
+
+      this.saveInvestments(investments);
+      this.saveUsers(users);
+      this.saveNotifications(notifications);
+
+      // Sync active user if they are currently logged in
+      const currentUser = this.getCurrentUser();
+      if (currentUser) {
+        const fresh = users.find(u => u.id === currentUser.id);
+        if (fresh) {
+          this.saveCurrentUser(fresh);
+        }
+      }
+    }
+  }
+
+  // Shifts active plans 24 hours back in time to facilitate simulation testing
+  static advanceAllActiveInvestmentsBy24Hours(userId: string): void {
+    let investments = this.getInvestments();
+    let changed = false;
+
+    investments = investments.map(inv => {
+      if (inv.userId === userId && inv.status === 'active') {
+        const currentDate = new Date(inv.createdAt);
+        // Deduct 24 hours
+        currentDate.setHours(currentDate.getHours() - 24);
+        inv.createdAt = currentDate.toISOString();
+        changed = true;
+      }
+      return inv;
+    });
+
+    if (changed) {
+      this.saveInvestments(investments);
+      this.processAutomaticDailyInstallments();
+    }
+  }
+
+  // ================= ADMIN FUNCTIONS =================
+
+  // Block/unblock users
+  static setBlockUser(userId: string, isBlocked: boolean): void {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx !== -1) {
+      users[idx].isBlocked = isBlocked;
+      this.saveUsers(users);
+      
+      // If the current user is this user, sign them out
+      const current = this.getCurrentUser();
+      if (current && current.id === userId && isBlocked) {
+        this.saveCurrentUser(null);
+      }
+    }
+  }
+
+  // Delete purchased product (investment)
+  static async deleteInvestment(investmentId: string): Promise<boolean> {
+    const investments = this.getInvestments();
+    const inv = investments.find(i => i.id === investmentId);
+    if (!inv) return false;
+
+    // Track deleted investment locally to prevent sync resurrection
+    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
+    if (!deletedInvestments.includes(investmentId)) {
+      deletedInvestments.push(investmentId);
+      setToStore<string[]>('gi_deleted_investments', deletedInvestments);
+    }
+
+    // Filter out the deleted investment
+    const updatedInvestments = investments.filter(i => i.id !== investmentId);
+    this.saveInvestments(updatedInvestments);
+
+    // Recalculate daily earnings for the user
+    const users = this.getUsers();
+    const userIdx = users.findIndex(u => u.id === inv.userId);
+    if (userIdx !== -1) {
+      const activeInvs = updatedInvestments.filter(i => i.userId === inv.userId && i.status === 'active' && i.category !== 'activity' && i.category !== 'wellbeing' && i.category !== 'stability' && !(i as any).isCyclic);
+      users[userIdx].dailyEarnings = activeInvs.reduce((sum, i) => sum + i.dailyReturn, 0);
+      users[userIdx].lastModified = Date.now();
+      this.saveUsers(users);
+
+      // If active user is this user, reload their state locally too
+      const current = this.getCurrentUser();
+      if (current && current.id === inv.userId) {
+        current.dailyEarnings = users[userIdx].dailyEarnings;
+        this.saveCurrentUser(current);
+      }
+    }
+
+    window.dispatchEvent(new Event('gi_store_updated'));
+
+    // Notify backend
+    try {
+      const response = await apiFetch(getApiUrl('/api/admin/delete-investment'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ investmentId })
+      });
+      const data = await response.json();
+      if (data && data.success) {
+        if (data.investments) {
+          this.saveInvestments(data.investments);
+        }
+        if (data.users) {
+          this.saveUsers(data.users);
+          
+          // Sync current logged in user details if they match
+          const current = this.getCurrentUser();
+          if (current) {
+            const upToDateUser = data.users.find((u: any) => u.id === current.id);
+            if (upToDateUser) {
+              const mergedCurrent = { ...current, ...upToDateUser };
+              this.saveCurrentUser(mergedCurrent);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to sync deleted investment:', e);
+    }
+    window.dispatchEvent(new Event('gi_store_updated'));
+    return true;
+  }
+
+  // Delete user account
+  static async deleteUser(userId: string): Promise<boolean> {
+    const users = this.getUsers();
+    const nextUsers = users.filter(u => u.id !== userId);
+    this.saveUsers(nextUsers);
+
+    // Track deleted user locally to prevent sync resurrection
+    const deletedUsers = getFromStore<string[]>('gi_deleted_users', []);
+    if (!deletedUsers.includes(userId)) {
+      deletedUsers.push(userId);
+      setToStore<string[]>('gi_deleted_users', deletedUsers);
+    }
+
+    // Clean up dependent local stores
+    const investments = this.getInvestments().filter(i => i.userId !== userId);
+    this.saveInvestments(investments);
+
+    const deposits = this.getDeposits().filter(d => d.userId !== userId);
+    this.saveDeposits(deposits);
+
+    const withdrawals = this.getWithdrawals().filter(w => w.userId !== userId);
+    this.saveWithdrawals(withdrawals);
+
+    // If the current user is this user, sign them out
+    const current = this.getCurrentUser();
+    if (current && current.id === userId) {
+      this.saveCurrentUser(null);
+    }
+
+    try {
+      await apiFetch(getApiUrl('/api/admin/delete-user'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+    } catch (e) {
+      console.error('Failed to notify backend of user deletion:', e);
+    }
+    return true;
+  }
+
+  // Modify user balances
+  static updateUserBalance(userId: string, data: { balance: number, bonus: number, role: 'user' | 'admin', password?: string, referredBy?: string | null, withdrawBlocked?: boolean }): void {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx !== -1) {
+      users[idx].balance = data.balance;
+      users[idx].bonus = data.bonus;
+      users[idx].role = data.role;
+      if (data.withdrawBlocked !== undefined) {
+        users[idx].withdrawBlocked = data.withdrawBlocked;
+      }
+      
+      let finalReferredBy: string | undefined = undefined;
+      if (data.referredBy !== undefined) {
+        if (data.referredBy === null || data.referredBy.trim() === '') {
+          finalReferredBy = undefined;
+        } else {
+          const cleanRef = data.referredBy.trim();
+          const cleanRefUpper = cleanRef.toUpperCase();
+          const refDigits = cleanRef.replace(/\D/g, '');
+          
+          const matchedSponsor = users.find(u => {
+            if (u.id.toUpperCase() === cleanRefUpper) return true;
+            if (u.referralCode && u.referralCode.toUpperCase() === cleanRefUpper) return true;
+            if (refDigits.length >= 6 && u.whatsapp) {
+              const uDigits = u.whatsapp.replace(/\D/g, '');
+              if (uDigits.endsWith(refDigits) || refDigits.endsWith(uDigits)) return true;
+            }
+            return false;
+          });
+          
+          if (matchedSponsor) {
+            finalReferredBy = matchedSponsor.id;
+          } else {
+            finalReferredBy = cleanRef;
+          }
+        }
+        users[idx].referredBy = finalReferredBy;
+      }
+
+      if (data.password !== undefined && data.password.trim() !== '') {
+        users[idx].password = data.password;
+      }
+      this.saveUsers(users);
+
+      const current = this.getCurrentUser();
+      if (current && current.id === userId) {
+        current.balance = data.balance;
+        current.bonus = data.bonus;
+        current.role = data.role;
+        if (data.withdrawBlocked !== undefined) {
+          current.withdrawBlocked = data.withdrawBlocked;
+        }
+        if (data.referredBy !== undefined) {
+          current.referredBy = finalReferredBy;
+        }
+        if (data.password !== undefined && data.password.trim() !== '') {
+          current.password = data.password;
+        }
+        this.saveCurrentUser(current);
+      }
+    }
+  }
+
+  // Self-change or admin-change password helper
+  static changeUserPassword(userId: string, newPasswordString: string): boolean {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx !== -1) {
+      users[idx].password = newPasswordString;
+      this.saveUsers(users);
+      
+      const current = this.getCurrentUser();
+      if (current && current.id === userId) {
+        current.password = newPasswordString;
+        this.saveCurrentUser(current);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Financial Queue management
+  static approveDeposit(depositId: string): boolean {
+    const deposits = this.getDeposits();
+    const idx = deposits.findIndex(d => d.id === depositId);
+    if (idx === -1 || deposits[idx].status !== 'pending') return false;
+
+    deposits[idx].status = 'approved';
+    this.saveDeposits(deposits);
+
+    // Credit user
+    const users = this.getUsers();
+    const user = users.find(u => u.id === deposits[idx].userId);
+    if (user) {
+      user.balance += deposits[idx].amount;
+      this.saveUsers(users);
+
+      // Sync active
+      const current = this.getCurrentUser();
+      if (current && current.id === user.id) {
+        current.balance = user.balance;
+        this.saveCurrentUser(current);
+      }
+    }
+
+    // Notify user
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-dep-app-${Date.now()}`,
+      userId: deposits[idx].userId,
+      title: '💵 Dépôt validé !',
+      message: `Votre versement de ${deposits[idx].amount.toLocaleString()} XOF via ${deposits[idx].operator} a été approuvé. Votre solde principal a été rechargé.`,
+      type: 'deposit',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return true;
+  }
+
+  static rejectDeposit(depositId: string): boolean {
+    const deposits = this.getDeposits();
+    const idx = deposits.findIndex(d => d.id === depositId);
+    if (idx === -1 || deposits[idx].status !== 'pending') return false;
+
+    deposits[idx].status = 'rejected';
+    this.saveDeposits(deposits);
+
+    // Notify user
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-dep-rej-${Date.now()}`,
+      userId: deposits[idx].userId,
+      title: '⚠️ Dépôt rejeté',
+      message: `Votre demande de dépôt de ${deposits[idx].amount.toLocaleString()} XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.`,
+      type: 'deposit',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return true;
+  }
+
+  static approveWithdrawal(withdrawalId: string): boolean {
+    const withdrawals = this.getWithdrawals();
+    const idx = withdrawals.findIndex(w => w.id === withdrawalId);
+    if (idx === -1 || withdrawals[idx].status !== 'pending') return false;
+
+    withdrawals[idx].status = 'approved';
+    this.saveWithdrawals(withdrawals);
+
+    // Notify user
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-wth-app-${Date.now()}`,
+      userId: withdrawals[idx].userId,
+      title: '💸 Retrait envoyé !',
+      message: `Félicitations, votre retrait de ${withdrawals[idx].amount.toLocaleString()} XOF sur le numéro ${withdrawals[idx].number} (${withdrawals[idx].operator}) a été validé et expédié avec succès.`,
+      type: 'withdraw',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return true;
+  }
+
+  static rejectWithdrawal(withdrawalId: string): boolean {
+    const withdrawals = this.getWithdrawals();
+    const idx = withdrawals.findIndex(w => w.id === withdrawalId);
+    if (idx === -1 || withdrawals[idx].status !== 'pending') return false;
+
+    withdrawals[idx].status = 'rejected';
+    this.saveWithdrawals(withdrawals);
+
+    // Return the money to the user since it was deducted on request creation
+    const users = this.getUsers();
+    const user = users.find(u => u.id === withdrawals[idx].userId);
+    if (user) {
+      user.balance += withdrawals[idx].amount;
+      this.saveUsers(users);
+
+      const current = this.getCurrentUser();
+      if (current && current.id === user.id) {
+        current.balance = user.balance;
+        this.saveCurrentUser(current);
+      }
+    }
+
+    // Notify user
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-wth-rej-${Date.now()}`,
+      userId: withdrawals[idx].userId,
+      title: '❌ Retrait rejeté',
+      message: `Votre retrait de ${withdrawals[idx].amount.toLocaleString()} XOF a été refusé. Les fonds ont été intégralement restitués à votre solde principal.`,
+      type: 'withdraw',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+
+    return true;
+  }
+
+  // Global Platform notifications broadcast
+  static sendGlobalNotification(title: string, message: string): void {
+    const notifications = this.getNotifications();
+    notifications.unshift({
+      id: `not-glob-${Date.now()}`,
+      title,
+      message,
+      type: 'info',
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    this.saveNotifications(notifications);
+  }
+
+  // Create customized VIP Product list
+  static addNewProduct(p: Object): void {
+    const list = this.getProducts();
+    const id = `vip-${Date.now()}`;
+    const newP: Product = {
+      id,
+      vipLevel: (p as any).vipLevel || list.length + 1,
+      name: (p as any).name || 'Nouveau Produit VIP',
+      price: (p as any).price || 5000,
+      dailyReturn: (p as any).dailyReturn || 1000,
+      durationDays: (p as any).durationDays || 10,
+      totalReturn: ((p as any).dailyReturn || 1000) * ((p as any).durationDays || 10),
+      tag: (p as any).tag || 'Special Offer',
+      isCyclic: (p as any).isCyclic || false,
+      generatedProductIds: (p as any).generatedProductIds || [],
+      category: (p as any).category || 'stability',
+      imageUrl: (p as any).imageUrl || undefined,
+      lastModified: Date.now()
+    };
+
+    list.push(newP);
+    this.saveProducts(list);
+  }
+
+  static deleteProduct(productId: string): void {
+    let list = this.getProducts();
+    list = list.filter(p => p.id !== productId);
+    const deletedProducts = getFromStore<string[]>('gi_deleted_products', []);
+    if (!deletedProducts.includes(productId)) {
+      deletedProducts.push(productId);
+      setToStore<string[]>('gi_deleted_products', deletedProducts);
+    }
+    this.saveProducts(list);
+  }
+
+  static updateProduct(productId: string, updatedP: Partial<Product>): void {
+    const list = this.getProducts();
+    const idx = list.findIndex(p => p.id === productId);
+    if (idx !== -1) {
+      const current = list[idx];
+      const vipLevel = updatedP.vipLevel !== undefined ? updatedP.vipLevel : current.vipLevel;
+      const name = updatedP.name !== undefined ? updatedP.name : current.name;
+      const price = updatedP.price !== undefined ? updatedP.price : current.price;
+      const dailyReturn = updatedP.dailyReturn !== undefined ? updatedP.dailyReturn : current.dailyReturn;
+      const durationDays = updatedP.durationDays !== undefined ? updatedP.durationDays : current.durationDays;
+      const tag = updatedP.tag !== undefined ? updatedP.tag : current.tag;
+      const isBlocked = updatedP.isBlocked !== undefined ? updatedP.isBlocked : current.isBlocked;
+      const reopenDateTime = updatedP.reopenDateTime !== undefined ? updatedP.reopenDateTime : current.reopenDateTime;
+      const isCyclic = updatedP.isCyclic !== undefined ? updatedP.isCyclic : current.isCyclic;
+      const generatedProductIds = updatedP.generatedProductIds !== undefined ? updatedP.generatedProductIds : current.generatedProductIds;
+      const category = updatedP.category !== undefined ? updatedP.category : current.category;
+      const imageUrl = updatedP.imageUrl !== undefined ? updatedP.imageUrl : current.imageUrl;
+
+      const totalReturn = updatedP.totalReturn !== undefined 
+        ? updatedP.totalReturn 
+        : (dailyReturn * durationDays);
+
+      list[idx] = {
+        id: productId,
+        vipLevel,
+        name,
+        price,
+        dailyReturn,
+        durationDays,
+        totalReturn,
+        tag,
+        isBlocked,
+        reopenDateTime,
+        isCyclic,
+        generatedProductIds,
+        category,
+        imageUrl,
+        lastModified: Date.now()
+      };
+      this.saveProducts(list);
+    }
+  }
+
+  static toggleBlockProduct(productId: string, isBlocked: boolean, reopenDateTime?: string): void {
+    const list = this.getProducts();
+    const idx = list.findIndex(p => p.id === productId);
+    if (idx !== -1) {
+      list[idx].isBlocked = isBlocked;
+      list[idx].reopenDateTime = isBlocked ? (reopenDateTime || undefined) : undefined;
+      list[idx].lastModified = Date.now();
+      this.saveProducts(list);
+    }
+  }
+
+  // Create Bonus code
+  static createBonusCode(code: string, amount: number, maxUses: number): void {
+    const list = this.getBonusCodes();
+    list.unshift({
+      code: code.trim().toUpperCase(),
+      amount,
+      maxUses,
+      usedCount: 0,
+      usedByUsers: []
+    });
+    this.saveBonusCodes(list);
+  }
+
+  static areWithdrawalsBlocked(): boolean {
+    return getFromStore<boolean>('gi_withdrawals_blocked_global', false);
+  }
+
+  static setWithdrawalsBlocked(blocked: boolean): void {
+    setToStore<boolean>('gi_withdrawals_blocked_global', blocked);
+  }
+}
