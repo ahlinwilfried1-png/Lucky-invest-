@@ -320,13 +320,13 @@ export default function Auth({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between py-6 p-4 relative overflow-y-auto overflow-x-hidden font-sans text-white select-none bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519]" id="auth-container">
+    <div className="min-h-screen flex flex-col justify-between py-6 p-4 relative overflow-y-auto overflow-x-hidden font-sans text-slate-900 select-none bg-[#f8fafc]" id="auth-container">
       
-      {/* Rose Rouge theme glowing background circles with gold accent highlights */}
+      {/* Subtle clean background decorative accents */}
       <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
-        <div className="absolute -top-20 -left-20 w-80 h-80 bg-rose-500/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/4 -right-20 w-80 h-80 bg-amber-300/15 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 left-1/3 w-80 h-80 bg-rose-700/30 rounded-full blur-3xl" />
+        <div className="absolute -top-20 -left-20 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 -right-20 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-20 left-1/3 w-80 h-80 bg-slate-300/20 rounded-full blur-3xl" />
       </div>
 
       {/* Top Navigation Bar containing Back minimalist chevron and Direct Language Switcher */}
@@ -335,7 +335,7 @@ export default function Auth({
           <button
             onClick={onBackToHome}
             type="button"
-            className="text-white hover:text-rose-200 active:scale-95 transition-all cursor-pointer p-1"
+            className="text-slate-700 hover:text-slate-950 active:scale-95 transition-all cursor-pointer p-1"
             title="Retour"
           >
             <ChevronLeft className="w-8 h-8" strokeWidth={2.5} />
@@ -345,7 +345,7 @@ export default function Auth({
         )}
 
         {/* Direct inline language switch without any subpages */}
-        <div className="flex items-center bg-white/20 backdrop-blur-md rounded-full p-1 border border-white/30 shadow-xs">
+        <div className="flex items-center bg-white rounded-full p-1 border border-slate-200 shadow-xs">
           <button
             type="button"
             onClick={() => {
@@ -355,8 +355,8 @@ export default function Auth({
             }}
             className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 flex items-center gap-1 ${
               lang === 'FR' 
-                ? 'bg-white text-[#9f1239] shadow-xs' 
-                : 'text-white/80 hover:text-white'
+                ? 'bg-slate-900 text-white shadow-xs' 
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <span>🇫🇷</span> FR
@@ -370,8 +370,8 @@ export default function Auth({
             }}
             className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 flex items-center gap-1 ${
               lang === 'EN' 
-                ? 'bg-white text-[#9f1239] shadow-xs' 
-                : 'text-white/80 hover:text-white'
+                ? 'bg-slate-900 text-white shadow-xs' 
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <span>🇬🇧</span> EN
@@ -384,21 +384,21 @@ export default function Auth({
         
         <div className="w-full flex flex-col justify-center shrink-0">
           
-          {/* Left-aligned Gold Avenue Bold Golden Stylized Logo */}
+          {/* Left-aligned Gold Avenue Stylized Logo */}
           <div className="flex flex-col items-start mb-6 animate-fade-in select-none pl-1">
             <div 
-              className="text-[38px] md:text-[46px] font-sans font-black italic tracking-tighter text-amber-300 drop-shadow-[0_2px_12px_rgba(251,191,36,0.65)] leading-none select-none text-left"
+              className="text-[36px] md:text-[42px] font-sans font-black italic tracking-tight text-amber-600 leading-none select-none text-left"
             >
               Gold Avenue
             </div>
-            <span className="text-[10px] font-bold text-rose-100 uppercase tracking-widest mt-1.5 drop-shadow-xs text-left">{t.securePlacement}</span>
+            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-widest mt-1.5 text-left">{t.securePlacement}</span>
           </div>
 
-          {/* Direct Form Content without outer card frame */}
-          <div className="w-full relative z-10 animate-fade-in text-white px-1">
+          {/* Direct Form Content */}
+          <div className="w-full relative z-10 animate-fade-in text-slate-900 px-1 bg-white p-5 sm:p-7 rounded-3xl border border-slate-200 shadow-sm">
           
-          {/* Mode Segment Switcher: Se connecter (White) & S'inscrire (Clear Light) */}
-          <div className="flex items-center bg-black/25 p-1.5 rounded-2xl mb-6 backdrop-blur-md border border-rose-400/30 shadow-inner">
+          {/* Mode Segment Switcher: Se connecter & S'inscrire */}
+          <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl mb-6 border border-slate-200">
             <button
               type="button"
               onClick={() => {
@@ -408,8 +408,8 @@ export default function Auth({
               }}
               className={`flex-1 py-3 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider transition-all duration-200 text-center cursor-pointer ${
                 !isRegister
-                  ? 'bg-white text-[#9f1239] shadow-lg scale-[1.02]'
-                  : 'text-rose-100 bg-white/10 hover:bg-white/20 font-bold'
+                  ? 'bg-white text-slate-900 shadow-sm font-black'
+                  : 'text-slate-500 hover:text-slate-900 font-bold'
               }`}
             >
               Se connecter
@@ -423,8 +423,8 @@ export default function Auth({
               }}
               className={`flex-1 py-3 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider transition-all duration-200 text-center cursor-pointer ${
                 isRegister
-                  ? 'bg-white text-[#9f1239] shadow-lg border border-white/80 scale-[1.02]'
-                  : 'text-rose-100 bg-white/10 hover:bg-white/20 font-bold border border-white/10'
+                  ? 'bg-white text-slate-900 shadow-sm font-black'
+                  : 'text-slate-500 hover:text-slate-900 font-bold'
               }`}
             >
               S'inscrire
@@ -432,25 +432,25 @@ export default function Auth({
           </div>
 
           <div className="mb-6">
-            <h1 className="text-xl font-sans font-black text-white tracking-tight">
+            <h1 className="text-xl font-sans font-black text-slate-900 tracking-tight">
               {t.title}
             </h1>
-            <p className="text-xs text-rose-200 font-bold mt-1">
+            <p className="text-xs text-slate-500 font-medium mt-1">
               {t.subtitle}
             </p>
           </div>
 
           {/* Error and Success alerts */}
           {errorMessage && (
-            <div className="mb-5 p-4 rounded-2xl bg-red-500/20 border border-red-300/40 text-xs text-white font-bold flex items-start space-x-2 animate-fade-in">
-              <AlertTriangle className="w-4 h-4 text-red-200 flex-shrink-0 mt-0.5" />
+            <div className="mb-5 p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 font-bold flex items-start space-x-2 animate-fade-in">
+              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="mb-5 p-4 rounded-2xl bg-emerald-500/20 border border-emerald-300/40 text-xs text-white font-bold flex items-start space-x-2 animate-fade-in">
-              <Check className="w-4 h-4 text-emerald-200 flex-shrink-0 mt-0.5" />
+            <div className="mb-5 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-bold flex items-start space-x-2 animate-fade-in">
+              <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span>{successMessage}</span>
               </div>
@@ -465,8 +465,8 @@ export default function Auth({
               <>
                 {/* Pays Selector Box */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.pays}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer hover:border-rose-400 transition-all h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.pays}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer border border-slate-200 hover:border-slate-400 transition-all h-14 bg-slate-50">
                     <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
                       <span className="text-lg leading-none">
                         {eligibleCountries.find(c => c.code === selectedCode)?.flag || '🇹🇬'}
@@ -496,8 +496,8 @@ export default function Auth({
 
                 {/* Phone Input Box */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.phone}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.phone}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-14 border border-slate-200 bg-slate-50">
                     <input
                       type="tel"
                       required
@@ -511,8 +511,8 @@ export default function Auth({
 
                 {/* Nickname (Surnom) Box */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.nickname}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.nickname}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-14 border border-slate-200 bg-slate-50">
                     <input
                       type="text"
                       required
@@ -526,8 +526,8 @@ export default function Auth({
 
                 {/* Password field */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.password}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.password}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-slate-200 bg-slate-50">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
@@ -548,8 +548,8 @@ export default function Auth({
 
                 {/* Invitation / Sponsor Code Field */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.invitationCode}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.invitationCode}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-slate-200 bg-slate-50">
                     <input
                       type="text"
                       placeholder={t.invitationPlaceholder}
@@ -563,8 +563,8 @@ export default function Auth({
 
                 {/* Code de vérification (OTP) Field with ENVOYER action */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.otp}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.otp}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-slate-200 bg-slate-50">
                     <input
                       type="text"
                       required
@@ -577,7 +577,7 @@ export default function Auth({
                       type="button"
                       onClick={handleSendOTP}
                       disabled={sendingOtp || otpCountdown > 0}
-                      className="text-[#e11d48] hover:text-[#f43f5e] active:scale-95 disabled:opacity-50 text-sm font-black uppercase tracking-wider bg-transparent border-none py-1 px-3 cursor-pointer transition-all shrink-0 font-sans"
+                      className="text-amber-600 hover:text-amber-700 active:scale-95 disabled:opacity-50 text-sm font-black uppercase tracking-wider bg-transparent border-none py-1 px-3 cursor-pointer transition-all shrink-0 font-sans"
                     >
                       {otpCountdown > 0 ? `${otpCountdown}s` : t.envoyer}
                     </button>
@@ -591,8 +591,8 @@ export default function Auth({
               <>
                 {/* Pays Selector Box */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.pays}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer hover:border-rose-400 transition-all h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.pays}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer border border-slate-200 hover:border-slate-400 transition-all h-14 bg-slate-50">
                     <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
                       <span className="text-lg leading-none">
                         {eligibleCountries.find(c => c.code === loginSelectedCode)?.flag || '🇹🇬'}
@@ -617,8 +617,8 @@ export default function Auth({
 
                 {/* Login Phone Input */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.phone}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.phone}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-14 border border-slate-200 bg-slate-50">
                     <input
                       type="text"
                       required
@@ -632,8 +632,8 @@ export default function Auth({
 
                 {/* Login Password Input */}
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-rose-100 block">{t.password}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-16">
+                  <label className="text-[13px] font-sans font-bold text-slate-700 block">{t.password}</label>
+                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-slate-200 bg-slate-50">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
@@ -659,15 +659,11 @@ export default function Auth({
               id="auth-submit-btn"
               type="submit"
               disabled={loading}
-              className={`w-full font-sans font-black text-sm uppercase tracking-wider py-4 px-4 rounded-full flex items-center justify-center transition-all select-none cursor-pointer disabled:opacity-50 mt-6 shadow-xl active:scale-[0.98] ${
-                !isRegister
-                  ? 'bg-white hover:bg-rose-50 text-[#9f1239]'
-                  : 'bg-white hover:bg-rose-50 text-[#9f1239] border border-white/80'
-              }`}
+              className="w-full font-sans font-black text-sm uppercase tracking-wider py-4 px-4 rounded-2xl flex items-center justify-center transition-all select-none cursor-pointer disabled:opacity-50 mt-6 shadow-md active:scale-[0.98] bg-slate-900 hover:bg-slate-800 text-white"
             >
               {loading ? (
                 <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-[#9f1239] border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>{t.submitBtn}</span>
                 </div>
               ) : (
@@ -685,11 +681,7 @@ export default function Auth({
                   setErrorMessage('');
                   setSuccessMessage('');
                 }}
-                className={`w-full font-sans font-extrabold text-sm uppercase tracking-wider py-3.5 px-4 rounded-full flex items-center justify-center transition-all select-none cursor-pointer active:scale-[0.98] ${
-                  !isRegister
-                    ? 'border-2 border-white/80 hover:bg-white/10 text-white bg-white/10 backdrop-blur-sm'
-                    : 'bg-white hover:bg-rose-50 text-[#9f1239] shadow-lg'
-                }`}
+                className="w-full font-sans font-extrabold text-sm uppercase tracking-wider py-3.5 px-4 rounded-2xl flex items-center justify-center transition-all select-none cursor-pointer active:scale-[0.98] border border-slate-300 hover:bg-slate-50 text-slate-800 bg-white"
               >
                 <span>{t.toggleBtn}</span>
               </button>
@@ -698,15 +690,13 @@ export default function Auth({
 
         </div>
 
-
-
       </div>
 
     </div>
 
       {/* Footer Branding label */}
       <div className="w-full text-center relative z-10 py-2 shrink-0">
-        <p className="text-[10px] font-mono font-bold text-rose-200/90 uppercase tracking-widest drop-shadow-xs">
+        <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">
           {t.footerText}
         </p>
       </div>

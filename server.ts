@@ -2631,6 +2631,20 @@ const SERVER_DEFAULT_PRODUCTS = [
       return res.json({ success: false, message: `Solde insuffisant. Vous devez avoir au moins ${targetProduct.price.toLocaleString()} XOF.` });
     }
 
+    // Condition d'achat: Un utilisateur ne doit pas pouvoir acheter un produit du bien-être ou une activité s'il n'a pas d'abord payé la stabilité.
+    const isSpecialCategory = targetProduct.category === 'wellbeing' || targetProduct.category === 'activity';
+    if (isSpecialCategory) {
+      const hasStability = investments.some(
+        (inv: any) => inv.userId === userId && (inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')))
+      );
+      if (!hasStability) {
+        return res.json({
+          success: false,
+          message: 'Condition requise : Vous devez d\'abord acheter et payer un produit de Stabilité VIP avant de pouvoir acheter un produit Bien-être ou une Activité.'
+        });
+      }
+    }
+
     const isCyclicProduct = true; // All investments are cyclic now
 
     user.balance -= targetProduct.price;
@@ -4500,7 +4514,7 @@ const SERVER_DEFAULT_PRODUCTS = [
 
   // Support Msg API
   app.post("/api/send-message", async (req, res) => {
-    const { userId, message, sender } = req.body;
+    const { userId, message, sender, image } = req.body;
     let msgs = storeData["gi_support_messages"] || [];
     
     let updatedMsgs = [...msgs];
@@ -4518,31 +4532,185 @@ const SERVER_DEFAULT_PRODUCTS = [
       id: `msg-${Date.now()}`,
       userId,
       sender,
-      message,
-      status: sender === 'user' ? 'unread' : 'replied',
+      message: message || '',
+      ...(image ? { image } : {}),
+      status: 'unread',
       lastModified: Date.now(),
       createdAt: new Date().toISOString()
     };
     updatedMsgs.push(newMsg);
     storeData["gi_support_messages"] = updatedMsgs;
-    await saveStore();
+    await saveStore(["gi_support_messages"]);
     res.json({ success: true, message: newMsg });
   });
 
+  // Dedicated Forum endpoints for immediate cross-user synchronization
+  app.post("/api/forum/create", async (req, res) => {
+    try {
+      const { post } = req.body;
+      if (!post || !post.id) {
+        return res.status(400).json({ success: false, message: "Données de publication invalides." });
+      }
+
+      let forumPosts = storeData["gi_forum_posts"] || [];
+      let deletedPosts = storeData["gi_deleted_forum_posts"] || [];
+
+      // Ensure not in deleted set
+      deletedPosts = deletedPosts.filter((id: string) => id !== String(post.id));
+      storeData["gi_deleted_forum_posts"] = deletedPosts;
+
+      // Add to front of array or replace existing if duplicate
+      forumPosts = forumPosts.filter((p: any) => p && p.id !== post.id);
+      const enrichedPost = {
+        ...post,
+        likes: typeof post.likes === 'number' ? post.likes : 0,
+        likedBy: Array.isArray(post.likedBy) ? post.likedBy : [],
+        comments: Array.isArray(post.comments) ? post.comments : [],
+        createdAt: post.createdAt || new Date().toISOString(),
+        lastModified: Date.now()
+      };
+      forumPosts.unshift(enrichedPost);
+
+      storeData["gi_forum_posts"] = forumPosts;
+      await saveStore(["gi_forum_posts", "gi_deleted_forum_posts"]);
+
+      console.log(`[API FORUM] New post published: ${post.id} by ${post.authorName}. Total posts: ${forumPosts.length}`);
+      res.json({ success: true, post: enrichedPost });
+    } catch (err: any) {
+      console.error("[API FORUM] Error creating forum post:", err);
+      res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/forum/delete", async (req, res) => {
+    try {
+      const { postId } = req.body;
+      if (!postId) {
+        return res.status(400).json({ success: false, message: "ID de publication manquant." });
+      }
+
+      let forumPosts = storeData["gi_forum_posts"] || [];
+      let deletedPosts = storeData["gi_deleted_forum_posts"] || [];
+
+      if (!deletedPosts.includes(String(postId))) {
+        deletedPosts.push(String(postId));
+      }
+      storeData["gi_deleted_forum_posts"] = deletedPosts;
+
+      storeData["gi_forum_posts"] = forumPosts.filter((p: any) => p && String(p.id) !== String(postId));
+      await saveStore(["gi_forum_posts", "gi_deleted_forum_posts"]);
+
+      console.log(`[API FORUM] Post deleted: ${postId}`);
+      res.json({ success: true, postId });
+    } catch (err: any) {
+      console.error("[API FORUM] Error deleting forum post:", err);
+      res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/forum/clear-all", async (req, res) => {
+    try {
+      storeData["gi_forum_posts"] = [];
+      await saveStore(["gi_forum_posts"]);
+      console.log(`[API FORUM] All forum posts cleared by admin.`);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[API FORUM] Error clearing forum posts:", err);
+      res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/forum/like", async (req, res) => {
+    try {
+      const { postId, userId } = req.body;
+      if (!postId || !userId) {
+        return res.status(400).json({ success: false, message: "Paramètres manquants." });
+      }
+
+      let forumPosts = storeData["gi_forum_posts"] || [];
+      let updatedPost = null;
+
+      forumPosts = forumPosts.map((p: any) => {
+        if (p && String(p.id) === String(postId)) {
+          const likedBy = Array.isArray(p.likedBy) ? p.likedBy : [];
+          const alreadyLiked = likedBy.includes(userId);
+          const newLikedBy = alreadyLiked 
+            ? likedBy.filter((id: string) => id !== userId)
+            : [...likedBy, userId];
+
+          updatedPost = {
+            ...p,
+            likedBy: newLikedBy,
+            likes: newLikedBy.length,
+            hasLiked: newLikedBy.includes(userId),
+            lastModified: Date.now()
+          };
+          return updatedPost;
+        }
+        return p;
+      });
+
+      storeData["gi_forum_posts"] = forumPosts;
+      await saveStore(["gi_forum_posts"]);
+      res.json({ success: true, post: updatedPost });
+    } catch (err: any) {
+      console.error("[API FORUM] Error liking forum post:", err);
+      res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/forum/comment", async (req, res) => {
+    try {
+      const { postId, comment } = req.body;
+      if (!postId || !comment) {
+        return res.status(400).json({ success: false, message: "Paramètres manquants." });
+      }
+
+      let forumPosts = storeData["gi_forum_posts"] || [];
+      let updatedPost = null;
+
+      forumPosts = forumPosts.map((p: any) => {
+        if (p && String(p.id) === String(postId)) {
+          const comments = Array.isArray(p.comments) ? p.comments : [];
+          updatedPost = {
+            ...p,
+            comments: [...comments, comment],
+            lastModified: Date.now()
+          };
+          return updatedPost;
+        }
+        return p;
+      });
+
+      storeData["gi_forum_posts"] = forumPosts;
+      await saveStore(["gi_forum_posts"]);
+      res.json({ success: true, post: updatedPost });
+    } catch (err: any) {
+      console.error("[API FORUM] Error commenting on forum post:", err);
+      res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+    }
+  });
+
   app.post("/api/mark-messages-read", async (req, res) => {
-    const { userId } = req.body;
+    const { userId, readerRole = 'user' } = req.body;
     let msgs = storeData["gi_support_messages"] || [];
     let changed = false;
     const updatedMsgs = msgs.map((m: any) => {
-      if (m.userId === userId && m.sender === 'user' && m.status !== 'read' && m.status !== 'replied') {
-        changed = true;
-        return { ...m, status: 'read', lastModified: Date.now() };
+      if (m.userId === userId) {
+        if (readerRole === 'user' && m.sender === 'admin' && m.status === 'unread') {
+          changed = true;
+          return { ...m, status: 'read', lastModified: Date.now() };
+        }
+        if (readerRole === 'admin' && m.sender === 'user' && m.status === 'unread') {
+          changed = true;
+          return { ...m, status: 'read', lastModified: Date.now() };
+        }
       }
       return m;
     });
     if (changed) {
       storeData["gi_support_messages"] = updatedMsgs;
-      await saveStore();
+      await saveStore(["gi_support_messages"]);
     }
     res.json({ success: true, changed });
   });

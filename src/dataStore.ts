@@ -1504,6 +1504,12 @@ export class DataStore {
     setToStore<SystemNotification[]>('gi_notifications', notifications);
   }
 
+  static addNotification(notification: any): void {
+    const list = this.getNotifications();
+    list.unshift(notification);
+    this.saveNotifications(list);
+  }
+
   static getBonusCodes(): BonusCode[] {
     return getFromStore<BonusCode[]>('gi_bonus_codes', INITIAL_BONUS_CODES);
   }
@@ -1539,12 +1545,50 @@ export class DataStore {
     });
   }
 
+  static async createForumPost(post: any): Promise<any> {
+    const current = this.getForumPosts();
+    const updated = [post, ...current.filter((p: any) => p && p.id !== post.id)];
+    setToStore<any[]>('gi_forum_posts', updated);
+    try {
+      localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(updated));
+    } catch (e) {}
+    window.dispatchEvent(new Event('gi_store_updated'));
+
+    try {
+      const resp = await apiFetch(getApiUrl('/api/forum/create'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.post) {
+          return data.post;
+        }
+      }
+    } catch (err) {
+      console.warn("Direct /api/forum/create failed, falling back to general saveStore:", err);
+      await this.saveForumPosts(updated);
+    }
+    return post;
+  }
+
   static async clearAllForumPosts(): Promise<void> {
     setToStore<any[]>('gi_forum_posts', []);
     try {
       localStorage.removeItem('rockygold_forum_posts_v3');
     } catch (e) {}
-    await this.saveForumPosts([]);
+    window.dispatchEvent(new Event('gi_store_updated'));
+
+    try {
+      await apiFetch(getApiUrl('/api/forum/clear-all'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+    } catch (e) {
+      await this.saveForumPosts([]);
+    }
   }
 
   static async saveForumPosts(posts: any[]): Promise<void> {
@@ -1591,8 +1635,61 @@ export class DataStore {
     }
     const posts = this.getForumPosts();
     const updated = posts.filter((p: any) => p && p.id !== postId);
-    await this.saveForumPosts(updated);
+    setToStore<any[]>('gi_forum_posts', updated);
+    try {
+      localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(updated));
+    } catch (e) {}
+    window.dispatchEvent(new Event('gi_store_updated'));
+
+    try {
+      await apiFetch(getApiUrl('/api/forum/delete'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId })
+      });
+    } catch (e) {
+      await this.saveForumPosts(updated);
+    }
     return true;
+  }
+
+  static async likeForumPost(postId: string, userId: string): Promise<any> {
+    const posts = this.getForumPosts();
+    const updated = posts.map(p => {
+      if (p && String(p.id) === String(postId)) {
+        const likedBy = Array.isArray(p.likedBy) ? p.likedBy : [];
+        const alreadyLiked = likedBy.includes(userId);
+        const newLikedBy = alreadyLiked 
+          ? likedBy.filter((id: string) => id !== userId)
+          : [...likedBy, userId];
+        return {
+          ...p,
+          likedBy: newLikedBy,
+          likes: newLikedBy.length,
+          hasLiked: newLikedBy.includes(userId),
+          lastModified: Date.now()
+        };
+      }
+      return p;
+    });
+
+    setToStore<any[]>('gi_forum_posts', updated);
+    window.dispatchEvent(new Event('gi_store_updated'));
+
+    try {
+      const resp = await apiFetch(getApiUrl('/api/forum/like'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, userId })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return data.post;
+      }
+    } catch (e) {
+      await this.saveForumPosts(updated);
+    }
+    return null;
   }
 
   // Auth Operations
@@ -2301,6 +2398,21 @@ export class DataStore {
       return { success: false, message: `Solde insuffisant. Vous devez avoir au moins ${targetProduct.price.toLocaleString()} XOF.` };
     }
 
+    // Condition d'achat: Un utilisateur ne doit pas pouvoir acheter un produit du bien-être ou une activité s'il n'a pas d'abord payé la stabilité.
+    const isSpecialCategory = targetProduct.category === 'wellbeing' || targetProduct.category === 'activity';
+    if (isSpecialCategory) {
+      const investments = this.getInvestments();
+      const hasStability = investments.some(
+        inv => inv.userId === userId && (inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')))
+      );
+      if (!hasStability) {
+        return {
+          success: false,
+          message: 'Condition requise : Vous devez d\'abord acheter et payer un produit de Stabilité VIP avant de pouvoir acheter un produit Bien-être ou une Activité.'
+        };
+      }
+    }
+
     // Deduct balance and update properties
     const isCyclicProduct = true;
 
@@ -2879,7 +2991,7 @@ export class DataStore {
   }
 
   // Support / Live chat integration
-  static async sendMessageToSupport(userId: string, messageText: string, senderRole: 'user' | 'admin' = 'user'): Promise<SupportMessage> {
+  static async sendMessageToSupport(userId: string, messageText: string, senderRole: 'user' | 'admin' = 'user', imageBase64?: string): Promise<SupportMessage> {
     const messages = this.getSupportMessages();
     
     // Save locally first for instant, latency-free UX feedback
@@ -2897,9 +3009,10 @@ export class DataStore {
       id: `msg-${Date.now()}`,
       userId,
       sender: senderRole,
-      message: messageText,
+      message: messageText || '',
+      ...(imageBase64 ? { image: imageBase64 } : {}),
       createdAt: new Date().toISOString(),
-      status: senderRole === 'user' ? 'unread' : 'replied',
+      status: 'unread',
       lastModified: Date.now()
     };
 
@@ -2914,7 +3027,7 @@ export class DataStore {
       await apiFetch(getApiUrl('/api/send-message'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, message: messageText, sender: senderRole })
+        body: JSON.stringify({ userId, message: messageText || '', sender: senderRole, image: imageBase64 })
       });
       await syncWithBackend();
     } catch (e) {
@@ -2924,13 +3037,19 @@ export class DataStore {
     return newMsg;
   }
 
-  static async markSupportMessagesAsRead(userId: string): Promise<void> {
+  static async markSupportMessagesAsRead(userId: string, readerRole: 'user' | 'admin' = 'user'): Promise<void> {
     const messages = this.getSupportMessages();
     let changed = false;
     const updated = messages.map(m => {
-      if (m.userId === userId && m.sender === 'user' && m.status !== 'read' && m.status !== 'replied') {
-        changed = true;
-        return { ...m, status: 'read' as const, lastModified: Date.now() };
+      if (m.userId === userId) {
+        if (readerRole === 'user' && m.sender === 'admin' && m.status === 'unread') {
+          changed = true;
+          return { ...m, status: 'read' as const, lastModified: Date.now() };
+        }
+        if (readerRole === 'admin' && m.sender === 'user' && m.status === 'unread') {
+          changed = true;
+          return { ...m, status: 'read' as const, lastModified: Date.now() };
+        }
       }
       return m;
     });
@@ -2943,7 +3062,7 @@ export class DataStore {
         await apiFetch(getApiUrl('/api/mark-messages-read'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
+          body: JSON.stringify({ userId, readerRole })
         });
         await syncWithBackend();
       } catch (e) {

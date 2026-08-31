@@ -7,12 +7,13 @@
   --font-serif: "Georgia", "Lora", "Roboto Serif", "Merriweather", "Noto Serif", serif;
   --font-mono: "Georgia", "Lora", serif;
   
-  --color-gold-luminous: #ffe082;
-  --color-gold-dark: #aa7c11;
-  --color-night-blue: #1e3a8a;
-  --color-night-blue-light: #3b82f6;
+  --color-gold-light: #fdfaf3;
+  --color-gold-champagne: #f4ecdc;
+  --color-gold-border: #e2d3b3;
+  --color-gold-primary: #c59b27;
+  --color-gold-dark: #9a7215;
+  --color-gold-deep: #78540c;
   --color-dark-black: #0f172a;
-  --color-premium-white: #ffffff;
 }
 
 /* Elegant and professional serif typography across the entire site */
@@ -22,15 +23,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Rose Rouge Exclusive Theme & Harmonized Palette */
+/* Elegant Gold / Champagne Theme & Harmonized Palette */
 :root {
-  --rose-rouge-primary: #9f1239;
-  --rose-rouge-dark: #881337;
-  --rose-rouge-deep: #4c0519;
-  --rose-accent: #f43f5e;
-  --rose-accent-light: #fb7185;
-  --rose-accent-subtle: rgba(244, 63, 94, 0.15);
-  --card-bg-light: rgba(136, 19, 55, 0.45);
+  --bg-main: #fbf8f1;
+  --card-bg: #ffffff;
+  --accent-gold: #c59b27;
+  --accent-gold-dark: #9a7215;
+  --accent-gold-light: #fef9ed;
+  --accent-gold-border: #e2d3b3;
   --dark-black: #0f172a;
 }
 
@@ -129,89 +129,34 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background-color: #881337 !important;
-  background-image: linear-gradient(180deg, #9f1239 0%, #881337 40%, #4c0519 100%) !important; /* Rose Rouge Theme */
-  color: #ffffff !important;
+  background-color: #fbf8f1 !important;
+  background-image: none !important;
+  color: #0f172a !important;
   background-attachment: fixed !important;
 }
 
-/* Reset containers */
-.glass-panel,
-.bg-\[\#eef3fc\],
-.bg-slate-900\/60,
-.bg-slate-905\/40,
-.bg-slate-900\/40,
-.bg-slate-900,
-.bg-slate-950\/80,
-.bg-slate-950\/70,
-.bg-slate-950\/60,
-.bg-slate-950\/35,
-.bg-slate-950\/20,
-.bg-slate-950,
-.bg-zinc-950,
-.bg-zinc-900,
-.bg-neutral-900,
-.bg-\[\#0e0c18\],
-.bg-\[\#010c1e\],
-.bg-\[\#24353f\],
-.bg-\[\#1d2a31\],
-.bg-\[\#1d2a31\]\/90,
-.bg-\[\#1d2a31\]\/60,
-.bg-\[\#24353f\],
-.bg-\[\#2d424b\],
-.bg-\[\#1d2b36\],
-.bg-\[\#030611\] {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  color: #ffffff !important;
-}
-
-/* Eliminate harsh borders */
-[class*="border-"],
-[class*="shadow-"],
-[class*="rounded-"] {
-  border-color: transparent !important;
-}
-
-div, section, article, p, span, h1, h2, h3, h4, h5, h6 {
-  outline: none !important;
-}
-
-/* Force clean background on input/select */
+/* Form input base styling */
 input, select, textarea {
-  background-color: rgba(255, 255, 255, 0.95) !important;
+  background-color: #ffffff !important;
   color: #0f172a !important;
-  border: none !important;
   outline: none !important;
-  box-shadow: none !important;
 }
 
 /* Auth overrides */
 .auth-field-wrapper {
   background-color: #ffffff !important;
-  border: none !important;
   outline: none !important;
-  box-shadow: none !important;
 }
 
 .auth-field-wrapper:focus-within {
   background-color: #ffffff !important;
-  border: none !important;
   outline: none !important;
-  box-shadow: none !important;
 }
 
 input.auth-clean-input,
 select.auth-clean-select,
 textarea.auth-clean-textarea {
   background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
   padding: 0 !important;
   color: #0f172a !important;
 }
@@ -224,14 +169,6 @@ input.auth-clean-input:focus,
 select.auth-clean-select:focus,
 textarea.auth-clean-textarea:focus {
   outline: none !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-button {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
 }
 
 /* Modal overlays */
@@ -242,194 +179,61 @@ button {
 .bg-black\/50,
 .bg-slate-950\/80,
 .bg-slate-900\/80 {
-  background-color: rgba(76, 5, 25, 0.85) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  background-color: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 
-/* Legible text */
-.text-white-force {
-  color: #ffffff !important;
-}
-
-/* Bank card / balance card style */
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\],
-.bg-gradient-to-b.from-\[\#0284c7\].to-\[\#0369a1\] {
-  background: transparent !important;
-  background-image: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  color: #ffffff !important;
-}
-
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\] .text-white,
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\] .text-cyan-404,
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\] span,
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\] p {
-  color: #ffffff !important;
-}
-
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\] .solde-display-number,
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\] [id="main-balance-text"] {
-  color: #ffffff !important;
-  text-shadow: none !important;
-}
-
-/* Secondary buttons over balance card in Rose Rouge / Amber */
-.bg-gradient-to-br.from-\[\#1b64d9\].via-\[\#1059d1\].to-\[\#044ab0\] button {
-  box-shadow: none !important;
-  background-color: #f43f5e !important;
-  color: #ffffff !important;
-  border: none !important;
-}
-
-/* Action buttons & daily check-in gradients to Rose Rouge */
-.from-\[\#1b64d9\].to-\[\#046fff\],
-.from-\[\#00d2c3\].to-\[\#046fff\],
-.bg-gradient-to-r.from-\[\#1b64d9\],
-.bg-\[\#1b64d9\] {
-  background-image: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
-  background-color: #e11d48 !important;
-  color: #ffffff !important;
-  font-weight: 800 !important;
-  border: none !important;
-}
-
-/* Bottom Navigation Footer in Pure Rose Rouge */
+/* Bottom Navigation Footer with Warm Gold Accent */
 footer {
-  background-color: #881337 !important;
-  background-image: linear-gradient(180deg, #9f1239 0%, #881337 50%, #4c0519 100%) !important;
-  border-top: 1px solid rgba(244, 63, 94, 0.25) !important;
-  color: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border-top: 1px solid #e8dec8 !important;
+  color: #334155 !important;
 }
 
 footer button {
-  color: rgba(254, 205, 211, 0.85) !important;
+  color: #64748b !important;
 }
 
 footer button:hover,
-footer button.font-black,
-footer button .bg-blue-50 {
-  color: #ffffff !important;
-  background-color: rgba(244, 63, 94, 0.25) !important;
+footer button.font-black {
+  color: #c59b27 !important;
 }
 
 footer button span {
-  color: #ffffff !important;
-}
-
-/* Accent texts mapped to Rose Rouge */
-.text-\[\#1b64d9\],
-.text-cyan-404,
-.text-\[\#38bdf8\],
-.text-blue-600,
-.text-[#1b64d9] {
-  color: #f43f5e !important;
-}
-
-.border-\[\#1b64d9\],
-.border-slate-800,
-.border-slate-900,
-.border-slate-850,
-.border-slate-205,
-.border-slate-200,
-.border-slate-300,
-.border-slate-150,
-.border-slate-100,
-.border-slate-50,
-.border-zinc-200,
-.border-zinc-300,
-.border-gray-205,
-.border-gray-255,
-.border-gray-200,
-.border-gray-305,
-.border-gray-300,
-.border-orange-100 {
-  border-color: transparent !important;
-  border-width: 0 !important;
-}
-
-.bg-\[\#1b64d9\]\/10 {
-  background-color: transparent !important;
-}
-
-/* Glassmorphism utility without border or shadow */
-.glass-panel {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.glass-panel-hover {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  color: inherit !important;
 }
 
 .gold-gradient-text {
-  background: linear-gradient(135deg, #ffe082 0%, #d4af37 50%, #aa7c11 100%) !important;
+  background: linear-gradient(135deg, #b4821a 0%, #d4af37 50%, #8c610d 100%) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
 }
 
 .gold-bg-gradient {
-  background: linear-gradient(135deg, #ffe5a3 0%, #d4af37 50%, #aa7c11 100%) !important;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #f59e0b 100%) !important;
 }
 
-.gold-border {
-  border: none !important;
-  outline: none !important;
+.gold-card-gradient {
+  background: linear-gradient(145deg, #ffffff 0%, #fdfaf2 100%) !important;
 }
 
-/* Custom scrollbar with Rose Rouge theme colors */
+/* Custom scrollbar with gold theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #4c0519;
+  background: #fbf8f1;
 }
 ::-webkit-scrollbar-thumb {
-  background: #9f1239;
+  background: #d8c7a3;
   border-radius: 999px;
-  border: 1px solid #be123c;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #e11d48;
-}
-
-/* Shine effect */
-.shine-gold {
-  position: relative;
-  overflow: hidden;
-}
-.shine-gold::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    to bottom right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(192, 132, 252, 0.35) 50%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  transform: rotate(30deg);
-  transition: transform 0.5s;
-}
-.shine-gold:hover::after {
-  transform: translate(50%, 50%) rotate(30deg);
-  transition: transform 1.2s ease-out;
+  background: #c59b27;
 }
 
 /* --- MAXIMUM VISIBILITY & TYPOGRAPHY CONTRAST --- */
@@ -458,49 +262,40 @@ div.font-black {
 }
 
 /* Force dark, crisp contrast for all slate/gray text classes so investors can read everything clearly */
-.text-slate-300,
-.text-slate-350,
-.text-slate-400,
-.text-slate-450,
 .text-slate-500,
-.text-gray-300,
-.text-gray-400,
 .text-gray-500,
-.text-zinc-400,
 .text-zinc-500 {
-  color: #1e293b !important; /* Dark Slate 800 - crisp high contrast */
+  color: #475569 !important;
 }
 
 .text-slate-600,
-.text-slate-650,
 .text-slate-700,
 .text-slate-800,
-.text-slate-850,
 .text-slate-900,
 .text-gray-600,
 .text-gray-700,
 .text-gray-800,
 .text-gray-900,
 .text-slate-950 {
-  color: #020617 !important; /* Slate 950 - pitch black contrast */
+  color: #0f172a !important;
 }
 
 /* Ensure labels inside cards & forms are ultra clear */
 label {
-  color: #020617 !important;
+  color: #0f172a !important;
   font-weight: 700 !important;
 }
 
 /* Form Inputs readability */
 input, select, textarea {
-  color: #020617 !important;
+  color: #0f172a !important;
   font-weight: 600 !important;
 }
 
 input::placeholder,
 textarea::placeholder,
 select::placeholder {
-  color: #475569 !important;
+  color: #94a3b8 !important;
   opacity: 1 !important;
   font-weight: 500 !important;
 }
@@ -515,102 +310,103 @@ select::placeholder {
   font-weight: 900 !important;
 }
 
-/* --- GLOBAL STEEL BLUE & TEAL THEME TRANSLATIONS --- */
-
-/* Text colors translated to rich gold/amber or teal */
-.text-yellow-500,
-.text-yellow-400,
-.text-yellow-300,
-.text-yellow-600,
-.text-amber-500,
-.text-orange-500,
-.text-orange-600 {
-  color: #d4af37 !important; /* Premium Gold */
+/* Infinite Marquee Left to Right with Back and Forth (Va-et-vient) */
+@keyframes marquee-va-et-vient {
+  0% {
+    transform: translateX(0%);
+  }
+  50% {
+    transform: translateX(-40%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
 }
 
-.text-yellow-705,
-.text-yellow-700,
-.text-amber-700,
-.text-orange-700,
-.text-amber-800 {
-  color: #b45309 !important; /* Deep Golden Amber */
+.animate-marquee-ltr {
+  display: flex;
+  width: max-content;
+  animation: marquee-va-et-vient 30s ease-in-out infinite;
 }
 
-.text-emerald-500,
-.text-emerald-600,
-.text-emerald-700 {
-  color: #16a085 !important; /* Vibrant Teal */
+/* Specific override for the communiqué to use Montserrat font-family */
+.communiqué-montserrat,
+.communiqué-montserrat * {
+  font-family: "Montserrat", sans-serif !important;
 }
 
-/* Background opacities in teal */
-.bg-emerald-500\/10,
-.bg-emerald-500\/15,
-.bg-emerald-500\/20,
-.bg-emerald-500\/30,
-.bg-emerald-50,
-.bg-green-50,
-.bg-green-100 {
-  background-color: rgba(22, 160, 133, 0.1) !important;
-  color: #16a085 !important;
+/* --- MAXIMUM VISIBILITY & TYPOGRAPHY CONTRAST --- */
+.font-bold,
+strong, b {
+  font-weight: 700 !important;
 }
 
-/* Yellow / Gold background values */
-.bg-yellow-500,
-.bg-yellow-400,
-.bg-yellow-300,
-.bg-amber-500,
-.bg-orange-500,
-.bg-orange-600 {
-  background-color: #d4af37 !important; /* Gold */
-  color: #0f172a !important; /* Elegant dark contrast on gold */
+.font-extrabold {
+  font-weight: 800 !important;
 }
 
-/* Yellow / Gold background opacities */
-.bg-yellow-500\/10,
-.bg-yellow-500\/15,
-.bg-yellow-500\/20,
-.bg-yellow-500\/30,
-.bg-amber-500\/10,
-.bg-orange-500\/10,
-.bg-orange-500\/20 {
-  background-color: rgba(212, 175, 55, 0.12) !important;
-  color: #aa7c11 !important;
+.font-black,
+h1, h2, h3, h4, h5, h6,
+span.font-black,
+div.font-black {
+  font-weight: 900 !important;
 }
 
-/* Borders removed globally */
-.border-yellow-500,
-.border-yellow-400,
-.border-yellow-500\/10,
-.border-yellow-500\/15,
-.border-yellow-500\/20,
-.border-yellow-500\/25,
-.border-yellow-500\/30,
-.border-yellow-500\/40,
-.border-orange-500,
-.border-orange-500\/20,
-.focus\:border-yellow-500\/40:focus,
-.focus\:border-yellow-500:focus,
-.border-yellow-500,
-.border-emerald-500,
-.border-emerald-500\/20 {
-  border-color: transparent !important;
-  border-width: 0 !important;
+.font-semibold {
+  font-weight: 600 !important;
 }
 
-/* VIP Badge backgrounds or specific gradients */
-.from-amber-100.to-yellow-105 {
-  background: transparent !important;
-  color: #fde68a !important;
+.font-medium {
+  font-weight: 500 !important;
 }
 
-/* Hover effects */
-.hover\:border-yellow-500\/25:hover,
-.hover\:border-yellow-500\/20:hover {
-  border-color: transparent !important;
+/* Force dark, crisp contrast for all slate/gray text classes so investors can read everything clearly */
+.text-slate-500,
+.text-gray-500,
+.text-zinc-500 {
+  color: #475569 !important;
 }
 
-.hover\:text-yellow-400:hover {
-  color: #ffe082 !important;
+.text-slate-600,
+.text-slate-700,
+.text-slate-800,
+.text-slate-900,
+.text-gray-600,
+.text-gray-700,
+.text-gray-800,
+.text-gray-900,
+.text-slate-950 {
+  color: #0f172a !important;
+}
+
+/* Ensure labels inside cards & forms are ultra clear */
+label {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+/* Form Inputs readability */
+input, select, textarea {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+  font-weight: 500 !important;
+}
+
+/* Keep the account balance bold */
+.solde-bold,
+.solde-bold *,
+[id="main-balance-text"],
+[id="main-balance-text"] *,
+.solde-display-number,
+.solde-display-number * {
+  font-weight: 900 !important;
 }
 
 /* Infinite Marquee Left to Right with Back and Forth (Va-et-vient) */

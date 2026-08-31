@@ -60,7 +60,11 @@ import {
   Package,
   ClipboardList,
   Eye,
-  EyeOff
+  EyeOff,
+  CalendarCheck,
+  Award,
+  Flame,
+  UserCheck
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, Investment, Commission, SystemNotification, SupportMessage, WithdrawalProof } from '../types';
 import { DataStore, syncWithBackend, getApiUrl, apiFetch } from '../dataStore';
@@ -493,6 +497,9 @@ export default function Dashboard({
   const [allWithdrawals, setAllWithdrawals] = useState<Withdrawal[]>([]);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const unreadSupportCount = supportMessages.filter(
+    m => m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread'
+  ).length;
   const [withdrawalProofs, setWithdrawalProofs] = useState<WithdrawalProof[]>([]);
   const [selectedAvisImage, setSelectedAvisImage] = useState<string | null>(null);
   const [bannerImageError, setBannerImageError] = useState<boolean>(false);
@@ -1060,6 +1067,10 @@ export default function Dashboard({
 
   const [isSupportMenuOpen, setIsSupportMenuOpen] = useState<boolean>(false);
   const [isLiveChatOpen, setIsLiveChatOpen] = useState<boolean>(false);
+  const [chatImageAttachment, setChatImageAttachment] = useState<string | null>(null);
+  const [isUploadingChatImage, setIsUploadingChatImage] = useState<boolean>(false);
+  const [zoomedChatImage, setZoomedChatImage] = useState<string | null>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   const [tickerIndex, setTickerIndex] = useState<number>(0);
 
@@ -1572,16 +1583,9 @@ export default function Dashboard({
         syncDashboardData();
       }
 
-      // Check for newly received admin replies in real-time
+      // Check for newly received admin replies in real-time (without top toasts or banners)
       const freshMsgs = DataStore.getSupportMessages().filter(m => m.userId === currentUser.id);
-      if (freshMsgs.length > lastSupportMsgsCount.current) {
-        const newMsgs = freshMsgs.slice(lastSupportMsgsCount.current);
-        const adminReplies = newMsgs.filter(m => m.sender === 'admin');
-        if (adminReplies.length > 0) {
-          adminReplies.forEach(r => {
-            triggerToast(`💬 Nouveau message du support : "${r.message}"`, "info");
-          });
-        }
+      if (freshMsgs.length !== lastSupportMsgsCount.current || freshMsgs.some((m, idx) => m.status !== supportMessages[idx]?.status)) {
         lastSupportMsgsCount.current = freshMsgs.length;
         setSupportMessages(freshMsgs);
       }
@@ -1603,6 +1607,19 @@ export default function Dashboard({
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
     };
   }, [currentUser.id]);
+
+  // When the live chat is open, automatically mark any unread messages from admin as read
+  useEffect(() => {
+    if (isLiveChatOpen && currentUser.id) {
+      const hasUnreadAdminMsgs = supportMessages.some(
+        m => m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread'
+      );
+      if (hasUnreadAdminMsgs) {
+        DataStore.markSupportMessagesAsRead(currentUser.id, 'user');
+        setSupportMessages(prev => prev.map(m => (m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread') ? { ...m, status: 'read' } : m));
+      }
+    }
+  }, [isLiveChatOpen, supportMessages, currentUser.id]);
 
   useEffect(() => {
     // Scroll to bottom of support chat when opened or new messages spawn
@@ -1770,7 +1787,7 @@ export default function Dashboard({
   };
 
   // Forum actions
-  const handlePostForumMessage = (e: React.FormEvent) => {
+  const handlePostForumMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forumMessageInput.trim() && !forumImage1 && !forumImage2) {
       triggerToast("⚠️ Veuillez rédiger un message ou joindre au moins une capture d'écran.", "error");
@@ -1797,11 +1814,12 @@ export default function Dashboard({
     setForumMessageInput('');
     setForumImage1(null);
     setForumImage2(null);
-    DataStore.saveForumPosts(updated);
-    triggerToast("Votre publication avec capture d'écran a été publiée sur le Forum !", "success");
+    
+    await DataStore.createForumPost(newPost);
+    triggerToast("Votre publication a été enregistrée et publiée sur le Forum !", "success");
   };
 
-  const handleLikeForumPost = (postId: string) => {
+  const handleLikeForumPost = async (postId: string) => {
     const updated = forumPosts.map(p => {
       if (p.id === postId) {
         const likedBy = p.likedBy || (p.hasLiked ? ['legacy-like'] : []);
@@ -1820,7 +1838,7 @@ export default function Dashboard({
       return p;
     });
     setForumPosts(updated);
-    DataStore.saveForumPosts(updated);
+    await DataStore.likeForumPost(postId, userState.id);
   };
 
   const handlePostForumComment = (postId: string) => {
@@ -2372,6 +2390,23 @@ export default function Dashboard({
       return;
     }
 
+    // Condition d'achat: Un utilisateur ne doit pas pouvoir acheter un produit du bien-être ou une activité s'il n'a pas d'abord payé la stabilité.
+    const isSpecialCategory = product.category === 'wellbeing' || product.category === 'activity';
+    if (isSpecialCategory) {
+      const allInvs = DataStore.getInvestments() || [];
+      const hasStability = allInvs.some(
+        inv => inv.userId === userState.id && (inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')))
+      );
+      if (!hasStability) {
+        openAlert(
+          'Stabilité Requise',
+          'Vous devez obligatoirement acheter et payer un produit de Stabilité VIP avant de pouvoir souscrire à un produit Bien-être ou une Activité.',
+          'error'
+        );
+        return;
+      }
+    }
+
     if (userState.balance < product.price) {
       setProductErrors(prev => ({
         ...prev,
@@ -2403,14 +2438,43 @@ export default function Dashboard({
     );
   };
 
+  // Select and compress image for customer support chat
+  const handleChatImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      triggerToast("⚠️ Veuillez choisir une image (JPG, PNG, WEBP).", "error");
+      return;
+    }
+
+    try {
+      setIsUploadingChatImage(true);
+      const compressed = await compressImage(file, 800, 0.7);
+      setChatImageAttachment(compressed);
+      triggerToast("📸 Image attachée avec succès.", "success");
+    } catch (err) {
+      console.error("Error compressing chat image:", err);
+      triggerToast("⚠️ Échec du traitement de l'image.", "error");
+    } finally {
+      setIsUploadingChatImage(false);
+      if (chatFileInputRef.current) {
+        chatFileInputRef.current.value = '';
+      }
+    }
+  };
+
   // Send support message
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatMessageInput.trim()) return;
+    if (!chatMessageInput.trim() && !chatImageAttachment) return;
 
     const input = chatMessageInput;
+    const attachedImage = chatImageAttachment || undefined;
     setChatMessageInput('');
-    await DataStore.sendMessageToSupport(userState.id, input, 'user');
+    setChatImageAttachment(null);
+
+    await DataStore.sendMessageToSupport(userState.id, input, 'user', attachedImage);
     
     // Update ref immediately to prevent triggering unread replies toasts on our own message
     lastSupportMsgsCount.current = DataStore.getSupportMessages().filter(m => m.userId === currentUser.id).length;
@@ -3235,30 +3299,70 @@ export default function Dashboard({
             const totalCommissions = commissions.reduce((acc, c) => acc + c.amount, 0);
             const activeInvsCount = activeInvestments.filter(i => i.status === 'active').length;
 
-            if (profileSubPage === 'missions' || profileSubPage === 'pointage') {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const isCheckedInToday = userState.lastCheckInDate === todayStr;
+            // 1. PAGE: RÉCOMPENSES DES TÂCHES (REFERRAL TASKS)
+            if (profileSubPage === 'tasks' || profileSubPage === 'taches') {
+              const activeFriendsCount = level1Users.filter(u => getUserInvestedAmount(u.id) > 0).length;
+              const claimedTasks = userState.claimedTasks || [];
+              
+              const referralTasksList = [
+                {
+                  id: 'task_5',
+                  requiredFriends: 5,
+                  rewardAmount: 1000,
+                  title: 'Activez 5 amis',
+                  description: 'Invitez et activez 5 amis au Niveau 1 pour débloquer votre prime'
+                },
+                {
+                  id: 'task_10',
+                  requiredFriends: 10,
+                  rewardAmount: 2000,
+                  title: 'Activez 10 amis',
+                  description: 'Invitez et activez 10 amis au Niveau 1 pour débloquer votre prime'
+                },
+                {
+                  id: 'task_20',
+                  requiredFriends: 20,
+                  rewardAmount: 5000,
+                  title: 'Activez 20 amis',
+                  description: 'Invitez et activez 20 amis au Niveau 1 pour débloquer votre prime'
+                },
+                {
+                  id: 'task_50',
+                  requiredFriends: 50,
+                  rewardAmount: 10000,
+                  title: 'Activez 50 amis',
+                  description: 'Invitez et activez 50 amis au Niveau 1 pour débloquer votre prime'
+                },
+                {
+                  id: 'task_100',
+                  requiredFriends: 100,
+                  rewardAmount: 20000,
+                  title: 'Activez 100 amis',
+                  description: 'Invitez et activez 100 amis au Niveau 1 pour débloquer votre prime'
+                }
+              ];
 
-              const handleDailyCheckIn = () => {
-                if (isCheckedInToday) {
-                  triggerToast("Vous avez déjà effectué votre pointage aujourd'hui ! Revenez demain.", "info");
+              const totalClaimedRewards = claimedTasks.reduce((acc, tId) => {
+                const task = referralTasksList.find(t => t.id === tId);
+                return acc + (task ? task.rewardAmount : 0);
+              }, 0);
+
+              const handleClaimTask = (task: typeof referralTasksList[0]) => {
+                if (activeFriendsCount < task.requiredFriends) {
+                  triggerToast(`Condition non remplie. Il vous reste ${task.requiredFriends - activeFriendsCount} ami(s) à activer.`, "error");
+                  return;
+                }
+                if (claimedTasks.includes(task.id)) {
+                  triggerToast("Vous avez déjà récupéré cette récompense !", "info");
                   return;
                 }
 
-                const reward = 20;
-                const newBalance = userState.balance + reward;
-                
-                // Calculate streak
-                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                const newStreak = (userState.lastCheckInDate === yesterday) 
-                  ? (userState.checkInStreak || 0) + 1 
-                  : 1;
-
+                const updatedClaimed = [...claimedTasks, task.id];
+                const newBalance = (userState.balance || 0) + task.rewardAmount;
                 const updatedUser: User = {
                   ...userState,
                   balance: newBalance,
-                  lastCheckInDate: todayStr,
-                  checkInStreak: newStreak
+                  claimedTasks: updatedClaimed
                 };
 
                 DataStore.saveCurrentUser(updatedUser);
@@ -3274,60 +3378,387 @@ export default function Dashboard({
                   onRefreshUser(updatedUser);
                 }
 
-                triggerToast(`Pointage quotidien réussi ! 🎉 +20 FCFA ajoutés à votre solde.`, "success");
+                // Add notification
+                DataStore.addNotification({
+                  id: 'task-bonus-' + Date.now(),
+                  userId: updatedUser.id,
+                  title: `Récompense de Tâche : ${task.title} 🎉`,
+                  message: `Félicitations ! Vous avez réclamé votre prime de ${task.rewardAmount.toLocaleString()} FCFA pour avoir activé ${task.requiredFriends} amis.`,
+                  createdAt: new Date().toISOString(),
+                  isRead: false
+                });
+
+                triggerToast(`Félicitations ! +${task.rewardAmount.toLocaleString()} FCFA crédités sur votre solde 🎉`, "success");
               };
 
               return (
-                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-12 text-white text-left animate-fadeIn">
-                  {/* Rose Rouge Header */}
+                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-16 text-white text-left animate-fadeIn">
+                  {/* Rose Header */}
                   <div className="bg-gradient-to-b from-[#881337] to-[#4c0519] text-white pt-6 pb-12 px-4 rounded-b-[2.5rem] relative shadow-md overflow-hidden border-b border-rose-700/40">
-                    
-                    {/* Top navigation row */}
-                    <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 mb-6">
+                    <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 mb-5">
                       <button 
                         onClick={() => setProfileSubPage(null)}
                         className="w-10 h-10 rounded-full bg-white/15 border border-white/10 flex items-center justify-center text-white hover:bg-white/25 transition-all cursor-pointer outline-none shrink-0"
+                        id="btn-back-tasks"
                       >
                         <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
                       </button>
                       
                       <h2 className="font-sans font-black text-white text-base tracking-tight uppercase">
-                        {t("Pointage Quotidien", "Daily Check-in")}
+                        {t("Récompenses des tâches", "Task Rewards")}
+                      </h2>
+
+                      <div className="w-10 h-10" />
+                    </div>
+
+                    {/* Stats summary */}
+                    <div className="max-w-xl mx-auto grid grid-cols-2 gap-3 relative z-10 pb-2">
+                      <div className="bg-rose-950/60 p-3.5 rounded-2xl border border-rose-700/40">
+                        <span className="text-[9.5px] text-rose-200 uppercase font-black tracking-wider block">
+                          Amis activés (Niv 1)
+                        </span>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-2xl font-black font-sans text-emerald-300">
+                            {activeFriendsCount}
+                          </span>
+                          <span className="text-xs text-rose-200/70 font-bold">
+                            / {level1Users.length} inscrit(s)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-rose-950/60 p-3.5 rounded-2xl border border-rose-700/40">
+                        <span className="text-[9.5px] text-rose-200 uppercase font-black tracking-wider block">
+                          Primes réclamées
+                        </span>
+                        <span className="text-2xl font-black font-sans text-amber-300 block mt-1">
+                          {totalClaimedRewards.toLocaleString()} <span className="text-xs font-bold">FCFA</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tasks Container */}
+                  <div className="max-w-xl mx-auto -mt-6 px-4 space-y-3.5 relative z-10">
+                    {referralTasksList.map((task) => {
+                      const isClaimed = claimedTasks.includes(task.id);
+                      const isCompleted = activeFriendsCount >= task.requiredFriends;
+                      const remaining = Math.max(0, task.requiredFriends - activeFriendsCount);
+                      const progressRatio = Math.min(1, activeFriendsCount / task.requiredFriends);
+                      const progressPercentage = Math.round(progressRatio * 100);
+
+                      return (
+                        <div 
+                          key={task.id}
+                          className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-lg border border-slate-100 space-y-3 text-slate-800 transition-all hover:shadow-xl"
+                          id={`card-task-${task.requiredFriends}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                                isClaimed 
+                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                                  : isCompleted 
+                                    ? 'bg-amber-50 text-amber-600 border border-amber-200 animate-pulse'
+                                    : 'bg-rose-50 text-[#e11d48] border border-rose-100'
+                              }`}>
+                                {isClaimed ? (
+                                  <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                                ) : isCompleted ? (
+                                  <Award className="w-6 h-6 stroke-[2.5]" />
+                                ) : (
+                                  <Users className="w-5 h-5 stroke-[2.25]" />
+                                )}
+                              </div>
+
+                              <div>
+                                <h3 className="font-sans font-black text-sm sm:text-base text-slate-900 leading-snug">
+                                  {task.title}
+                                </h3>
+                                <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
+                                  {task.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="text-[9.5px] font-black uppercase text-slate-400 block">
+                                Récompense
+                              </span>
+                              <span className="text-sm sm:text-base font-black text-amber-600 font-sans block mt-0.5">
+                                {task.rewardAmount.toLocaleString()} FCFA
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar & Indicators */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[11px] font-bold text-slate-600">
+                                {isCompleted ? (
+                                  <span className="text-emerald-600 font-extrabold flex items-center gap-1">
+                                    <Check className="w-3.5 h-3.5 stroke-[3]" /> Objectif atteint ({task.requiredFriends}/{task.requiredFriends})
+                                  </span>
+                                ) : (
+                                  <span>Progression : <b className="text-slate-900">{activeFriendsCount}</b> / {task.requiredFriends} activé(s)</span>
+                                )}
+                              </span>
+                              <span className="text-[11px] font-black text-slate-500 font-mono">
+                                {progressPercentage}%
+                              </span>
+                            </div>
+
+                            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isClaimed 
+                                    ? 'bg-emerald-500' 
+                                    : isCompleted 
+                                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 animate-pulse' 
+                                      : 'bg-gradient-to-r from-rose-500 to-red-500'
+                                }`}
+                                style={{ width: `${progressPercentage}%` }}
+                              />
+                            </div>
+
+                            {!isCompleted && (
+                              <p className="text-[10.5px] text-slate-400 font-medium italic">
+                                Il reste {remaining} ami(s) à activer pour débloquer cette prime.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="pt-1">
+                            {isClaimed ? (
+                              <button
+                                disabled
+                                className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 text-emerald-700 font-black text-xs uppercase tracking-wider border border-emerald-200 flex items-center justify-center gap-2 cursor-default"
+                              >
+                                <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                                <span>Récompense Déjà Réclamée ({task.rewardAmount.toLocaleString()} FCFA) ✓</span>
+                              </button>
+                            ) : isCompleted ? (
+                              <button
+                                onClick={() => handleClaimTask(task)}
+                                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:brightness-105 active:scale-[0.98] text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-md shadow-amber-500/25 border-0 flex items-center justify-center gap-2 cursor-pointer animate-pulse transition-all"
+                                id={`btn-claim-task-${task.requiredFriends}`}
+                              >
+                                <Gift className="w-4 h-4 stroke-[2.5]" />
+                                <span>Recevoir {task.rewardAmount.toLocaleString()} FCFA</span>
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs uppercase tracking-wider border border-slate-200/50 flex items-center justify-center gap-2 cursor-not-allowed"
+                              >
+                                <Clock className="w-4 h-4 stroke-[2]" />
+                                <span>En cours ({activeFriendsCount}/{task.requiredFriends})</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Invitation Shortcut Card */}
+                    <div className="bg-rose-950/70 border border-rose-700/50 rounded-2xl p-4 sm:p-5 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                      <div>
+                        <h4 className="font-sans font-black text-sm text-white uppercase tracking-tight">
+                          Invitez plus d'amis pour progresser
+                        </h4>
+                        <p className="text-[11px] text-rose-200/80 font-medium mt-0.5">
+                          Partagez votre lien d'invitation et touchez des commissions supplémentaires.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleCopyLink}
+                        className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 uppercase tracking-wider cursor-pointer border-none shrink-0"
+                      >
+                        {copiedLink ? "Lien Copié !" : "Copier mon lien"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // 2. PAGE: POINTAGE (DÉDIÉE - SANS BARÈME, AVEC EXPLICATION ET SOLDE GÉNÉRÉ)
+            if (profileSubPage === 'point' || profileSubPage === 'pointage' || profileSubPage === 'missions') {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isCheckedInToday = userState.lastCheckInDate === todayStr;
+
+              // Calculate user's real VIP level from active investments & product catalogue
+              const userActiveInvs = activeInvestments.filter(i => i.status === 'active');
+              let userVipLevel = 0;
+              let userVipName = 'Aucun VIP Actif';
+
+              for (const inv of userActiveInvs) {
+                const prod = products.find(p => p.id === inv.productId || p.name === inv.productName);
+                let v = prod?.vipLevel || 0;
+                if (!v && inv.productId.startsWith('stab-')) {
+                  v = parseInt(inv.productId.replace('stab-', ''), 10) || 0;
+                }
+                if (v > userVipLevel) {
+                  userVipLevel = v;
+                  userVipName = prod?.tag || prod?.name || `VIP ${v}`;
+                }
+              }
+
+              if (userVipLevel === 0 && userActiveInvs.length > 0) {
+                const maxPrice = Math.max(...userActiveInvs.map(i => i.price));
+                if (maxPrice >= 50000) userVipLevel = 5;
+                else if (maxPrice >= 25000) userVipLevel = 4;
+                else if (maxPrice >= 10000) userVipLevel = 3;
+                else if (maxPrice >= 5000) userVipLevel = 2;
+                else if (maxPrice >= 2000) userVipLevel = 1;
+                if (userVipLevel > 0) {
+                  userVipName = `VIP ${userVipLevel}`;
+                }
+              }
+
+              // Automatic VIP calculation
+              const getVipPointAmount = (vip: number): number => {
+                if (vip >= 5) return 300;
+                if (vip === 4) return 50;
+                if (vip === 3) return 50;
+                if (vip === 2) return 20;
+                if (vip === 1) return 10;
+                return 0; // VIP 0
+              };
+
+              const currentVipReward = getVipPointAmount(userVipLevel);
+              const totalPointsGenerated = userState.totalCheckInEarnings || 0;
+
+              const handleDailyCheckIn = () => {
+                if (isCheckedInToday) {
+                  triggerToast("Vous avez déjà effectué votre pointage aujourd'hui ! Revenez demain.", "info");
+                  return;
+                }
+
+                if (userVipLevel === 0) {
+                  triggerToast("Aucun pack VIP actif. Activez au moins un pack VIP 1 (2 000 FCFA) pour débloquer votre pointage quotidien !", "error");
+                  return;
+                }
+
+                const reward = currentVipReward;
+                const newBalance = (userState.balance || 0) + reward;
+                const newTotalCheckInEarnings = totalPointsGenerated + reward;
+                
+                // Calculate streak
+                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                const newStreak = (userState.lastCheckInDate === yesterday) 
+                  ? (userState.checkInStreak || 0) + 1 
+                  : 1;
+
+                const updatedUser: User = {
+                  ...userState,
+                  balance: newBalance,
+                  lastCheckInDate: todayStr,
+                  checkInStreak: newStreak,
+                  totalCheckInEarnings: newTotalCheckInEarnings
+                };
+
+                DataStore.saveCurrentUser(updatedUser);
+                const allUsers = DataStore.getUsers();
+                const idx = allUsers.findIndex(u => u.id === updatedUser.id);
+                if (idx !== -1) {
+                  allUsers[idx] = updatedUser;
+                  DataStore.saveUsers(allUsers);
+                }
+
+                setUserState(updatedUser);
+                if (onRefreshUser) {
+                  onRefreshUser(updatedUser);
+                }
+
+                DataStore.addNotification({
+                  id: 'vip-point-' + Date.now(),
+                  userId: updatedUser.id,
+                  title: `Pointage validé ! 🌟`,
+                  message: `Félicitations ! Vous avez reçu ${reward} FCFA pour votre pointage quotidien correspondant à votre statut VIP ${userVipLevel}.`,
+                  createdAt: new Date().toISOString(),
+                  isRead: false
+                });
+
+                triggerToast(`Pointage validé ! +${reward} FCFA ajoutés à votre solde 🎉`, "success");
+              };
+
+              return (
+                <div className="bg-[#f8fafc] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-16 text-slate-900 text-left animate-fadeIn">
+                  {/* Clean Slate & Amber Header */}
+                  <div className="bg-slate-900 text-white pt-6 pb-14 px-4 rounded-b-[2.5rem] relative shadow-md overflow-hidden border-b border-slate-800">
+                    <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 mb-6">
+                      <button 
+                        onClick={() => setProfileSubPage(null)}
+                        className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all cursor-pointer outline-none shrink-0"
+                        id="btn-back-point"
+                      >
+                        <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+                      </button>
+                      
+                      <h2 className="font-sans font-black text-white text-base tracking-tight uppercase">
+                        {t("Pointage", "Check-in")}
                       </h2>
 
                       <button 
                         onClick={() => setIsMissionsRulesOpen(true)}
-                        className="w-10 h-10 rounded-full bg-white/15 border border-white/10 flex items-center justify-center text-white hover:bg-white/25 transition-all cursor-pointer outline-none shrink-0"
+                        className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all cursor-pointer outline-none shrink-0"
                       >
                         <HelpCircle className="w-5 h-5 stroke-[2.5]" />
                       </button>
                     </div>
 
-                    {/* Daily Reward Title & Stats */}
-                    <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 pb-4">
-                      <div>
-                        <span className="text-sky-100 text-[11.5px] font-bold tracking-wide uppercase block">
-                          {t("Récompense Quotidienne", "Daily Reward")}
+                    {/* Stats summary banner */}
+                    <div className="max-w-xl mx-auto grid grid-cols-2 gap-3 relative z-10 pb-2">
+                      <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700">
+                        <span className="text-[9.5px] text-slate-400 uppercase font-black tracking-wider block">
+                          Gains de Pointage Générés
                         </span>
-                        <span className="text-3xl font-sans font-black tracking-tight block mt-1.5 text-amber-300 drop-shadow-sm">
-                          +20 FCFA / jour
-                        </span>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className="text-2xl font-black font-sans text-amber-400">
+                            {totalPointsGenerated.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-slate-400 font-bold">
+                            FCFA
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="w-24 h-20 relative select-none pointer-events-none shrink-0 hidden sm:flex items-center justify-center">
-                        <div className="w-14 h-14 bg-amber-400 rounded-2xl rotate-6 flex items-center justify-center shadow-lg border border-amber-300">
-                          <Calendar className="w-7 h-7 text-white stroke-[2.25]" />
+                      <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700">
+                        <span className="text-[9.5px] text-slate-400 uppercase font-black tracking-wider block">
+                          Niveau VIP Actuel
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Award className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span className="text-lg font-black font-sans text-white">
+                            {userVipLevel > 0 ? `VIP ${userVipLevel}` : 'VIP 0'}
+                          </span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Main Check-In Card Overlapping Header */}
-                  <div className="max-w-xl mx-auto -mt-20 px-4 relative z-10">
-                    <div className="bg-white rounded-[2rem] p-6 shadow-xl border border-slate-100 space-y-6">
+                  {/* Main Container Overlapping Header */}
+                  <div className="max-w-xl mx-auto -mt-8 px-4 relative z-10 space-y-4">
+                    
+                    {/* EXPLICATION DU SYSTÈME DE POINTAGE */}
+                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-100 text-slate-800 space-y-2">
+                      <div className="flex items-center gap-2 text-slate-900 font-sans font-black text-xs sm:text-sm uppercase tracking-tight">
+                        <Info className="w-4 h-4 text-amber-500 stroke-[2.5]" />
+                        <span>Fonctionnement du Pointage</span>
+                      </div>
+                      <p className="text-xs sm:text-[13px] text-slate-600 font-medium leading-relaxed">
+                        Le pointage permet de recevoir un gain quotidien selon votre niveau VIP stable. Plus votre niveau VIP est élevé, plus le montant attribué au pointage peut être important. Le gain est ajouté à votre solde lorsque le pointage est effectué selon les conditions prévues.
+                      </p>
+                    </div>
+
+                    {/* ACTION CARD: POINTAGE DU JOUR */}
+                    <div className="bg-white rounded-[2rem] p-5 sm:p-6 shadow-xl border border-slate-100 space-y-5 text-slate-800">
                       
                       {/* Header Status */}
-                      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                         <div>
                           <h3 className="text-base font-sans font-black text-slate-800 uppercase tracking-tight">
                             Pointage du jour
@@ -3356,58 +3787,77 @@ export default function Dashboard({
                         </div>
                       </div>
 
-                      {/* Large Action Box */}
-                      <div className="text-center py-4 px-2 space-y-4">
-                        <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20 border-2 border-amber-300">
+                      {/* Main Action Box */}
+                      <div className="text-center py-2 space-y-3.5">
+                        <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20 border-2 border-amber-300">
                           {isCheckedInToday ? (
-                            <Check className="w-10 h-10 stroke-[3]" />
+                            <Check className="w-8 h-8 stroke-[3]" />
                           ) : (
-                            <Coins className="w-10 h-10 stroke-[2.25] animate-bounce" />
+                            <CalendarCheck className="w-8 h-8 stroke-[2.25] animate-bounce" />
                           )}
                         </div>
 
                         <div>
-                          <h4 className="text-xl font-sans font-black text-slate-800">
+                          <h4 className="text-lg sm:text-xl font-sans font-black text-slate-800">
                             {isCheckedInToday 
-                              ? "Pointage du jour effectué !" 
-                              : "Réclamez vos 20 FCFA gratuits"}
+                              ? "Pointage du jour déjà validé !" 
+                              : userVipLevel > 0 
+                                ? "Validez votre pointage du jour"
+                                : "Activez un Pack VIP pour pointer"}
                           </h4>
                           <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto mt-1 leading-relaxed">
                             {isCheckedInToday 
-                              ? "Vous avez déjà reçu vos 20 FCFA aujourd'hui. Revenez demain pour le prochain pointage !" 
-                              : "Cliquez sur le bouton ci-dessous pour ajouter instantanément 20 FCFA à votre solde."}
+                              ? "Votre pointage a été enregistré avec succès pour aujourd'hui. Revenez demain pour le prochain pointage !" 
+                              : userVipLevel > 0
+                                ? `Votre niveau VIP ${userVipLevel} vous donne droit à une récompense quotidienne créditée directement sur votre solde.`
+                                : "Vous n'avez pas de pack VIP actif. Activez au moins un pack VIP 1 pour débloquer votre pointage quotidien."}
                           </p>
                         </div>
 
-                        {/* Check-In Button */}
-                        <button
-                          onClick={handleDailyCheckIn}
-                          disabled={isCheckedInToday}
-                          className={`w-full py-4 px-6 rounded-2xl text-sm font-sans font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-lg border-0 flex items-center justify-center gap-2 ${
-                            isCheckedInToday
-                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
-                              : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-105 active:scale-[0.98] text-slate-950 shadow-amber-500/25 animate-pulse'
-                          }`}
-                        >
-                          {isCheckedInToday ? (
-                            <>
-                              <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                              <span>Pointage Effectué (+20 FCFA) ✓</span>
-                            </>
-                          ) : (
-                            <>
-                              <Coins className="w-5 h-5 stroke-[2.5]" />
-                              <span>Pointer Maintenant (+20 FCFA)</span>
-                            </>
-                          )}
-                        </button>
+                        {/* Check-In CTA Button */}
+                        {userVipLevel === 0 ? (
+                          <button
+                            onClick={() => {
+                              setProfileSubPage(null);
+                              setActiveTab('products');
+                            }}
+                            className="w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-sans font-black uppercase tracking-wider bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white shadow-lg shadow-slate-900/20 border-0 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                            id="btn-buy-vip-point"
+                          >
+                            <Sparkles className="w-4 h-4 stroke-[2.5] text-amber-400" />
+                            <span>Débloquer mon statut VIP</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleDailyCheckIn}
+                            disabled={isCheckedInToday}
+                            className={`w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-sans font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-lg border-0 flex items-center justify-center gap-2 ${
+                              isCheckedInToday
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                                : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-105 active:scale-[0.98] text-slate-950 shadow-amber-500/25 animate-pulse'
+                            }`}
+                            id="btn-submit-point"
+                          >
+                            {isCheckedInToday ? (
+                              <>
+                                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                                <span>Pointage Déjà Effectué ✓</span>
+                              </>
+                            ) : (
+                              <>
+                                <CalendarCheck className="w-5 h-5 stroke-[2.5]" />
+                                <span>Effectuer le Pointage</span>
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
 
                       {/* 7 Days Streak Visual */}
-                      <div className="pt-2">
-                        <div className="flex items-center justify-between mb-3">
+                      <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2.5">
                           <span className="text-xs font-black text-slate-700 uppercase tracking-tight">
-                            Série de pointage (7 Jours)
+                            Série de pointage consécutive
                           </span>
                           <span className="text-[11px] font-bold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">
                             {userState.checkInStreak || 0} Jour(s) d'affilée
@@ -3431,9 +3881,6 @@ export default function Dashboard({
                                 <span className="text-[10px] font-black uppercase tracking-tight block">
                                   J{dayNum}
                                 </span>
-                                <span className="text-[11px] font-extrabold mt-0.5 block">
-                                  +20
-                                </span>
                                 <div className="mt-1">
                                   {isCompletedDay ? (
                                     <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3] mx-auto" />
@@ -3453,10 +3900,10 @@ export default function Dashboard({
                   {/* Rules Modal Overlay */}
                   {isMissionsRulesOpen && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-                      <div className="bg-white rounded-[2rem] max-w-lg w-full p-6 space-y-4 animate-scaleUp shadow-2xl relative text-left">
+                      <div className="bg-white rounded-[2rem] max-w-lg w-full p-6 space-y-4 animate-scaleUp shadow-2xl relative text-left text-slate-800">
                         <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                           <h3 className="font-sans font-black text-slate-900 text-base uppercase tracking-tight">
-                            Règles du Pointage Quotidien 📋
+                            Règles du Pointage VIP 📋
                           </h3>
                           <button
                             onClick={() => setIsMissionsRulesOpen(false)}
@@ -3467,21 +3914,18 @@ export default function Dashboard({
                         </div>
                         <div className="text-[11.5px] text-slate-500 font-bold leading-relaxed space-y-3">
                           <p>
-                            1. <span className="text-slate-800">Pointage Gratuit</span> : Chaque utilisateur bénéficie d'un pointage quotidien gratuit attribuant un bonus de 20 FCFA.
+                            1. <span className="text-slate-800">Principe</span> : Le pointage permet de recevoir un gain quotidien selon votre niveau VIP stable. Plus votre niveau VIP est élevé, plus le montant attribué au pointage peut être important.
                           </p>
                           <p>
-                            2. <span className="text-slate-800">Fréquence</span> : Le pointage s'effectue une seule fois par jour calendaire (réinitialisation à minuit GMT).
+                            2. <span className="text-slate-800">Fréquence</span> : Le pointage s'effectue une seule fois par jour calendaire (réinitialisation à minuit).
                           </p>
                           <p>
-                            3. <span className="text-slate-800">Ajout Instantané</span> : Le montant de 20 FCFA est immédiatement crédité sur votre solde principal.
-                          </p>
-                          <p>
-                            4. <span className="text-slate-800">Utilisation Libre</span> : Les fonds accumulés peuvent être utilisés librement pour acheter des packs d'investissement ou effectuer un retrait.
+                            3. <span className="text-slate-800">Attribution</span> : Le gain est ajouté directement à votre solde lorsque le pointage est effectué selon les conditions prévues.
                           </p>
                         </div>
                         <button
                           onClick={() => setIsMissionsRulesOpen(false)}
-                          className="w-full bg-[#0284c7] text-white py-3 rounded-2xl text-xs font-sans font-black uppercase tracking-wider hover:bg-sky-700 transition-all border-none outline-none cursor-pointer shadow-md"
+                          className="w-full bg-slate-900 text-white py-3 rounded-2xl text-xs font-sans font-black uppercase tracking-wider hover:bg-slate-800 transition-all border-none outline-none cursor-pointer shadow-md"
                         >
                           J'ai compris
                         </button>
@@ -3492,43 +3936,105 @@ export default function Dashboard({
               );
             }
 
+            // 0. MES COMMANDES (DEDICATED FULL PAGE IN PORTEFEUILLE)
             if (profileSubPage === 'orders') {
+              const activeInvs = activeInvestments.filter(i => i.status === 'active');
+              const totalInvested = activeInvestments.reduce((acc, i) => acc + (i.price || 0), 0);
+              const totalReturns = activeInvestments.reduce((acc, i) => acc + ((i.dailyReturn || 0) * (i.daysPassed || 0)), 0);
+
               return (
-                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 px-4 sm:px-6 md:px-12 xl:px-20 pt-6 pb-12 text-white text-left animate-fadeIn">
-                  <div className="max-w-xl mx-auto w-full space-y-4">
-                    <div className="flex items-center space-x-3 mb-2 pt-2">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                  <div className="max-w-md mx-auto w-full space-y-3.5">
+                    {/* Header with Back button */}
+                    <div className="flex items-center justify-between pt-1 pb-1">
                       <button 
                         onClick={() => setProfileSubPage(null)}
-                        className="w-10 h-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-all cursor-pointer shadow-xs border-none outline-none"
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:text-slate-950 font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer border-none outline-none"
+                        id="back-to-profile-from-orders"
                       >
                         <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+                        <span>Retour</span>
                       </button>
-                      <h2 className="font-sans font-black text-white text-base uppercase tracking-tight">Mes Commandes</h2>
+                      <h2 className="font-bold text-base sm:text-lg text-slate-900 tracking-tight">Mes Commandes</h2>
+                      <div className="w-16" />
                     </div>
 
-                    <div className="bg-rose-950/70 rounded-3xl p-5 shadow-sm border border-rose-700/50 space-y-4 text-white">
-                      <p className="text-[11px] text-rose-200 font-bold leading-relaxed">
-                        Retrouvez ici vos équipements acquis. Les revenus de vos plans Stabilité et d'Activité s'accumulent de jour en jour et sont versés automatiquement à la fin de leur cycle respectif.
-                      </p>
-                      
-                      <div className="space-y-3 pt-2">
-                        {activeInvestments.filter(i => i.status === 'active').length === 0 ? (
-                          <div className="text-center py-8 text-rose-300/80 text-xs font-bold bg-rose-900/40 rounded-2xl border border-rose-700/40">
-                            Aucun produit d'investissement actif pour le moment.
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {activeInvestments.filter(i => i.status === 'active').map((p) => (
-                              <InvestmentItem 
-                                key={p.id}
-                                investment={p}
-                                onClaim={handleClaimReturn}
-                              />
-                            ))}
-                          </div>
-                        )}
+                    {/* Summary Card */}
+                    <div className="bg-gradient-to-br from-[#881337] via-[#9f1239] to-[#4c0519] rounded-2xl sm:rounded-3xl p-4 sm:p-5 text-white shadow-md border border-rose-700/50 space-y-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 flex items-center justify-center text-rose-200 shrink-0">
+                          <ShoppingBag className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-white leading-tight">
+                            Suivi des Équipements
+                          </h3>
+                          <span className="text-[10px] sm:text-[11px] text-rose-200/90 font-medium">
+                            Revenus & cycles d'investissement
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-rose-700/40 text-center">
+                        <div className="bg-rose-950/60 rounded-xl p-2.5 border border-rose-800/40">
+                          <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">Investi</span>
+                          <span className="text-xs sm:text-sm font-black text-amber-300 font-mono block mt-0.5">
+                            {totalInvested.toLocaleString()} F
+                          </span>
+                        </div>
+                        <div className="bg-rose-950/60 rounded-xl p-2.5 border border-rose-800/40">
+                          <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">Gains</span>
+                          <span className="text-xs sm:text-sm font-black text-emerald-300 font-mono block mt-0.5">
+                            +{totalReturns.toLocaleString()} F
+                          </span>
+                        </div>
+                        <div className="bg-rose-950/60 rounded-xl p-2.5 border border-rose-800/40">
+                          <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">Actifs</span>
+                          <span className="text-xs sm:text-sm font-black text-white font-mono block mt-0.5">
+                            {activeInvs.length}
+                          </span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Orders List */}
+                    <div className="space-y-3">
+                      {activeInvestments.length === 0 ? (
+                        <div className="text-center py-10 px-4 rounded-2xl bg-white border border-rose-100 shadow-xs max-w-sm mx-auto space-y-3">
+                          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
+                            <ShoppingBag className="w-6 h-6 stroke-[1.75]" />
+                          </div>
+                          <div className="space-y-1">
+                            <h4 className="font-bold text-slate-800 text-sm">
+                              Aucune commande enregistrée
+                            </h4>
+                            <p className="text-[11px] sm:text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                              Vous n'avez pas encore d'équipement actif. Découvrez nos plans d'investissement pour générer des gains quotidiens.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setProfileSubPage(null);
+                              setActiveTab('products');
+                            }}
+                            className="bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-xs cursor-pointer border-none mt-1"
+                          >
+                            Découvrir les Produits 🚀
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {activeInvestments.map((inv) => (
+                            <InvestmentItem 
+                              key={inv.id}
+                              investment={inv}
+                              onClaim={handleClaimReturn}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                   </div>
                 </div>
               );
@@ -4459,11 +4965,20 @@ export default function Dashboard({
                     {/* Support shortcuts */}
                     <div className="bg-white rounded-[24px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex gap-2">
                       <button
-                        onClick={() => setIsLiveChatOpen(true)}
-                        className="flex-1 py-3 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border-none"
+                        onClick={() => {
+                          setIsLiveChatOpen(true);
+                          DataStore.markSupportMessagesAsRead(currentUser.id, 'user');
+                          setSupportMessages(prev => prev.map(m => (m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread') ? { ...m, status: 'read' } : m));
+                        }}
+                        className="flex-1 py-3 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border-none relative"
                       >
                         <Headphones className="w-4.5 h-4.5" />
                         <span>Service Client 24/7</span>
+                        {unreadSupportCount > 0 && (
+                          <span className="min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">
+                            {unreadSupportCount}
+                          </span>
+                        )}
                       </button>
                       <button
                         onClick={() => window.open(DataStore.getWhatsAppChannel(), '_blank')}
@@ -4880,16 +5395,17 @@ export default function Dashboard({
                   </span>
                 </button>
 
-                {/* WhatsApp Channel */}
+                {/* Pointage */}
                 <button
-                  onClick={() => window.open(DataStore.getWhatsAppChannel(), '_blank')}
+                  onClick={() => setProfileSubPage('pointage')}
                   className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
+                  id="btn-quick-pointage"
                 >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-emerald-500/20 shrink-0">
-                    <MessageCircle className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
+                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-amber-500/20 shrink-0">
+                    <CalendarCheck className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
                   </div>
                   <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
-                    Canal WA
+                    {t('Pointage', 'Check-in')}
                   </span>
                 </button>
               </div>
@@ -4937,39 +5453,40 @@ export default function Dashboard({
                 </div>
               </div>
 
-              {/* 4. CARD: CENTRE D'ACTIVITÉS DE BIEN-ÊTRE (FLUID & BORDERLESS - WITHOUT POINTAGE) */}
+              {/* 4. CARD: RÉCOMPENSES DES TÂCHES (REPLACES ROUE DE LA CHANCE) */}
               <div className="bg-rose-950/40 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="space-y-0.5">
                   <span className="text-[9.5px] text-amber-400 font-extrabold uppercase tracking-widest block leading-none">
-                    {t("Activités & Récompenses", "Activities & Rewards")}
+                    {t("Tâches & Récompenses", "Tasks & Rewards")}
                   </span>
                   <h3 className="font-sans font-black text-white text-xs sm:text-sm uppercase tracking-tight">
-                    {t("Centre d'activités de bien-être", "Wellness Activity Center")}
+                    {t("Récompenses des tâches", "Task Rewards")}
                   </h3>
                 </div>
 
                 <div className="space-y-2.5 pt-0.5">
-                  {/* Roue de la chance row */}
+                  {/* Tâches row */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-rose-900/30 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all duration-300">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center shrink-0 shadow-xs">
-                        <Trophy className="w-5 h-5 stroke-[2.25]" />
+                        <Gift className="w-5 h-5 stroke-[2.25]" />
                       </div>
                       <div>
                         <h4 className="font-sans font-black text-xs sm:text-sm text-white leading-snug">
-                          {t("Roue de la chance", "Wheel of Fortune")}
+                          {t("Tâches", "Tasks")}
                         </h4>
                         <span className="text-[11px] sm:text-xs text-rose-200/80 font-bold block mt-0.5 leading-normal">
-                          {t("Taux de gain du tirage au sort de 100%", "100% winning rate draw")}
+                          {t("Activez vos amis et recevez jusqu'à 20 000 FCFA", "Activate friends and receive up to 20,000 FCFA")}
                         </span>
                       </div>
                     </div>
 
                     <button
-                      onClick={() => setProfileSubPage('wheel')}
+                      onClick={() => setProfileSubPage('tasks')}
                       className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 hover:brightness-105 py-2 px-5 rounded-xl text-[11px] sm:text-xs font-sans font-black tracking-wide transition-all active:scale-95 cursor-pointer shadow-sm border-0 shrink-0 text-center uppercase"
+                      id="btn-open-tasks-card"
                     >
-                      {t("Tirage au sort", "Draw")}
+                      {t("Tâches", "Tasks")}
                     </button>
                   </div>
                 </div>
@@ -5574,7 +6091,7 @@ export default function Dashboard({
           {/* WITHDRAW FORM TAB */}
           {!profileSubPage && activeTab === 'withdraw' && (
             <div className="max-w-xl mx-auto bg-gradient-to-br from-[#9f1239] via-[#881337] to-[#4c0519] border border-rose-700/50 p-6 md:p-8 rounded-3xl shadow-2xl text-white">
-              <div className="flex flex-row gap-3 justify-between items-center mb-6 pb-4 border-b border-rose-700/40">
+              <div className="flex flex-row gap-3 justify-between items-center mb-5 pb-4 border-b border-rose-700/40">
                 <div className="text-left flex-1 min-w-0">
                   <span className="text-xs md:text-sm font-black text-rose-300 tracking-widest uppercase block mb-1">CASH OUT DETECTÉ</span>
                   <h3 className="text-xl md:text-2xl font-display font-black text-white uppercase tracking-tight leading-none truncate">Demande de Retrait</h3>
@@ -5592,6 +6109,19 @@ export default function Dashboard({
                   <History className="w-4 h-4 text-rose-300" />
                   <span>Relevé des renseignements</span>
                 </button>
+              </div>
+
+              {/* INSTRUCTION CARD */}
+              <div className="mb-5 p-4 rounded-2xl bg-rose-950/80 border border-rose-600/60 text-left space-y-2 shadow-md">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">ℹ️</span>
+                  <h4 className="font-bold text-xs sm:text-sm uppercase tracking-wide text-amber-300">
+                    Comment fonctionne le retrait ?
+                  </h4>
+                </div>
+                <p className="text-xs text-rose-100 font-medium leading-relaxed">
+                  Saisissez le montant que vous souhaitez retirer, sélectionnez votre moyen de paiement et vérifiez attentivement vos informations avant de confirmer. Votre demande sera ensuite envoyée pour traitement. Vous pouvez suivre son statut dans votre historique des retraits.
+                </p>
               </div>
 
               {(new Date().getHours() < 9 || new Date().getHours() >= 17) && (
@@ -5805,78 +6335,73 @@ export default function Dashboard({
 
           {/* FORUM / COMMUNICATION TAB */}
           {!profileSubPage && activeTab === 'forum' && (
-            <div className="space-y-6 max-w-4xl mx-auto text-left bg-gradient-to-br from-[#9f1239] via-[#881337] to-[#4c0519] p-6 sm:p-8 rounded-[34px] border border-rose-700/50 shadow-2xl text-white animate-fadeIn">
+            <div className="space-y-4 max-w-2xl mx-auto text-left bg-gradient-to-br from-[#9f1239] via-[#881337] to-[#4c0519] p-4 sm:p-5 rounded-2xl border border-rose-700/50 shadow-xl text-white animate-fadeIn">
               
               {/* FORUM HEADER CARD */}
-              <div className="bg-rose-950/70 border border-rose-700/50 rounded-[28px] p-6 sm:p-8 text-white text-left relative overflow-hidden shadow-lg">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
-                <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
-                
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 relative z-10">
-                  <div className="space-y-1.5 flex-1">
-                    <h2 className="text-2xl sm:text-3xl font-sans font-black tracking-tight leading-none text-white">
-                      Forum Gold Avenue
+              <div className="bg-rose-950/70 border border-rose-700/50 rounded-xl p-3.5 sm:p-4 text-white text-left relative overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between gap-3 relative z-10">
+                  <div className="space-y-0.5 flex-1">
+                    <h2 className="text-lg sm:text-xl font-sans font-black tracking-tight leading-tight text-white flex items-center gap-2">
+                      <span>💬</span>
+                      <span>Forum Communautaire</span>
                     </h2>
-                    <p className="text-xs text-rose-200 font-medium max-w-lg">
-                      Partagez vos astuces d'investissement, vos objectifs, ou discutez en direct avec d'autres membres de la communauté !
+                    <p className="text-[11px] text-rose-200 font-medium">
+                      Échangez avec les autres investisseurs et partagez vos avis en direct.
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* POST A NEW MESSAGE FORM */}
-              <div className="bg-rose-950/60 border border-rose-700/50 rounded-[28px] p-5 sm:p-6 shadow-sm">
-                <form onSubmit={handlePostForumMessage} className="space-y-4">
+              <div className="bg-rose-950/60 border border-rose-700/50 rounded-xl p-3.5 sm:p-4 shadow-xs">
+                <form onSubmit={handlePostForumMessage} className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-rose-900/80 text-amber-300 border border-rose-700/50 flex items-center justify-center text-sm font-black">
-                        ✍️
-                      </div>
-                      <span className="font-sans font-black text-xs text-white uppercase tracking-wider">
-                        Publier sur le forum
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">✍️</span>
+                      <span className="font-sans font-bold text-xs text-white uppercase tracking-wider">
+                        Nouvelle publication
                       </span>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <textarea
-                      rows={3}
+                      rows={2}
                       value={forumMessageInput}
                       onChange={(e) => setForumMessageInput(e.target.value)}
-                      placeholder="Partagez votre expérience ! (Ex: Gold Avenue est vraiment fiable, retraits ultra rapides!)"
+                      placeholder="Partagez votre avis ou votre expérience..."
                       maxLength={500}
-                      className="w-full bg-rose-900/40 border border-rose-700/60 rounded-2xl p-4 text-xs font-normal text-white placeholder-rose-400/60 focus:outline-none focus:ring-2 focus:ring-rose-400/30 focus:border-rose-400 transition-all resize-none shadow-xs"
+                      className="w-full bg-rose-900/40 border border-rose-700/60 rounded-xl p-3 text-xs font-normal text-white placeholder-rose-400/60 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:border-rose-400 transition-all resize-none shadow-xs"
                     />
-                    <div className="flex justify-between items-center text-[10px] text-rose-300 font-bold px-1 select-none">
+                    <div className="flex justify-between items-center text-[10px] text-rose-300 font-medium px-1 select-none">
                       <span>Auteur : {maskUserPhone(userState.name || 'Moi')} ({userState.country || 'Cameroun'})</span>
-                      <span>{forumMessageInput.length}/500 caractères</span>
+                      <span>{forumMessageInput.length}/500</span>
                     </div>
                   </div>
 
                   {/* Optional Image Attachments */}
-                  <div className="space-y-2 bg-rose-900/30 border border-rose-700/50 p-4 rounded-2xl text-left">
-                    <label className="text-[10.5px] font-sans font-black text-rose-200 uppercase tracking-wider block">
-                      📸 Ajouter des images (optionnel)
+                  <div className="space-y-1.5 bg-rose-900/30 border border-rose-700/50 p-2.5 rounded-xl text-left">
+                    <label className="text-[10px] font-sans font-bold text-rose-200 uppercase tracking-wider block">
+                      📸 Photos / Captures d'écran (optionnel)
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       {/* Image 1 Selector */}
-                      <div className="relative border-2 border-dashed border-rose-700/60 hover:border-rose-400 rounded-2xl bg-rose-950/40 p-3 flex flex-col items-center justify-center min-h-[110px] text-center cursor-pointer transition-colors group">
+                      <div className="relative border border-dashed border-rose-700/60 hover:border-rose-400 rounded-xl bg-rose-950/40 p-2 flex flex-col items-center justify-center min-h-[75px] text-center cursor-pointer transition-colors group">
                         {forumImage1 ? (
                           <div className="w-full h-full relative">
-                            <img src={forumImage1} className="w-full h-24 object-cover rounded-xl" alt="Image 1" referrerPolicy="no-referrer" />
+                            <img src={forumImage1} className="w-full h-16 object-cover rounded-lg" alt="Image 1" referrerPolicy="no-referrer" />
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setForumImage1(null); }}
-                              className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center hover:bg-rose-700 transition-colors animate-fadeIn"
+                              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center hover:bg-rose-700 transition-colors"
                             >
                               ✕
                             </button>
                           </div>
                         ) : (
                           <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer">
-                            <span className="text-xl mb-1 group-hover:scale-110 transition-transform">📥</span>
-                            <span className="text-[10px] font-black text-rose-200 uppercase tracking-wide">Image 1</span>
-                            <span className="text-[8px] text-rose-300/70 font-bold block mt-0.5">Ajouter une photo</span>
+                            <span className="text-sm mb-0.5">📥</span>
+                            <span className="text-[9px] font-bold text-rose-200 uppercase">Image 1</span>
                             <input
                               type="file"
                               accept="image/*"
@@ -5915,23 +6440,22 @@ export default function Dashboard({
                       </div>
 
                       {/* Image 2 Selector */}
-                      <div className="relative border-2 border-dashed border-rose-700/60 hover:border-rose-400 rounded-2xl bg-rose-950/40 p-3 flex flex-col items-center justify-center min-h-[110px] text-center cursor-pointer transition-colors group">
+                      <div className="relative border border-dashed border-rose-700/60 hover:border-rose-400 rounded-xl bg-rose-950/40 p-2 flex flex-col items-center justify-center min-h-[75px] text-center cursor-pointer transition-colors group">
                         {forumImage2 ? (
                           <div className="w-full h-full relative">
-                            <img src={forumImage2} className="w-full h-24 object-cover rounded-xl" alt="Image 2" referrerPolicy="no-referrer" />
+                            <img src={forumImage2} className="w-full h-16 object-cover rounded-lg" alt="Image 2" referrerPolicy="no-referrer" />
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setForumImage2(null); }}
-                              className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center hover:bg-rose-700 transition-colors animate-fadeIn"
+                              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center hover:bg-rose-700 transition-colors"
                             >
                               ✕
                             </button>
                           </div>
                         ) : (
                           <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer">
-                            <span className="text-xl mb-1 group-hover:scale-110 transition-transform">📥</span>
-                            <span className="text-[10px] font-black text-rose-200 uppercase tracking-wide">Image 2</span>
-                            <span className="text-[8px] text-rose-300/70 font-bold block mt-0.5">Ajouter une photo</span>
+                            <span className="text-sm mb-0.5">📥</span>
+                            <span className="text-[9px] font-bold text-rose-200 uppercase">Image 2</span>
                             <input
                               type="file"
                               accept="image/*"
@@ -5971,126 +6495,104 @@ export default function Dashboard({
                     </div>
                   </div>
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-end pt-1">
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-sans font-black text-xs rounded-2xl shadow-md flex items-center gap-2 duration-150 transition-all cursor-pointer select-none active:scale-95 uppercase tracking-wider"
+                      className="px-4 py-2 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-sans font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 duration-150 transition-all cursor-pointer select-none active:scale-95 uppercase tracking-wider"
                     >
-                      <Send className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Publier sur le Forum</span>
+                      <Send className="w-3 h-3 stroke-[2.5]" />
+                      <span>Publier</span>
                     </button>
                   </div>
                 </form>
               </div>
 
               {/* FORUM TIMELINE OF POSTS */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {forumPosts.length === 0 ? (
-                  <div className="bg-rose-950/60 border border-rose-700/50 rounded-3xl p-8 text-center space-y-2">
-                    <div className="text-3xl mb-1">💬</div>
-                    <p className="text-white font-bold text-xs sm:text-sm">
+                  <div className="bg-rose-950/60 border border-rose-700/50 rounded-2xl p-6 text-center space-y-1.5">
+                    <div className="text-2xl mb-1">💬</div>
+                    <p className="text-white font-bold text-xs">
                       Aucune publication sur le forum pour le moment.
                     </p>
-                    <p className="text-rose-300 font-medium text-[11px]">
+                    <p className="text-rose-300 font-medium text-[10px]">
                       Soyez le premier à publier un message sur le forum !
                     </p>
                   </div>
                 ) : (
                   forumPosts.map((post) => {
                     const hasLiked = post.likedBy ? post.likedBy.includes(userState.id) : post.hasLiked;
-                    const commentInputVal = forumCommentInputs[post.id] || '';
+
+                    const imagesList: string[] = [];
+                    if (post.image1) imagesList.push(post.image1);
+                    if (post.image2) imagesList.push(post.image2);
+                    if (post.image && !imagesList.includes(post.image)) imagesList.push(post.image);
+                    if (post.imageUrl && !imagesList.includes(post.imageUrl)) imagesList.push(post.imageUrl);
+                    if (post.proofImage && !imagesList.includes(post.proofImage)) imagesList.push(post.proofImage);
 
                     return (
                       <div
                         key={post.id}
-                        className="bg-rose-950/70 border border-rose-700/50 hover:border-rose-500/80 hover:shadow-lg transition-all rounded-3xl p-5 text-left shadow-sm"
+                        className="bg-rose-950/70 border border-rose-700/50 hover:border-rose-500/70 transition-all rounded-2xl p-3.5 sm:p-4 text-left shadow-sm space-y-2.5"
                       >
                         {/* Author row */}
-                        <div className="flex justify-between items-start">
-                          <div className="flex gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#e11d48] to-[#be123c] text-white font-sans font-black flex items-center justify-center text-sm shadow-sm border border-rose-400/30">
-                              {post.avatarLetter || post.authorName.charAt(0).toUpperCase()}
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#e11d48] to-[#be123c] text-white font-sans font-black flex items-center justify-center text-xs shadow-xs border border-rose-400/30">
+                              {post.avatarLetter || (post.authorName ? post.authorName.charAt(0).toUpperCase() : 'M')}
                             </div>
                             <div className="leading-tight">
-                              <span className="font-sans font-bold text-white text-sm block">
-                                {maskUserPhone(post.authorName)}
+                              <span className="font-sans font-bold text-white text-xs sm:text-sm block">
+                                {maskUserPhone(post.authorName || 'Membre')}
                               </span>
-                              <span className="text-rose-300 text-[9px] font-medium tracking-normal uppercase opacity-85 mt-0.5 block">
-                                {new Date(post.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              <span className="text-rose-300 text-[9px] font-medium opacity-85 block">
+                                {new Date(post.createdAt || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Content block */}
-                        <div className="mt-4 bg-rose-900/40 border border-rose-700/40 p-4 rounded-2xl">
-                          <p className="text-xs sm:text-sm text-rose-100 leading-relaxed font-normal whitespace-pre-wrap">
-                            {maskUserPhone(post.text)}
-                          </p>
-                        </div>
+                        {/* Content text */}
+                        {post.text && (
+                          <div className="bg-rose-900/35 border border-rose-700/35 p-3 rounded-xl">
+                            <p className="text-xs text-rose-100 leading-relaxed font-normal whitespace-pre-wrap">
+                              {maskUserPhone(post.text)}
+                            </p>
+                          </div>
+                        )}
 
-                        {/* Image attachments / Screenshots section */}
-                        {(() => {
-                          const imagesList: string[] = [];
-                          if (post.image1) imagesList.push(post.image1);
-                          if (post.image2) imagesList.push(post.image2);
-                          if (post.image && !imagesList.includes(post.image)) imagesList.push(post.image);
-                          if (post.imageUrl && !imagesList.includes(post.imageUrl)) imagesList.push(post.imageUrl);
-                          if (post.proofImage && !imagesList.includes(post.proofImage)) imagesList.push(post.proofImage);
-
-                          if (imagesList.length === 0) return null;
-
-                          return (
-                            <div className="mt-3.5 space-y-2 bg-rose-900/50 p-3 rounded-2xl border border-rose-700/50">
-                              <div className="flex items-center justify-between px-1">
-                                <span className="text-[10px] font-sans font-bold text-rose-200 uppercase tracking-wider flex items-center gap-1">
-                                  📸 Captures d'écran ({imagesList.length})
-                                </span>
+                        {/* Standard Inline Image attachments (Normal display, no zoom popup on click) */}
+                        {imagesList.length > 0 && (
+                          <div className={`grid gap-2 ${imagesList.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            {imagesList.map((imgUrl, idx) => (
+                              <div 
+                                key={idx} 
+                                className="rounded-xl overflow-hidden border border-rose-700/50 bg-black/40 flex justify-center items-center max-h-56 sm:max-h-64"
+                              >
+                                <img
+                                  src={imgUrl}
+                                  alt={`Capture ${idx + 1}`}
+                                  className="w-full h-full max-h-56 sm:max-h-64 object-contain"
+                                  referrerPolicy="no-referrer"
+                                />
                               </div>
+                            ))}
+                          </div>
+                        )}
 
-                              <div className={`grid gap-2.5 ${imagesList.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                                {imagesList.map((imgUrl, idx) => (
-                                  <div key={idx} className="space-y-1.5">
-                                    <div 
-                                      onClick={() => setSelectedAvisImage(imgUrl)}
-                                      className="relative rounded-xl overflow-hidden border border-rose-700/50 aspect-[4/3] bg-slate-950 flex justify-center items-center shadow-xs cursor-zoom-in select-none group"
-                                    >
-                                      <img
-                                        src={imgUrl}
-                                        alt={`Capture ${idx + 1}`}
-                                        className="w-full h-full object-cover select-none pointer-events-none group-hover:scale-105 transition-transform duration-200"
-                                        onContextMenu={(e) => e.preventDefault()}
-                                        onDragStart={(e) => e.preventDefault()}
-                                        style={{ WebkitTouchCallout: 'none', userSelect: 'none' }}
-                                        referrerPolicy="no-referrer"
-                                      />
-                                      <div className="absolute top-2 left-2 bg-slate-950/80 text-white text-[8px] font-normal uppercase tracking-wider px-2 py-0.5 rounded-md backdrop-blur-xs">
-                                        Capture #{idx + 1}
-                                      </div>
-                                      <div className="absolute bottom-2 right-2 bg-slate-950/80 text-amber-300 border border-amber-500/30 text-[8px] font-normal uppercase tracking-wider px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                                        🔒 Non téléchargeable
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Likes section */}
-                        <div className="flex justify-between items-center border-t border-rose-700/40 mt-4 pt-3 text-rose-300">
+                        {/* Likes action */}
+                        <div className="flex justify-between items-center border-t border-rose-700/30 pt-2 text-rose-300">
                           <button
                             type="button"
                             onClick={() => handleLikeForumPost(post.id)}
-                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-sans font-bold tracking-wide uppercase transition-all duration-150 cursor-pointer ${
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-sans font-bold tracking-wide uppercase transition-all duration-150 cursor-pointer ${
                               hasLiked
-                                ? 'bg-rose-900/90 text-amber-300 font-bold border border-amber-400/40 shadow-xs'
+                                ? 'bg-rose-900/90 text-amber-300 font-bold border border-amber-400/40'
                                 : 'text-rose-200 hover:bg-rose-900/50 hover:text-white border border-rose-700/40'
                             }`}
                           >
-                            <ThumbsUp className={`w-3.5 h-3.5 ${hasLiked ? 'fill-amber-300 stroke-amber-300' : ''}`} />
-                            <span>{post.likes} Likes</span>
+                            <ThumbsUp className={`w-3 h-3 ${hasLiked ? 'fill-amber-300 stroke-amber-300' : ''}`} />
+                            <span>{post.likes || 0} Likes</span>
                           </button>
                         </div>
 
@@ -6111,31 +6613,31 @@ export default function Dashboard({
 
             if (showTeamDetailsPage) {
               return (
-                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 px-4 sm:px-6 md:px-12 xl:px-20 pt-6 pb-12 text-white text-left animate-fadeIn">
-                  <div className="max-w-xl mx-auto w-full space-y-6">
+                <div className="bg-[#0b0f19] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-4 sm:pt-6 pb-6 text-white text-left animate-fadeIn">
+                  <div className="max-w-xl mx-auto w-full space-y-5 sm:space-y-6">
                     
                     {/* Header with back button */}
-                    <div className="flex items-center space-x-3.5 mb-2 pt-2">
+                    <div className="flex items-center space-x-3.5 mb-2 pt-1">
                       <button 
                         onClick={() => setShowTeamDetailsPage(false)}
-                        className="w-10 h-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-all cursor-pointer shadow-xs active:scale-95"
+                        className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 hover:bg-slate-800 transition-all cursor-pointer shadow-xs active:scale-95"
                       >
                         <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
                       </button>
                       <div>
-                        <span className="text-[10px] text-rose-300 font-sans font-black uppercase tracking-widest block leading-none mb-1">RÉSEAU GOLD_AVENUE</span>
+                        <span className="text-[10px] text-amber-400 font-sans font-black uppercase tracking-widest block leading-none mb-1">RÉSEAU GOLD AVENUE</span>
                         <h2 className="font-sans font-black text-white text-base sm:text-lg uppercase tracking-tight leading-none">Détails de l'équipe</h2>
                       </div>
                     </div>
 
                     {/* Level Tabs Inside the Details Page */}
-                    <div className="grid grid-cols-3 gap-2 bg-rose-950/70 p-1.5 rounded-2xl border border-rose-700/50">
+                    <div className="grid grid-cols-3 gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
                       <button
                         onClick={() => setReferralListTab('level1')}
                         className={`py-3 text-center rounded-xl text-xs font-black transition-all cursor-pointer border-none outline-none ${
                           referralListTab === 'level1'
-                            ? 'bg-gradient-to-r from-[#e11d48] to-[#be123c] text-white shadow-md'
-                            : 'text-rose-300 hover:text-white bg-transparent'
+                            ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                            : 'text-slate-400 hover:text-white bg-transparent'
                         }`}
                       >
                         🥇 Niv 1 ({level1Users.length})
@@ -6144,8 +6646,8 @@ export default function Dashboard({
                         onClick={() => setReferralListTab('level2')}
                         className={`py-3 text-center rounded-xl text-xs font-black transition-all cursor-pointer border-none outline-none ${
                           referralListTab === 'level2'
-                            ? 'bg-gradient-to-r from-[#e11d48] to-[#be123c] text-white shadow-md'
-                            : 'text-rose-300 hover:text-white bg-transparent'
+                            ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                            : 'text-slate-400 hover:text-white bg-transparent'
                         }`}
                       >
                         🥈 Niv 2 ({level2Users.length})
@@ -6154,8 +6656,8 @@ export default function Dashboard({
                         onClick={() => setReferralListTab('level3')}
                         className={`py-3 text-center rounded-xl text-xs font-black transition-all cursor-pointer border-none outline-none ${
                           referralListTab === 'level3'
-                            ? 'bg-gradient-to-r from-[#e11d48] to-[#be123c] text-white shadow-md'
-                            : 'text-rose-300 hover:text-white bg-transparent'
+                            ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                            : 'text-slate-400 hover:text-white bg-transparent'
                         }`}
                       >
                         🥉 Niv 3 ({level3Users.length})
@@ -6164,9 +6666,9 @@ export default function Dashboard({
 
                     {/* Commissions and total stats banner */}
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-rose-950/70 p-4.5 rounded-3xl border border-rose-700/50 shadow-sm text-left">
-                        <span className="text-[9px] text-rose-300 font-black uppercase tracking-wider block">Membres Actifs</span>
-                        <span className="text-xl font-sans font-black text-white block mt-1">
+                      <div className="bg-slate-900/80 p-4 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-sm text-left">
+                        <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider block">Membres Actifs</span>
+                        <span className="text-lg sm:text-xl font-sans font-black text-white block mt-1">
                           {referralListTab === 'level1' 
                             ? getActiveUsersCount(level1Users) 
                             : referralListTab === 'level2' 
@@ -6174,9 +6676,9 @@ export default function Dashboard({
                               : getActiveUsersCount(level3Users)}
                         </span>
                       </div>
-                      <div className="bg-rose-950/70 p-4.5 rounded-3xl border border-rose-700/50 shadow-sm text-left">
-                        <span className="text-[9px] text-rose-300 font-black uppercase tracking-wider block">Total Investi</span>
-                        <span className="text-xl font-sans font-black text-amber-300 block mt-1">
+                      <div className="bg-slate-900/80 p-4 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-sm text-left">
+                        <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider block">Total Investi</span>
+                        <span className="text-lg sm:text-xl font-sans font-black text-amber-300 block mt-1">
                           {referralListTab === 'level1' 
                             ? getLevelInvestedAmount(level1Users).toLocaleString() 
                             : referralListTab === 'level2' 
@@ -6187,36 +6689,36 @@ export default function Dashboard({
                     </div>
 
                     {/* DETAILED LIST OF MEMBERS */}
-                    <div className="bg-rose-950/70 rounded-[32px] p-5 sm:p-6 border border-rose-700/50 shadow-sm space-y-4 text-white">
-                      <div className="flex items-center justify-between border-b border-rose-700/40 pb-3">
-                        <span className="text-[11px] text-rose-200 font-black uppercase tracking-wider block pl-0.5">
+                    <div className="bg-slate-900/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-800 shadow-sm space-y-4 text-white">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <span className="text-[11px] text-amber-400 font-black uppercase tracking-wider block pl-0.5">
                           LISTE DES FILLEULS : {referralListTab === 'level1' ? 'Niveau 1' : referralListTab === 'level2' ? 'Niveau 2' : 'Niveau 3'}
                         </span>
-                        <span className="text-[9px] bg-rose-900/80 text-rose-200 font-bold font-mono px-2.5 py-1 rounded-full border border-rose-700/50 uppercase tracking-wide">
+                        <span className="text-[9px] bg-slate-800 text-amber-300 font-bold font-mono px-2.5 py-1 rounded-full border border-slate-700 uppercase tracking-wide">
                           {referralListTab === 'level1' ? level1Users.length : referralListTab === 'level2' ? level2Users.length : level3Users.length} membres
                         </span>
                       </div>
 
                       {/* Member Items */}
-                      <div className="space-y-3 pt-1">
+                      <div className="space-y-2.5 pt-1">
                         {referralListTab === 'level1' && (
                           level1Users.length === 0 ? (
-                            <div className="text-center py-10 bg-rose-900/30 rounded-2xl border border-rose-700/30">
-                              <p className="text-xs text-rose-300/80 font-semibold max-w-xs mx-auto leading-relaxed">
+                            <div className="text-center py-8 bg-slate-950/60 rounded-2xl border border-slate-800 p-4">
+                              <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
                                 Vous n'avez pas encore de filleuls inscrits directement (Niveau 1) dans votre équipe.
                               </p>
                             </div>
                           ) : (
                             <div className="space-y-2.5">
                               {level1Users.map(u => (
-                                <div key={u.id} className="p-3.5 bg-rose-900/40 border border-rose-700/40 rounded-2xl flex items-center justify-between hover:border-rose-500/60 transition-colors text-white">
+                                <div key={u.id} className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-amber-500/40 transition-colors text-white">
                                   <div className="flex flex-col text-left">
-                                    <span className="text-[10px] text-rose-300/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
+                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
                                     <span className="text-xs sm:text-sm font-sans font-black text-white mt-0.5">{u.name || "Membre anonyme"}</span>
-                                    <span className="text-[10px] text-rose-300 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
                                   </div>
                                   <div className="flex flex-col text-right">
-                                    <span className="text-[10px] text-rose-300/80 font-extrabold uppercase tracking-wider">Montant investi</span>
+                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Montant investi</span>
                                     <span className="text-xs sm:text-sm font-mono font-black text-amber-300 mt-0.5">{getUserInvestedAmount(u.id).toLocaleString()} XOF</span>
                                   </div>
                                 </div>
@@ -6227,22 +6729,22 @@ export default function Dashboard({
 
                         {referralListTab === 'level2' && (
                           level2Users.length === 0 ? (
-                            <div className="text-center py-10 bg-rose-900/30 rounded-2xl border border-rose-700/30">
-                              <p className="text-xs text-rose-300/80 font-semibold max-w-xs mx-auto leading-relaxed">
+                            <div className="text-center py-8 bg-slate-950/60 rounded-2xl border border-slate-800 p-4">
+                              <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
                                 Aucun membre de Niveau 2 enregistré dans votre réseau.
                               </p>
                             </div>
                           ) : (
                             <div className="space-y-2.5">
                               {level2Users.map(u => (
-                                <div key={u.id} className="p-3.5 bg-rose-900/40 border border-rose-700/40 rounded-2xl flex items-center justify-between hover:border-rose-500/60 transition-colors text-white">
+                                <div key={u.id} className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-amber-500/40 transition-colors text-white">
                                   <div className="flex flex-col text-left">
-                                    <span className="text-[10px] text-rose-300/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
+                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
                                     <span className="text-xs sm:text-sm font-sans font-black text-white mt-0.5">{u.name || "Membre anonyme"}</span>
-                                    <span className="text-[10px] text-rose-300 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
                                   </div>
                                   <div className="flex flex-col text-right">
-                                    <span className="text-[10px] text-rose-300/80 font-extrabold uppercase tracking-wider">Montant investi</span>
+                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Montant investi</span>
                                     <span className="text-xs sm:text-sm font-mono font-black text-amber-300 mt-0.5">{getUserInvestedAmount(u.id).toLocaleString()} XOF</span>
                                   </div>
                                 </div>
@@ -6253,22 +6755,22 @@ export default function Dashboard({
 
                         {referralListTab === 'level3' && (
                           level3Users.length === 0 ? (
-                            <div className="text-center py-10 bg-rose-900/30 rounded-2xl border border-rose-700/30">
-                              <p className="text-xs text-rose-300/80 font-semibold max-w-xs mx-auto leading-relaxed">
+                            <div className="text-center py-8 bg-slate-950/60 rounded-2xl border border-slate-800 p-4">
+                              <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
                                 Aucun membre de Niveau 3 enregistré dans votre réseau.
                               </p>
                             </div>
                           ) : (
                             <div className="space-y-2.5">
                               {level3Users.map(u => (
-                                <div key={u.id} className="p-3.5 bg-rose-900/40 border border-rose-700/40 rounded-2xl flex items-center justify-between hover:border-rose-500/60 transition-colors text-white">
+                                <div key={u.id} className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-amber-500/40 transition-colors text-white">
                                   <div className="flex flex-col text-left">
-                                    <span className="text-[10px] text-rose-300/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
+                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
                                     <span className="text-xs sm:text-sm font-sans font-black text-white mt-0.5">{u.name || "Membre anonyme"}</span>
-                                    <span className="text-[10px] text-rose-300 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
                                   </div>
                                   <div className="flex flex-col text-right">
-                                    <span className="text-[10px] text-rose-300/80 font-extrabold uppercase tracking-wider">Montant investi</span>
+                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Montant investi</span>
                                     <span className="text-xs sm:text-sm font-mono font-black text-amber-300 mt-0.5">{getUserInvestedAmount(u.id).toLocaleString()} XOF</span>
                                   </div>
                                 </div>
@@ -6278,203 +6780,202 @@ export default function Dashboard({
                         )}
                       </div>
                     </div>
-
                   </div>
                 </div>
               );
             }
 
             return (
-              <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 px-4 sm:px-6 md:px-12 xl:px-20 pt-6 pb-12 text-white text-left animate-fadeIn animate-duration-300">
-                <div className="max-w-xl mx-auto w-full space-y-6">
+              <div className="bg-[#0b0f19] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-4 sm:pt-6 pb-6 text-white text-left animate-fadeIn animate-duration-300">
+                <div className="max-w-xl mx-auto w-full space-y-4 sm:space-y-5">
                   
                   {/* INVITATION REWARDS SECTION */}
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Header with Star */}
                     <div className="flex items-center justify-between pl-1">
-                      <div className="space-y-1">
-                        <h2 className="text-xl sm:text-2xl font-sans font-black tracking-tight text-white">
+                      <div className="space-y-0.5">
+                        <h2 className="text-lg sm:text-2xl font-sans font-black tracking-tight text-white">
                           Récompenses d'invitation
                         </h2>
-                        <p className="text-xs text-rose-200 font-bold">
+                        <p className="text-xs text-amber-300 font-bold">
                           Investissez ensemble, enrichissez-vous ensemble
                         </p>
                       </div>
-                      <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-300 border border-amber-500/30 text-2xl animate-pulse">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-300 border border-amber-500/30 text-xl sm:text-2xl">
                         🌟
                       </div>
                     </div>
 
                     {/* Invitation Cards */}
-                    <div className="space-y-3">
+                    <div className="space-y-2.5 sm:space-y-3">
                       {/* Invitation Code Card */}
-                      <div className="bg-rose-950/70 rounded-3xl p-4 sm:p-5 flex items-center justify-between border border-rose-700/50 shadow-sm transition-transform hover:scale-[1.01] text-white">
+                      <div className="bg-slate-900/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-slate-800 shadow-sm transition-transform hover:scale-[1.01] text-white">
                         <div className="flex items-center space-x-3 sm:space-x-4">
-                          <div className="w-11 h-11 rounded-2xl bg-rose-900/60 flex items-center justify-center text-rose-200 shrink-0">
-                            <Copy className="w-5.5 h-5.5 stroke-[2.5]" />
+                          <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                            <Copy className="w-5 h-5 stroke-[2.25]" />
                           </div>
                           <div>
-                            <span className="text-[10px] sm:text-[11px] text-rose-300 font-black uppercase tracking-wider block">Code d'invitation</span>
-                            <span className="text-base sm:text-lg font-sans font-black text-white block mt-0.5 select-all">{userState.referralCode}</span>
+                            <span className="text-[10px] sm:text-[11px] text-amber-400 font-black uppercase tracking-wider block">Code d'invitation</span>
+                            <span className="text-sm sm:text-lg font-sans font-black text-white block mt-0.5 select-all">{userState.referralCode}</span>
                           </div>
                         </div>
                         <button
                           onClick={handleCopyCode}
-                          className="px-5 py-2.5 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white text-[11px] font-black rounded-full shadow-md transition-all active:scale-95 duration-150 uppercase tracking-widest cursor-pointer border-none outline-none"
+                          className="px-4 py-2 sm:px-5 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] sm:text-[11px] font-black rounded-xl shadow-md transition-all active:scale-95 duration-150 uppercase tracking-widest cursor-pointer border-none outline-none"
                         >
-                          {copiedCode ? "Copier..." : "Copier"}
+                          {copiedCode ? "Copié !" : "Copier"}
                         </button>
                       </div>
 
                       {/* Invitation Link Card */}
-                      <div className="bg-rose-950/70 rounded-3xl p-4 sm:p-5 flex items-center justify-between border border-rose-700/50 shadow-sm transition-transform hover:scale-[1.01] text-white">
+                      <div className="bg-slate-900/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-slate-800 shadow-sm transition-transform hover:scale-[1.01] text-white">
                         <div className="flex items-center space-x-3 sm:space-x-4 overflow-hidden mr-2">
-                          <div className="w-11 h-11 rounded-2xl bg-rose-900/60 flex items-center justify-center text-rose-200 shrink-0">
-                            <Share className="w-5.5 h-5.5 stroke-[2.5]" />
+                          <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                            <Share className="w-5 h-5 stroke-[2.25]" />
                           </div>
                           <div className="overflow-hidden">
-                            <span className="text-[10px] sm:text-[11px] text-rose-300 font-black uppercase tracking-wider block">Lien d'invitation</span>
-                            <span className="text-xs font-sans font-bold text-rose-200 block mt-0.5 truncate select-all">{referralURL}</span>
+                            <span className="text-[10px] sm:text-[11px] text-amber-400 font-black uppercase tracking-wider block">Lien d'invitation</span>
+                            <span className="text-xs font-sans font-bold text-slate-300 block mt-0.5 truncate select-all">{referralURL}</span>
                           </div>
                         </div>
                         <button
                           onClick={handleCopyLink}
-                          className="px-5 py-2.5 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white text-[11px] font-black rounded-full shadow-md transition-all active:scale-95 duration-150 uppercase tracking-widest cursor-pointer border-none outline-none shrink-0"
+                          className="px-4 py-2 sm:px-5 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] sm:text-[11px] font-black rounded-xl shadow-md transition-all active:scale-95 duration-150 uppercase tracking-widest cursor-pointer border-none outline-none shrink-0"
                         >
-                          {copiedLink ? "Copier..." : "Copier"}
+                          {copiedLink ? "Copié !" : "Copier"}
                         </button>
                       </div>
                     </div>
                   </div>
 
                   {/* TEAM LEVELS SECTION */}
-                  <div className="space-y-4 pt-2">
+                  <div className="space-y-3 pt-1">
                     <div className="flex items-center justify-between pl-1">
-                      <h3 className="font-sans font-black text-white text-base sm:text-lg uppercase tracking-tight">
+                      <h3 className="font-sans font-black text-white text-sm sm:text-base uppercase tracking-tight">
                         Niveau d'équipe
                       </h3>
                       <button
                         onClick={() => {
                           setShowTeamDetailsPage(true);
                         }}
-                        className="text-rose-300 hover:text-white text-xs font-extrabold flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer bg-transparent border-none outline-none"
+                        className="text-amber-400 hover:text-amber-300 text-xs font-extrabold flex items-center space-x-1 uppercase tracking-wider cursor-pointer bg-transparent border-none outline-none"
                       >
                         <span>Détails de l'équipe</span>
-                        <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                        <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
                       </button>
                     </div>
 
                     {/* Level Cards */}
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       
-                      {/* Level 1 (N1) - Golden Card on Rose Rouge */}
+                      {/* Level 1 (N1) - Golden Card */}
                       <div 
                         onClick={() => {
                           setReferralListTab('level1');
                           setShowTeamDetailsPage(true);
                         }}
-                        className={`bg-gradient-to-r from-[#881337] to-[#4c0519] rounded-3xl p-4 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
+                        className={`bg-slate-900/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
                           referralListTab === 'level1' 
-                            ? 'border-amber-400 ring-2 ring-amber-400 ring-offset-2 ring-offset-[#4c0519] scale-[1.01]' 
-                            : 'border-amber-500/40 hover:border-amber-400/70'
+                            ? 'border-amber-400 ring-2 ring-amber-400/40 scale-[1.01]' 
+                            : 'border-slate-800 hover:border-amber-500/40'
                         }`}
                       >
-                        <div className="flex items-center space-x-3.5 sm:space-x-5 flex-1">
-                          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-3xl filter drop-shadow-sm shrink-0">
+                        <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
+                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl filter drop-shadow-sm shrink-0">
                             🥇
                           </div>
                           
                           <div className="grid grid-cols-3 gap-2 sm:gap-4 flex-1 text-left">
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-amber-300 block leading-tight">{mlmRates.level1 !== undefined ? mlmRates.level1 : 30}%</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Remise Niv 1</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-amber-300 block leading-tight">{mlmRates.level1 !== undefined ? mlmRates.level1 : 30}%</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Taux Niv 1</span>
                             </div>
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-white block leading-tight">{level1Users.length}</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-white block leading-tight">{level1Users.length}</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
                             </div>
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-emerald-300 block leading-tight">{getActiveUsersCount(level1Users)}</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Activé</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-emerald-400 block leading-tight">{getActiveUsersCount(level1Users)}</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Activé</span>
                             </div>
                           </div>
                         </div>
-                        <div className="text-rose-300 pl-2">
-                          <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+                        <div className="text-amber-400 pl-1.5">
+                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                         </div>
                       </div>
 
-                      {/* Level 2 (N2) - Silver Card on Rose Rouge */}
+                      {/* Level 2 (N2) - Silver Card */}
                       <div 
                         onClick={() => {
                           setReferralListTab('level2');
                           setShowTeamDetailsPage(true);
                         }}
-                        className={`bg-gradient-to-r from-[#881337] to-[#4c0519] rounded-3xl p-4 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
+                        className={`bg-slate-900/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
                           referralListTab === 'level2' 
-                            ? 'border-rose-400 ring-2 ring-rose-400 ring-offset-2 ring-offset-[#4c0519] scale-[1.01]' 
-                            : 'border-rose-600/50 hover:border-rose-400/70'
+                            ? 'border-amber-400 ring-2 ring-amber-400/40 scale-[1.01]' 
+                            : 'border-slate-800 hover:border-amber-500/40'
                         }`}
                       >
-                        <div className="flex items-center space-x-3.5 sm:space-x-5 flex-1">
-                          <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-3xl filter drop-shadow-sm shrink-0">
+                        <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
+                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-2xl filter drop-shadow-sm shrink-0">
                             🥈
                           </div>
                           
                           <div className="grid grid-cols-3 gap-2 sm:gap-4 flex-1 text-left">
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-amber-300 block leading-tight">{mlmRates.level2 !== undefined ? mlmRates.level2 : 2}%</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Lv 2 Rebate</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-amber-300 block leading-tight">{mlmRates.level2 !== undefined ? mlmRates.level2 : 2}%</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Taux Niv 2</span>
                             </div>
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-white block leading-tight">{level2Users.length}</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-white block leading-tight">{level2Users.length}</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
                             </div>
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-emerald-300 block leading-tight">{getActiveUsersCount(level2Users)}</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Activé</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-emerald-400 block leading-tight">{getActiveUsersCount(level2Users)}</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Activé</span>
                             </div>
                           </div>
                         </div>
-                        <div className="text-rose-300 pl-2">
-                          <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+                        <div className="text-amber-400 pl-1.5">
+                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                         </div>
                       </div>
 
-                      {/* Level 3 (N3) - Bronze Card on Rose Rouge */}
+                      {/* Level 3 (N3) - Bronze Card */}
                       <div 
                         onClick={() => {
                           setReferralListTab('level3');
                           setShowTeamDetailsPage(true);
                         }}
-                        className={`bg-gradient-to-r from-[#881337] to-[#4c0519] rounded-3xl p-4 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
+                        className={`bg-slate-900/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
                           referralListTab === 'level3' 
-                            ? 'border-amber-500 ring-2 ring-amber-500 ring-offset-2 ring-offset-[#4c0519] scale-[1.01]' 
-                            : 'border-rose-700/50 hover:border-rose-500/70'
+                            ? 'border-amber-400 ring-2 ring-amber-400/40 scale-[1.01]' 
+                            : 'border-slate-800 hover:border-amber-500/40'
                         }`}
                       >
-                        <div className="flex items-center space-x-3.5 sm:space-x-5 flex-1">
-                          <div className="w-12 h-12 rounded-2xl bg-amber-900/30 border border-amber-700/40 flex items-center justify-center text-3xl filter drop-shadow-sm shrink-0">
+                        <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
+                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-900/30 border border-amber-700/40 flex items-center justify-center text-2xl filter drop-shadow-sm shrink-0">
                             🥉
                           </div>
                           
                           <div className="grid grid-cols-3 gap-2 sm:gap-4 flex-1 text-left">
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-amber-300 block leading-tight">{mlmRates.level3 !== undefined ? mlmRates.level3 : 1}%</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Lv 3 Rebate</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-amber-300 block leading-tight">{mlmRates.level3 !== undefined ? mlmRates.level3 : 1}%</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Taux Niv 3</span>
                             </div>
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-white block leading-tight">{level3Users.length}</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-white block leading-tight">{level3Users.length}</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
                             </div>
                             <div>
-                              <span className="text-lg sm:text-xl font-sans font-black text-emerald-300 block leading-tight">{getActiveUsersCount(level3Users)}</span>
-                              <span className="text-[9px] sm:text-[10px] text-rose-200 font-black uppercase tracking-tight block mt-0.5">Activé</span>
+                              <span className="text-base sm:text-lg font-sans font-black text-emerald-400 block leading-tight">{getActiveUsersCount(level3Users)}</span>
+                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Activé</span>
                             </div>
                           </div>
                         </div>
-                        <div className="text-rose-300 pl-2">
-                          <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+                        <div className="text-amber-400 pl-1.5">
+                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                         </div>
                       </div>
 
@@ -6482,79 +6983,64 @@ export default function Dashboard({
                   </div>
 
                   {/* COMMISSIONS SUMMARY CARD */}
-                  <div className="bg-rose-950/70 border border-rose-700/50 rounded-[28px] p-4.5 flex items-center justify-between shadow-xs text-white">
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex items-center justify-between shadow-xs text-white">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-lg border border-amber-500/30">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-base sm:text-lg border border-amber-500/30">
                         💰
                       </div>
                       <div>
-                        <span className="text-[9px] text-rose-300 font-black uppercase tracking-wider block">SOLDE DE COMMISSIONS</span>
-                        <span className="text-base font-black text-amber-300 block mt-0.5">
+                        <span className="text-[8.5px] sm:text-[9px] text-amber-400 font-black uppercase tracking-wider block">SOLDE DE COMMISSIONS</span>
+                        <span className="text-sm sm:text-base font-black text-amber-300 block mt-0.5">
                           {commissions.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()} XOF
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-[9px] text-rose-300 font-black uppercase tracking-wider block">TOTAL INVITÉS</span>
-                      <span className="text-sm font-black text-white block mt-0.5">
+                      <span className="text-[8.5px] sm:text-[9px] text-amber-400 font-black uppercase tracking-wider block">TOTAL INVITÉS</span>
+                      <span className="text-xs sm:text-sm font-black text-white block mt-0.5">
                         {totalReferrals} membres
                       </span>
                     </div>
                   </div>
 
-                  {/* AUTO SHARE SECTION */}
-                  <div className="bg-rose-950/70 rounded-[32px] p-5 sm:p-6 border border-rose-700/50 shadow-xs space-y-4 text-white">
-                    <span className="text-[10px] text-rose-300 font-black uppercase tracking-wider block pl-0.5">
-                      Partager l'invitation sur les réseaux
-                    </span>
-                    <div className="grid grid-cols-4 gap-2.5 font-sans">
-                      {/* WhatsApp */}
-                      <a 
-                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Rejoignez Gold Avenue et obtenez des rendements quotidiens exceptionnels ! Utilisez mon lien d'inscription : ${referralURL}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex flex-col items-center justify-center p-3 bg-rose-900/50 hover:bg-rose-800/70 rounded-2xl transition-all text-emerald-400 border border-rose-700/40 cursor-pointer"
-                      >
-                        <span className="text-xl mb-1">💬</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-rose-200">WhatsApp</span>
-                      </a>
+                  {/* 5-LINE EXPLANATION OF REFERRAL & COMMISSIONS */}
+                  <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3 text-slate-800">
+                    <div className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm sm:text-base shrink-0 border border-amber-200">
+                        ℹ️
+                      </div>
+                      <div>
+                        <h3 className="font-sans font-black text-slate-900 text-xs sm:text-sm uppercase tracking-tight">
+                          Fonctionnement du Parrainage & Commissions
+                        </h3>
+                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block">
+                          Guide et règles de redistribution
+                        </span>
+                      </div>
+                    </div>
 
-                      {/* Telegram */}
-                      <a 
-                        href={`https://t.me/share/url?url=${encodeURIComponent(referralURL)}&text=${encodeURIComponent(`Rejoignez Gold Avenue et obtenez des rendements quotidiens exceptionnels !`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex flex-col items-center justify-center p-3 bg-rose-900/50 hover:bg-rose-800/70 rounded-2xl transition-all text-sky-400 border border-rose-700/40 cursor-pointer"
-                      >
-                        <span className="text-xl mb-1">✈️</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-rose-200">Telegram</span>
-                      </a>
-
-                      {/* Facebook */}
-                      <a 
-                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralURL)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex flex-col items-center justify-center p-3 bg-rose-900/50 hover:bg-rose-800/70 rounded-2xl transition-all text-blue-400 border border-rose-700/40 cursor-pointer"
-                      >
-                        <span className="text-xl mb-1">👥</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-rose-200">Facebook</span>
-                      </a>
-
-                      {/* Instagram */}
-                      <button 
-                        onClick={() => {
-                          handleCopyLink();
-                          triggerToast('🔗 Lien copié ! Collez-le sur Instagram.', 'success');
-                          setTimeout(() => {
-                            window.open('https://instagram.com', '_blank', 'noopener,noreferrer');
-                          }, 1000);
-                        }}
-                        className="flex flex-col items-center justify-center p-3 bg-rose-900/50 hover:bg-rose-800/70 rounded-2xl transition-all text-rose-400 border border-rose-700/40 cursor-pointer outline-none"
-                      >
-                        <span className="text-xl mb-1">📸</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-rose-200">Instagram</span>
-                      </button>
+                    {/* 5-Line Clear Explanation */}
+                    <div className="space-y-2 text-left">
+                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
+                        <span className="text-amber-500 font-bold shrink-0">1.</span>
+                        <p>Partagez votre code ou votre lien d'invitation personnel copiable directement auprès de vos contacts ou sur vos réseaux sociaux.</p>
+                      </div>
+                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
+                        <span className="text-amber-500 font-bold shrink-0">2.</span>
+                        <p>Dès qu'un nouveau membre s'inscrit via votre lien, il est automatiquement intégré à votre réseau de filleuls.</p>
+                      </div>
+                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
+                        <span className="text-amber-500 font-bold shrink-0">3.</span>
+                        <p>À chaque souscription d'un plan d'investissement par un membre de votre réseau, une commission proportionnelle est créditée sur votre solde.</p>
+                      </div>
+                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
+                        <span className="text-amber-500 font-bold shrink-0">4.</span>
+                        <p>Les taux de commission s'appliquent sur 3 niveaux : <strong className="text-amber-600 font-bold">Niveau 1 ({mlmRates.level1 !== undefined ? mlmRates.level1 : 30}%)</strong>, <strong className="text-amber-600 font-bold">Niveau 2 ({mlmRates.level2 !== undefined ? mlmRates.level2 : 2}%)</strong> et <strong className="text-amber-600 font-bold">Niveau 3 ({mlmRates.level3 !== undefined ? mlmRates.level3 : 1}%)</strong>.</p>
+                      </div>
+                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-500 leading-relaxed font-medium">
+                        <span className="text-amber-500 font-bold shrink-0">5.</span>
+                        <p className="text-[10px] sm:text-[11px] text-slate-500">Les commissions sont conditionnées par l'activité réelle et les investissements validés de vos filleuls ; aucun gain n'est garanti sans souscription active.</p>
+                      </div>
                     </div>
                   </div>
 
@@ -6588,17 +7074,14 @@ export default function Dashboard({
               .reduce((acc, i) => acc + (i.dailyReturn || 0), 0);
 
             return (
-              <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+              <div className="bg-[#f8fafc] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
                 <div className="max-w-md mx-auto w-full space-y-3">
                   
                   {/* TOP WALLET / PROFILE STATS CARD */}
-                  <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_4px_25px_rgba(225,29,72,0.05)] border border-rose-100/70 relative overflow-hidden text-slate-900" id="mon-compte-wallet-card">
-                    {/* Top right red arch banner badge matching reference */}
-                    <div className="absolute top-0 right-0 w-28 sm:w-36 h-9 sm:h-12 bg-gradient-to-l from-red-600 to-rose-600 rounded-bl-[32px] pointer-events-none" />
-
+                  <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm border border-slate-200 relative overflow-hidden text-slate-900" id="mon-compte-wallet-card">
                     {/* Header */}
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-red-600 via-rose-600 to-rose-500 text-white flex items-center justify-center shadow-xs shrink-0 border border-white">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
                         <Wallet className="w-4.5 h-4.5 stroke-[2.25]" />
                       </div>
                       <h3 className="font-sans font-bold text-sm sm:text-base text-slate-900 tracking-tight">
@@ -6608,21 +7091,21 @@ export default function Dashboard({
 
                     {/* Balance */}
                     <div className="mt-3 flex items-baseline">
-                      <span className="text-xs sm:text-sm font-medium text-slate-400">Équilibre:</span>
+                      <span className="text-xs sm:text-sm font-medium text-slate-500">Équilibre:</span>
                       <span className="ml-2 text-2xl sm:text-3xl font-black text-slate-950 font-sans tracking-tight">
                         {userState.balance.toLocaleString()}
                       </span>
                     </div>
 
-                    {/* 6 Statistics in 3 Columns x 2 Rows Grid (Exact match with reference image) */}
-                    <div className="grid grid-cols-3 gap-x-2 gap-y-3.5 mt-4 pt-1 text-center">
+                    {/* 6 Statistics in 3 Columns x 2 Rows Grid */}
+                    <div className="grid grid-cols-3 gap-x-2 gap-y-3.5 mt-4 pt-1 text-center border-t border-slate-100 pt-3">
                       {/* 1. Daily Income */}
                       <div className="space-y-0.5">
                         <span className="text-sm sm:text-base font-bold text-slate-950 font-sans block leading-tight">
                           {todayEarned.toLocaleString()}
                         </span>
                         <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block leading-tight">
-                          Aucun revenu reçu aujourd'hui(XAF)
+                          Revenu aujourd'hui(XAF)
                         </span>
                       </div>
 
@@ -6678,8 +7161,35 @@ export default function Dashboard({
                     </div>
                   </div>
 
-                  {/* FEATURE LIST CARDS - INDIVIDUAL WHITE CARDS MATCHING REFERENCE IMAGE */}
+                  {/* FEATURE LIST CARDS - INDIVIDUAL WHITE CARDS */}
                   <div className="space-y-2.5 pt-0.5">
+
+                    {/* 0. Mes Commandes */}
+                    <button 
+                      onClick={() => setProfileSubPage('orders')}
+                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
+                      id="card-mes-commandes"
+                    >
+                      <div className="flex items-center flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                          <ShoppingBag className="w-5 h-5 stroke-[2.25]" />
+                        </div>
+                        <div className="ml-3.5 flex flex-col min-w-0">
+                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Mes Commandes</span>
+                          <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                            {activeInvestments.length > 0 ? `${activeInvestments.length} équipement(s) souscrit(s)` : 'Historique & suivi des équipements'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {activeInvestments.filter(i => i.status === 'active').length > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-200/60">
+                            {activeInvestments.filter(i => i.status === 'active').length} actif{activeInvestments.filter(i => i.status === 'active').length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        <ChevronRight className="w-5 h-5 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </button>
 
                     {/* 1. Carte bancaire */}
                     <button 
@@ -6784,17 +7294,43 @@ export default function Dashboard({
 
                     {/* 7. Service Client (Chat) */}
                     <button 
-                      onClick={() => setIsLiveChatOpen(true)}
+                      onClick={() => {
+                        setIsLiveChatOpen(true);
+                        DataStore.markSupportMessagesAsRead(currentUser.id, 'user');
+                        setSupportMessages(prev => prev.map(m => (m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread') ? { ...m, status: 'read' } : m));
+                      }}
                       className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
                       id="card-service-client-chat"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform relative">
                           <Headphones className="w-5 h-5 stroke-[2.25]" />
+                          {unreadSupportCount > 0 && (
+                            <span 
+                              id="badge-service-client-count"
+                              className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center shadow-md border-2 border-white animate-pulse"
+                            >
+                              {unreadSupportCount > 99 ? '99+' : unreadSupportCount}
+                            </span>
+                          )}
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Service Client (Chat)</span>
+                        <div className="ml-3.5 flex flex-col min-w-0">
+                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Service Client (Chat)</span>
+                          <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                            {unreadSupportCount > 0 
+                              ? `${unreadSupportCount} nouveau${unreadSupportCount > 1 ? 'x' : ''} message${unreadSupportCount > 1 ? 's' : ''}` 
+                              : 'Assistance & messagerie directe'}
+                          </span>
+                        </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {unreadSupportCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] sm:text-[11px] font-black border border-red-200">
+                            {unreadSupportCount}
+                          </span>
+                        )}
+                        <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
                     </button>
 
                     {/* 8. Panneau Administratif (if admin) */}
@@ -6804,32 +7340,32 @@ export default function Dashboard({
                           setIsAdminMode(true);
                           triggerToast("🔑 Mode Administrateur Activé", "success");
                         }}
-                        className="w-full bg-rose-50/60 rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(225,29,72,0.06)] flex items-center justify-between hover:bg-rose-100/60 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                        className="w-full bg-slate-100/80 rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200 flex items-center justify-between hover:bg-slate-200/80 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                         id="card-panneau-administratif"
                       >
                         <div className="flex items-center flex-1 min-w-0 pr-2">
-                          <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
                             <Lock className="w-5 h-5 stroke-[2.25]" />
                           </div>
-                          <span className="font-bold text-sm sm:text-[15px] text-rose-900 ml-3.5 leading-snug break-words">Panneau Administratif</span>
+                          <span className="font-bold text-sm sm:text-[15px] text-slate-900 ml-3.5 leading-snug break-words">Panneau Administratif</span>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-rose-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                        <ChevronRight className="w-5 h-5 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
                       </button>
                     )}
 
                     {/* 9. Déconnexion */}
                     <button 
                       onClick={onLogout}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-rose-50/50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200 flex items-center justify-between hover:bg-red-50/40 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-deconnexion"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                           <LogOut className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-600 ml-3.5 leading-snug break-words">Se déconnecter</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-red-600 ml-3.5 leading-snug break-words">Se déconnecter</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-rose-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
                     </button>
                   </div>
 
@@ -6841,8 +7377,8 @@ export default function Dashboard({
       )}
 
       {/* DASHBOARD MOBILE FIXED BOTTOM NAVIGATION */}
-      <footer className="fixed bottom-0 left-0 right-0 py-1 sm:py-1.5 px-1 sm:px-3 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-[0_-2px_12px_rgba(0,0,0,0.04)]">
-        <div className="max-w-md mx-auto grid grid-cols-5 items-center">
+      <footer className="fixed bottom-0 left-0 right-0 py-1.5 px-2 sm:px-4 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-[0_-2px_12px_rgba(0,0,0,0.04)]">
+        <div className="max-w-md mx-auto grid grid-cols-4 items-center">
           
           {/* 1. Accueil */}
           <button
@@ -6852,7 +7388,7 @@ export default function Dashboard({
               setActiveTab('dashboard');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'dashboard' && !isAdminMode 
                 ? 'text-red-600 font-black' 
                 : 'text-slate-400 hover:text-slate-600'
@@ -6864,7 +7400,7 @@ export default function Dashboard({
             }`}>
               <Home className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[10px] sm:text-[11px] leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Accueil', 'Home')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Accueil', 'Home')}</span>
           </button>
 
           {/* 2. Produit */}
@@ -6875,7 +7411,7 @@ export default function Dashboard({
               setActiveTab('products');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'products' && !isAdminMode 
                 ? 'text-red-600 font-black' 
                 : 'text-slate-400 hover:text-slate-600'
@@ -6887,33 +7423,10 @@ export default function Dashboard({
             }`}>
               <Package className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[10px] sm:text-[11px] leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Produit', 'Products')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Produit', 'Products')}</span>
           </button>
   
-          {/* 3. Commande */}
-          <button
-            onClick={() => {
-              setIsAdminMode(false);
-              setProfileSubPage(null);
-              setActiveTab('orders');
-              setShowTeamDetailsPage(false);
-            }}
-            className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
-              activeTab === 'orders' && !isAdminMode 
-                ? 'text-red-600 font-black' 
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-            id="tab-nav-commande"
-          >
-            <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'orders' && !isAdminMode ? 'text-red-600' : 'text-slate-400'
-            }`}>
-              <ShoppingBag className="w-5 h-5 stroke-[2.25]" />
-            </div>
-            <span className="font-sans font-extrabold text-[10px] sm:text-[11px] leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Commande', 'Order')}</span>
-          </button>
-  
-          {/* 4. Chat */}
+          {/* 3. Forum */}
           <button
             onClick={() => {
               setIsAdminMode(false);
@@ -6921,22 +7434,22 @@ export default function Dashboard({
               setActiveTab('forum');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'forum' && !isAdminMode 
-                ? 'text-sky-500 font-black' 
+                ? 'text-red-600 font-black' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
-            id="tab-nav-chat"
+            id="tab-nav-forum"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'forum' && !isAdminMode ? 'text-sky-500' : 'text-slate-400'
+              activeTab === 'forum' && !isAdminMode ? 'text-red-600' : 'text-slate-400'
             }`}>
-              <MessageCircle className="w-5 h-5 stroke-[2.25]" />
+              <MessageSquare className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[10px] sm:text-[11px] leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Chat', 'Chat')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Forum', 'Forum')}</span>
           </button>
   
-          {/* 5. Portefeuille */}
+          {/* 4. Portefeuille */}
           <button
             onClick={() => {
               setIsAdminMode(false);
@@ -6944,7 +7457,7 @@ export default function Dashboard({
               setActiveTab('profile');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'profile' && !isAdminMode 
                 ? 'text-red-600 font-black' 
                 : 'text-slate-400 hover:text-slate-600'
@@ -6956,22 +7469,27 @@ export default function Dashboard({
             }`}>
               <Wallet className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[10px] sm:text-[11px] leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Portefeuille', 'Wallet')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Portefeuille', 'Wallet')}</span>
           </button>
  
         </div>
       </footer>
 
-      {/* FLOATING ROSE ROUGE HEADSET SUPPORT BUTTON */}
+      {/* FLOATING HEADSET SUPPORT BUTTON */}
       <div className="fixed right-3.5 bottom-15 z-45 sm:right-5 sm:bottom-16">
         <button
           onClick={() => setIsSupportMenuOpen(!isSupportMenuOpen)}
-          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#e11d48] to-[#f43f5e] hover:from-[#f43f5e] hover:to-[#fb7185] border-2 border-white text-white flex items-center justify-center shadow-[0_4px_20px_rgba(225,29,72,0.4)] active:scale-95 duration-150 transition-all cursor-pointer relative"
+          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-900 hover:bg-slate-800 border-2 border-white text-white flex items-center justify-center shadow-lg active:scale-95 duration-150 transition-all cursor-pointer relative"
           title="Assistance & Support"
         >
           <Headphones className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.25]" />
-          {/* Active indicator */}
-          <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-[#00bd74] border-2 border-white animate-pulse"></span>
+          {unreadSupportCount > 0 ? (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center border-2 border-white shadow-md animate-bounce">
+              {unreadSupportCount > 99 ? '99+' : unreadSupportCount}
+            </span>
+          ) : (
+            <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white animate-pulse"></span>
+          )}
         </button>
       </div>
 
@@ -6989,16 +7507,16 @@ export default function Dashboard({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 15, scale: 0.95 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="fixed right-4 bottom-34 sm:right-6 z-50 bg-[#881337] border border-rose-600/40 rounded-[28px] p-5 shadow-[0_15px_45px_rgba(76,5,25,0.5)] w-72 text-left space-y-3.5 text-white"
+              className="fixed right-4 bottom-34 sm:right-6 z-50 bg-white border border-slate-200 rounded-[28px] p-5 shadow-xl w-72 text-left space-y-3.5 text-slate-900"
             >
-              <div className="border-b border-rose-700/60 pb-2.5 flex items-center justify-between">
+              <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#f43f5e] animate-pulse" />
-                  <span className="text-[10px] text-rose-200 font-sans font-extrabold uppercase tracking-widest block">SUPPORT EN LIGNE</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] text-slate-500 font-sans font-extrabold uppercase tracking-widest block">SUPPORT EN LIGNE</span>
                 </div>
                 <button 
                   onClick={() => setIsSupportMenuOpen(false)}
-                  className="text-rose-200 hover:text-white p-1 rounded-full hover:bg-rose-700/40 transition-colors"
+                  className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
@@ -7026,15 +7544,29 @@ export default function Dashboard({
                 onClick={() => {
                   setIsSupportMenuOpen(false);
                   setIsLiveChatOpen(true);
+                  DataStore.markSupportMessagesAsRead(currentUser.id, 'user');
+                  setSupportMessages(prev => prev.map(m => (m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread') ? { ...m, status: 'read' } : m));
                 }}
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white rounded-2xl flex items-center space-x-3 transition-transform duration-100 hover:scale-[1.02] shadow-md shadow-rose-900/40 cursor-pointer select-none text-left"
+                className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl flex items-center space-x-3 transition-transform duration-100 hover:scale-[1.02] shadow-md cursor-pointer select-none text-left"
               >
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-xl relative">
                   🎧
+                  {unreadSupportCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center border border-white">
+                      {unreadSupportCount}
+                    </span>
+                  )}
                 </div>
                 <div className="leading-tight flex-1">
-                  <span className="text-white font-sans font-black text-xs block uppercase tracking-wide">Support en direct</span>
-                  <span className="text-[10px] text-white/90 font-bold block mt-0.5">Parler avec un conseiller 👋</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-sans font-black text-xs block uppercase tracking-wide">Support en direct</span>
+                    {unreadSupportCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-black">
+                        {unreadSupportCount} nouveau{unreadSupportCount > 1 ? 'x' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-300 font-bold block mt-0.5">Parler avec un conseiller 👋</span>
                 </div>
               </button>
             </motion.div>
@@ -7042,56 +7574,61 @@ export default function Dashboard({
         )}
       </AnimatePresence>
 
-      {/* FULL-SCREEN OR FLOATING LIVE CHAT MODAL DIALOG */}
+      {/* FULL-PAGE DEDICATED SUPPORT CHAT VIEW */}
       <AnimatePresence>
         {isLiveChatOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in text-white">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="bg-[#881337] border-2 border-rose-700/60 rounded-[32px] overflow-hidden shadow-[0_25px_60px_rgba(76,5,25,0.7)] w-full max-w-sm h-[480px] sm:h-[520px] flex flex-col relative text-left text-white"
-            >
-              {/* Header background with nice linear Rose Rouge design */}
-              <div className="bg-gradient-to-r from-[#9f1239] via-[#881337] to-[#4c0519] text-white p-5 flex items-center justify-between shadow-md shrink-0 border-b border-rose-700/50">
+          <div className="fixed inset-0 z-[110] flex flex-col bg-[#0b0f19] text-white animate-fade-in">
+            <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col h-full bg-[#111827] shadow-2xl border-x border-slate-800">
+              {/* Header */}
+              <div className="bg-slate-900/90 backdrop-blur-md text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800 shrink-0">
                 <div className="flex items-center space-x-3 text-left">
-                  <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-lg relative">
+                  <button 
+                    onClick={() => setIsLiveChatOpen(false)}
+                    className="p-2 -ml-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-colors font-bold cursor-pointer flex items-center gap-1 text-xs"
+                    aria-label="Retour"
+                  >
+                    <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+                    <span className="hidden sm:inline font-sans font-bold">Retour</span>
+                  </button>
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-lg relative">
                     🤝
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 rounded-full border border-slate-900 animate-pulse"></span>
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-900 animate-pulse"></span>
                   </div>
                   <div>
-                    <h4 className="font-sans font-black text-xs uppercase tracking-wide leading-none">Support Gold Avenue</h4>
-                    <span className="text-[9px] font-bold text-rose-200 block mt-1 uppercase tracking-wide">Réponse sous 2H maximum</span>
+                    <h4 className="font-sans font-black text-sm uppercase tracking-wide leading-none text-white flex items-center gap-2">
+                      <span>Support Gold Avenue</span>
+                      <span className="text-[9px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-mono uppercase font-bold">En Ligne</span>
+                    </h4>
+                    <span className="text-[10px] font-bold text-slate-400 block mt-1 uppercase tracking-wide">Assistance clientèle dédiée & réponse rapide</span>
                   </div>
                 </div>
                 <button 
                   onClick={() => setIsLiveChatOpen(false)}
-                  className="text-white/80 hover:text-white p-2 hover:bg-white/10 rounded-full transition-colors font-bold"
-                  aria-label="Fermer Chat"
+                  className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors font-bold cursor-pointer"
+                  aria-label="Fermer Support"
                 >
-                  <X className="w-4 h-4 stroke-[2.5]" />
+                  <X className="w-5 h-5 stroke-[2.5]" />
                 </button>
               </div>
 
               {/* Message block with custom chat list rendering */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-3.5 bg-[#4c0519]/50">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 bg-[#0b0f19]">
                 {supportMessages.length === 0 ? (
-                  <div className="h-full flex flex-col justify-center items-center text-center p-6 space-y-3">
-                    <div className="w-14 h-14 bg-rose-500/20 text-rose-300 rounded-full flex items-center justify-center text-2xl shadow-inner">
+                  <div className="h-full flex flex-col justify-center items-center text-center p-6 space-y-4">
+                    <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-3xl flex items-center justify-center text-3xl shadow-lg">
                       💬
                     </div>
-                    <div>
-                      <h5 className="font-sans font-black text-xs text-white uppercase tracking-wider mb-1">
-                        Discuter en ligne !
+                    <div className="max-w-md">
+                      <h5 className="font-sans font-black text-sm text-white uppercase tracking-wider mb-1.5">
+                        Bienvenue sur le Support Client Officiel
                       </h5>
-                      <p className="text-[11px] text-rose-200 font-semibold max-w-[240px] leading-relaxed mx-auto">
-                        Écrivez votre message ci-dessous. Un conseiller Gold Avenue vous répondra directement ici.
+                      <p className="text-xs text-slate-400 font-medium leading-relaxed mx-auto">
+                        Posez toutes vos questions concernant vos dépôts, retraits, parrainages ou produits. Notre équipe d'assistance vous répondra directement sur cette page.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-w-2xl mx-auto">
                     {supportMessages.map((msg) => {
                       const isMe = msg.sender === 'user';
                       return (
@@ -7099,16 +7636,36 @@ export default function Dashboard({
                           key={msg.id}
                           className={`flex ${isMe ? 'justify-end' : 'justify-start'} w-full`}
                         >
-                          <div className={`max-w-[85%] rounded-[20px] p-3 shadow-sm text-xs ${
+                          <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3.5 shadow-sm text-xs ${
                             isMe 
-                              ? 'bg-gradient-to-br from-[#e11d48] to-[#be123c] text-white rounded-br-none text-left' 
-                              : 'bg-rose-950/80 text-white border border-rose-700/60 rounded-bl-none text-left'
+                              ? 'bg-amber-500 text-slate-950 font-medium rounded-br-none text-left shadow-amber-500/10' 
+                              : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-bl-none text-left'
                           }`}>
-                            <p className="font-sans font-bold leading-normal whitespace-pre-wrap">
-                              {msg.message}
-                            </p>
-                            <span className={`text-[8px] block mt-1 font-bold ${
-                              isMe ? 'text-rose-200 text-right' : 'text-rose-300 text-left'
+                            {msg.image && (
+                              <div className="mb-2 rounded-xl overflow-hidden bg-slate-900/50 border border-slate-700/50">
+                                <img 
+                                  src={msg.image} 
+                                  alt="Capture" 
+                                  className="w-full max-h-72 object-contain rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
+                                  onClick={() => setZoomedChatImage(msg.image || null)}
+                                  referrerPolicy="no-referrer"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setZoomedChatImage(msg.image || null)}
+                                  className="w-full py-1 text-[9px] text-slate-400 font-bold text-center bg-slate-900/80 hover:bg-slate-900 transition-colors"
+                                >
+                                  🔍 Cliquer pour agrandir
+                                </button>
+                              </div>
+                            )}
+                            {msg.message && (
+                              <p className="font-sans leading-normal whitespace-pre-wrap">
+                                {msg.message}
+                              </p>
+                            )}
+                            <span className={`text-[8.5px] block mt-1 font-bold ${
+                              isMe ? 'text-slate-800/80 text-right' : 'text-slate-400 text-left'
                             }`}>
                               {new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
@@ -7122,31 +7679,107 @@ export default function Dashboard({
                 )}
               </div>
 
+              {/* Chat Image Preview if attached */}
+              {chatImageAttachment && (
+                <div className="px-4 py-2.5 bg-slate-900 border-t border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center space-x-2.5 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 shadow-sm">
+                    <img 
+                      src={chatImageAttachment} 
+                      alt="Capture attachée" 
+                      className="w-10 h-10 object-cover rounded-lg border border-slate-700"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="text-left">
+                      <span className="text-[11px] font-black text-white block leading-tight">Capture d'écran jointe</span>
+                      <span className="text-[9px] text-emerald-400 font-bold block">Prête pour l'envoi au support</span>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setChatImageAttachment(null)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="Supprimer la photo"
+                  >
+                    <X className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                </div>
+              )}
+
               {/* Chat Input form bar */}
               <form 
                 onSubmit={handleSendChatMessage}
-                className="p-3 bg-[#881337] border-t border-rose-700/50 flex items-center space-x-2 shrink-0 select-none pb-4"
+                className="p-3 sm:p-4 bg-slate-900 border-t border-slate-800 flex items-center space-x-2 shrink-0 select-none"
               >
+                {/* Hidden image input */}
                 <input 
-                  type="text"
+                  type="file" 
+                  ref={chatFileInputRef} 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleChatImageSelect}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => chatFileInputRef.current?.click()}
+                  disabled={isUploadingChatImage}
+                  className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-400 flex items-center justify-center transition-all cursor-pointer shrink-0 border border-slate-700"
+                  title="Ajouter une image ou capture d'écran"
+                  id="btn-chat-attach-image"
+                >
+                  <Camera className="w-5 h-5 stroke-[2.25]" />
+                </button>
+
+                <input 
+                  type="text" 
                   value={chatMessageInput}
                   onChange={(e) => setChatMessageInput(e.target.value)}
-                  placeholder="Posez votre question..."
-                  className="flex-1 bg-white border border-rose-200 focus:border-[#f43f5e] focus:bg-white focus:outline-none rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-bold transition-all"
+                  placeholder={chatImageAttachment ? "Ajouter un commentaire..." : "Posez votre question à l'assistance..."}
+                  className="flex-1 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 font-medium transition-all"
                 />
                 <button 
                   type="submit"
-                  disabled={!chatMessageInput.trim()}
-                  className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                    chatMessageInput.trim() 
-                      ? 'bg-[#e11d48] hover:bg-[#be123c] text-white shadow-md active:scale-95' 
-                      : 'bg-rose-900/60 text-rose-300/40 cursor-not-allowed'
+                  disabled={!chatMessageInput.trim() && !chatImageAttachment}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                    chatMessageInput.trim() || chatImageAttachment
+                      ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 font-bold' 
+                      : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                   }`}
+                  id="btn-chat-send"
                 >
                   <Send className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </form>
-            </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* FULLSCREEN IMAGE LIGHTBOX FOR CHAT */}
+      <AnimatePresence>
+        {zoomedChatImage && (
+          <div 
+            onClick={() => setZoomedChatImage(null)}
+            className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-fade-in"
+          >
+            <div className="relative max-w-lg max-h-[90vh] w-full flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full flex justify-between items-center mb-2 px-1">
+                <span className="text-xs font-bold text-white/90">📸 Image agrandie</span>
+                <button 
+                  onClick={() => setZoomedChatImage(null)}
+                  className="p-1.5 text-white bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+                  aria-label="Fermer"
+                >
+                  <X className="w-5 h-5 stroke-[2.5]" />
+                </button>
+              </div>
+              <img 
+                src={zoomedChatImage} 
+                alt="Agrandissement" 
+                className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+                referrerPolicy="no-referrer"
+              />
+            </div>
           </div>
         )}
       </AnimatePresence>
@@ -7804,7 +8437,7 @@ export default function Dashboard({
                   isSuccess 
                     ? 'border-emerald-500/30' 
                     : isError 
-                      ? 'border-rose-500/30' 
+                      ? 'border-red-500/30' 
                       : 'border-blue-500/30'
                 }`}
               >

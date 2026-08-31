@@ -105,7 +105,7 @@ export default function AdminPanel({
   } | null>(null);
 
   // Navigation tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'deposits' | 'withdrawals' | 'products' | 'platform' | 'transactions' | 'support' | 'proofs' | 'investments' | 'canals'>('deposits');
+  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'deposits' | 'withdrawals' | 'products' | 'platform' | 'transactions' | 'support' | 'proofs' | 'investments'>('deposits');
   const activeAdminTabRef = React.useRef(activeAdminTab);
   React.useEffect(() => {
     activeAdminTabRef.current = activeAdminTab;
@@ -396,9 +396,7 @@ export default function AdminPanel({
           if (Array.isArray(data['gi_withdrawal_proofs'])) setWithdrawalProofs(data['gi_withdrawal_proofs']);
           if (Array.isArray(data['gi_forum_posts'])) setForumPosts(data['gi_forum_posts']);
           if (data['gi_manual_deposit_numbers'] && typeof data['gi_manual_deposit_numbers'] === 'object') {
-            if (activeAdminTabRef.current !== 'canals') {
-              setManualDepositNumbers(data['gi_manual_deposit_numbers']);
-            }
+            setManualDepositNumbers(data['gi_manual_deposit_numbers']);
           }
           
           // 2. Keep local store and local storage safe
@@ -1591,7 +1589,7 @@ export default function AdminPanel({
                             setEditingUser(null);
                             handleDeleteInvestment(inv.id);
                           }}
-                          className="px-2.5 py-1.5 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-650/20 hover:border-transparent rounded-lg font-bold duration-150 text-[10px] shrink-0"
+                          className="px-2.5 py-1.5 bg-red-600/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 hover:border-transparent rounded-lg font-bold duration-150 text-[10px] shrink-0"
                           title="Supprimer définitivement ce produit payé"
                         >
                           Supprimer
@@ -1788,196 +1786,186 @@ export default function AdminPanel({
         </div>
       )}
 
-      {/* HEADER BAR */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center py-6 px-4 md:px-6 bg-slate-900/60 border border-yellow-500/10 rounded-2xl mb-8 gap-4">
+      {/* HEADER BAR - COMPACT & RESPONSIVE */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3.5 px-3.5 sm:px-5 bg-slate-900/60 border border-slate-800 rounded-xl mb-4 gap-3">
         <div>
-          <div className="inline-flex items-center space-x-1.5 text-xs text-yellow-400 font-bold uppercase tracking-widest mb-1 font-mono">
+          <div className="inline-flex items-center space-x-1.5 text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-0.5 font-mono">
             <Lock className="w-3 h-3" />
             <span>ESPACE SÉCURISÉ ADMIN</span>
           </div>
-          <h2 className="text-xl font-display font-medium text-white">Console d'Administration Globale</h2>
-          <div className="flex items-center space-x-1.5 mt-1 text-[11px] text-emerald-400 font-bold uppercase tracking-wider font-mono">
+          <h2 className="text-base sm:text-lg font-bold text-white leading-tight">Console d'Administration</h2>
+          <div className="flex items-center space-x-1.5 mt-0.5 text-[10px] text-emerald-400 font-bold font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Synchro automatique instantanée (Chaque seconde ⚡)</span>
+            <span>Synchro automatique (1s ⚡)</span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleGlobalSync}
             disabled={isSyncing}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wide transition-all border flex items-center space-x-2 ${
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono tracking-wide transition-all border flex items-center space-x-1.5 ${
               isSyncing
                 ? 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed'
                 : syncStatus === 'success'
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border-yellow-500/20 hover:border-yellow-500/40'
+                : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20 hover:border-amber-500/40'
             }`}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>
               {isSyncing 
-                ? 'Synchronisation...' 
+                ? 'Synchro...' 
                 : syncStatus === 'success' 
-                ? 'Données Synchronisées !' 
-                : 'Synchroniser de force'
+                ? 'Synchronisé !' 
+                : 'Synchroniser'
               }
             </span>
           </button>
           
           <button
             onClick={onCloseAdmin}
-            className="px-5 py-2.5 bg-slate-950 hover:bg-slate-900 border border-yellow-500/20 text-yellow-500 hover:text-yellow-400 text-xs font-bold rounded-xl transition-all"
+            className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-900 border border-amber-500/20 text-amber-400 hover:text-amber-300 text-[11px] font-bold rounded-lg transition-all"
           >
-            Retourner au Tableau de Bord
+            ← Tableau de Bord
           </button>
         </div>
       </div>
 
-      {/* STRATEGIC ADMIN STATS */}
-      <div className="space-y-6 mb-8">
+      {/* STRATEGIC ADMIN STATS - COMPACT & HIGH-DENSITY */}
+      <div className="space-y-3 mb-4">
         <div>
-          <h3 className="text-xs font-mono font-bold uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2">
+          <div className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider mb-1.5 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            SOLDES & BILAN FINANCIER DE LA PLATEFORME (GLOBAL)
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl relative">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Volume des Dépôts Validés</span>
-              <div className="text-xl font-bold text-green-400 mt-1">{totalVolumeApproved.toLocaleString()} XOF</div>
-              <span className="text-[9px] text-slate-400 font-mono block mt-1">Rechargements effectifs d'investisseurs</span>
+            <span>SOLDES & BILAN FINANCIER GLOBAL</span>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="bg-slate-900/50 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-slate-400 uppercase font-semibold block leading-tight">Dépôts Validés</span>
+              <div className="text-sm sm:text-base font-bold text-green-400 mt-0.5">{totalVolumeApproved.toLocaleString()} XOF</div>
+              <span className="text-[8.5px] text-slate-500 font-mono block mt-0.5 truncate">Rechargements effectifs</span>
             </div>
 
-            <div className="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl relative">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Total des Retraits Validés</span>
-              <div className="text-xl font-bold text-red-400 mt-1">{totalPayoutApproved.toLocaleString()} XOF</div>
-              <span className="text-[9px] text-slate-400 font-mono block mt-1">Cashout total liquidé</span>
+            <div className="bg-slate-900/50 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-slate-400 uppercase font-semibold block leading-tight">Retraits Validés</span>
+              <div className="text-sm sm:text-base font-bold text-red-400 mt-0.5">{totalPayoutApproved.toLocaleString()} XOF</div>
+              <span className="text-[8.5px] text-slate-500 font-mono block mt-0.5 truncate">Cashout total liquidé</span>
             </div>
 
-            <div className="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl relative">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Encaissement Plateforme</span>
-              <div className="text-xl font-bold text-white mt-1">{(totalVolumeApproved - totalPayoutApproved).toLocaleString()} XOF</div>
-              <span className="text-[9px] text-green-400 font-mono block mt-1">Marge d'excédent de trésorerie net</span>
+            <div className="bg-slate-900/50 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-slate-400 uppercase font-semibold block leading-tight">Marge Plateforme</span>
+              <div className="text-sm sm:text-base font-bold text-white mt-0.5">{(totalVolumeApproved - totalPayoutApproved).toLocaleString()} XOF</div>
+              <span className="text-[8.5px] text-green-400 font-mono block mt-0.5 truncate">Excédent net</span>
             </div>
 
-            <div className="bg-indigo-950/20 border border-indigo-500/20 p-4 rounded-xl relative">
-              <span className="text-[10px] text-indigo-400 uppercase font-bold">Masse Monétaire en Circulation</span>
-              <div className="text-xl font-black text-indigo-400 mt-1">{totalUserAssets.toLocaleString()} XOF</div>
-              <span className="text-[9px] text-slate-400 font-mono block mt-1">Dû total aux investisseurs (Solde + Bonus)</span>
+            <div className="bg-slate-900/50 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-indigo-400 uppercase font-bold block leading-tight">Masse Monétaire</span>
+              <div className="text-sm sm:text-base font-bold text-indigo-300 mt-0.5">{totalUserAssets.toLocaleString()} XOF</div>
+              <span className="text-[8.5px] text-slate-500 font-mono block mt-0.5 truncate">Solde + Bonus total</span>
             </div>
           </div>
         </div>
 
         <div>
-          <h3 className="text-xs font-mono font-bold uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-            OPÉRATIONS, FILIATIONS & PLANS D'INVESTISSEMENT (ENGAGEMENTS)
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl relative">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Inscriptions Totales</span>
-              <div className="text-xl font-bold text-white mt-1">{users.length} Investisseurs</div>
-              <span className="text-[9px] text-green-500 font-mono block mt-1">★ Comptes d'investisseurs enregistrés</span>
+          <div className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider mb-1.5 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span>OPÉRATIONS & ENGAGEMENTS</span>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="bg-slate-900/50 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-slate-400 uppercase font-semibold block leading-tight">Inscriptions</span>
+              <div className="text-sm sm:text-base font-bold text-white mt-0.5">{users.length} Investisseurs</div>
+              <span className="text-[8.5px] text-emerald-400 font-mono block mt-0.5 truncate">★ Total enregistrés</span>
             </div>
 
-            <div className="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl relative">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Plans d'Investissement Actifs</span>
-              <div className="text-xl font-bold text-yellow-500 mt-1">{activeInvestmentsCount} Forfaits Actifs</div>
-              <span className="text-[9px] text-slate-400 font-mono block mt-1">Capital sous gestion : {activeInvestmentsVolume.toLocaleString()} F</span>
+            <div className="bg-slate-900/50 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-slate-400 uppercase font-semibold block leading-tight">Plans Actifs</span>
+              <div className="text-sm sm:text-base font-bold text-amber-400 mt-0.5">{activeInvestmentsCount} Forfaits</div>
+              <span className="text-[8.5px] text-slate-500 font-mono block mt-0.5 truncate">Cap: {activeInvestmentsVolume.toLocaleString()} F</span>
             </div>
 
-            <div className="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl relative">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Gains VIP versés aux investisseurs</span>
-              <div className="text-xl font-bold text-green-400 mt-1">{totalReturnsClaimedSum.toLocaleString()} XOF</div>
-              <span className="text-[9px] text-slate-400 font-mono block mt-1">Total des rentes quotidiennes réclamées</span>
+            <div className="bg-slate-900/50 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-slate-400 uppercase font-semibold block leading-tight">Gains VIP Versés</span>
+              <div className="text-sm sm:text-base font-bold text-green-400 mt-0.5">{totalReturnsClaimedSum.toLocaleString()} XOF</div>
+              <span className="text-[8.5px] text-slate-500 font-mono block mt-0.5 truncate">Rentes réclamées</span>
             </div>
 
-            <div className="bg-amber-950/20 border border-amber-500/25 p-4 rounded-xl relative ring-1 ring-amber-500/10">
-              <span className="text-[10px] text-amber-400 uppercase font-extrabold block">Flux en Attente (Encours des queues)</span>
-              <div className="text-sm font-bold text-white mt-1">
-                📥 Dépôts: <span className="text-green-400">{pendingDepositsCount}</span> ({pendingDepositsSum.toLocaleString()} F)
-              </div>
-              <div className="text-sm font-bold text-white mt-1.5">
-                📤 Retraits: <span className="text-yellow-500">{pendingWithdrawCount}</span> (Net: {pendingWithdrawNetToPay.toLocaleString()} F)
+            <div className="bg-amber-950/20 border border-amber-500/20 p-2.5 sm:p-3 rounded-lg relative">
+              <span className="text-[9.5px] text-amber-400 uppercase font-bold block leading-tight">Flux en Attente</span>
+              <div className="text-xs font-bold text-white mt-0.5 flex flex-col gap-0.5">
+                <span>📥 Dépôts: <span className="text-green-400">{pendingDepositsCount}</span> ({pendingDepositsSum.toLocaleString()} F)</span>
+                <span>📤 Retraits: <span className="text-amber-400">{pendingWithdrawCount}</span> ({pendingWithdrawNetToPay.toLocaleString()} F)</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* TABS SELECTOR */}
-      <div className="flex border-b border-slate-800 overflow-x-auto gap-4 mb-6">
+      {/* TABS SELECTOR - COMPACT HORIZONTAL BAR */}
+      <div className="flex border-b border-slate-800 overflow-x-auto gap-1.5 mb-4 scrollbar-none pb-1">
         <button
           onClick={() => setActiveAdminTab('deposits')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors flex items-center space-x-2 ${activeAdminTab === 'deposits' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1.5 ${activeAdminTab === 'deposits' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           <span>Dépôts</span>
           {pendingDepositsCount > 0 && (
-            <span className="bg-red-500 text-white text-[9px] font-mono px-1.5 py-0.5 rounded-full animate-pulse">{pendingDepositsCount}</span>
+            <span className="bg-red-500 text-white text-[9px] font-mono px-1 py-0.2 rounded-full animate-pulse">{pendingDepositsCount}</span>
           )}
         </button>
         <button
-          onClick={() => setActiveAdminTab('canals')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors flex items-center space-x-2 ${activeAdminTab === 'canals' ? 'border-yellow-500 text-yellow-400 bg-slate-900/40 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-white'}`}
-        >
-          <span className="text-sm">🔌</span>
-          <span>Canaux de Dépôt</span>
-        </button>
-        <button
           onClick={() => setActiveAdminTab('withdrawals')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors flex items-center space-x-2 ${activeAdminTab === 'withdrawals' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1.5 ${activeAdminTab === 'withdrawals' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           <span>Retraits</span>
           {pendingWithdrawCount > 0 && (
-            <span className="bg-red-500 text-white text-[9px] font-mono px-1.5 py-0.5 rounded-full animate-pulse">{pendingWithdrawCount}</span>
+            <span className="bg-red-500 text-white text-[9px] font-mono px-1 py-0.2 rounded-full animate-pulse">{pendingWithdrawCount}</span>
           )}
         </button>
          <button
           onClick={() => setActiveAdminTab('users')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors ${activeAdminTab === 'users' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors ${activeAdminTab === 'users' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           <span>Utilisateurs ({users.length})</span>
         </button>
         <button
           onClick={() => setActiveAdminTab('products')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors ${activeAdminTab === 'products' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors ${activeAdminTab === 'products' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          <span>Produits d'Investissement</span>
+          <span>Produits</span>
         </button>
         <button
           onClick={() => setActiveAdminTab('investments')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors flex items-center space-x-2 ${activeAdminTab === 'investments' ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1 ${activeAdminTab === 'investments' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          <span>🛡️ Produits payés ({investments.length})</span>
+          <span>🛡️ Payés ({investments.length})</span>
         </button>
         <button
           onClick={() => setActiveAdminTab('platform')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors ${activeAdminTab === 'platform' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors ${activeAdminTab === 'platform' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          <span>Option Système & Codes</span>
+          <span>Système</span>
         </button>
         <button
           onClick={() => setActiveAdminTab('transactions')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors ${activeAdminTab === 'transactions' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors ${activeAdminTab === 'transactions' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          <span>💼 Transactions Récentes</span>
+          <span>Transactions</span>
         </button>
         <button
           onClick={() => setActiveAdminTab('support')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors flex items-center space-x-2 ${activeAdminTab === 'support' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1.5 ${activeAdminTab === 'support' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          <span>💬 Support en ligne</span>
+          <span>Support</span>
           {supportMessages.filter(m => m.sender === 'user' && m.status === 'unread').length > 0 && (
-            <span className="bg-emerald-500 text-white text-[9px] font-mono px-1.5 py-0.5 rounded-full animate-bounce">
+            <span className="bg-emerald-500 text-white text-[9px] font-mono px-1 py-0.2 rounded-full animate-bounce">
               {supportMessages.filter(m => m.sender === 'user' && m.status === 'unread').length}
             </span>
           )}
         </button>
         <button
           onClick={() => setActiveAdminTab('proofs')}
-          className={`py-3 px-4 text-xs font-bold tracking-wider uppercase border-b-2 whitespace-nowrap transition-colors flex items-center space-x-2 ${activeAdminTab === 'proofs' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1 ${activeAdminTab === 'proofs' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          <span className="text-sm">📢</span>
-          <span>Avis & Annonces</span>
+          <span>Annonces</span>
         </button>
       </div>
 
@@ -2219,7 +2207,7 @@ export default function AdminPanel({
                                 <a 
                                   href={wth.proof_file_url} 
                                   download={`justificatif-retrait-${wth.id}.pdf`}
-                                  className="px-2 py-1 bg-rose-500/20 border border-rose-500/40 hover:bg-rose-500/40 text-rose-300 rounded text-[9px] font-black font-mono transition-all inline-flex items-center gap-1 cursor-pointer"
+                                  className="px-2 py-1 bg-red-500/20 border border-red-500/40 hover:bg-red-500/40 text-red-300 rounded text-[9px] font-black font-mono transition-all inline-flex items-center gap-1 cursor-pointer"
                                   title="Télécharger justificatif PDF"
                                 >
                                   📄 PDF
@@ -2497,7 +2485,7 @@ export default function AdminPanel({
                               <span className="text-emerald-400 font-bold" title="Total Dépôts Approuvés">
                                 📥 Dépôts : +{userApprovedDepositsNum.toLocaleString()} F
                               </span>
-                              <span className="text-rose-400 font-bold" title="Total Retraits Approuvés">
+                              <span className="text-red-400 font-bold" title="Total Retraits Approuvés">
                                 📤 Retraits : -{userApprovedWithdrawalsNum.toLocaleString()} F
                               </span>
                               {userPendingDepositsNum > 0 && (
@@ -3225,7 +3213,7 @@ export default function AdminPanel({
                         <button
                           type="button"
                           onClick={() => setOfficialBanner1('')}
-                          className="absolute top-2 right-2 bg-rose-600 hover:bg-rose-500 text-white px-2 py-1 rounded-md text-[9px] font-black transition-all cursor-pointer shadow-md"
+                          className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded-md text-[9px] font-black transition-all cursor-pointer shadow-md"
                           title="Supprimer cette image"
                         >
                           ❌ Supprimer
@@ -3269,7 +3257,7 @@ export default function AdminPanel({
                         <button
                           type="button"
                           onClick={() => setOfficialBanner2('')}
-                          className="absolute top-2 right-2 bg-rose-600 hover:bg-rose-500 text-white px-2 py-1 rounded-md text-[9px] font-black transition-all cursor-pointer shadow-md"
+                          className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded-md text-[9px] font-black transition-all cursor-pointer shadow-md"
                           title="Supprimer cette image"
                         >
                           ❌ Supprimer
@@ -3381,84 +3369,6 @@ export default function AdminPanel({
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* CANAUX DE DÉPÔT CONFIGURATION TAB */}
-      {activeAdminTab === 'canals' && (
-        <div className="space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <div className="border-b border-slate-800 pb-4 mb-6">
-              <h2 className="text-lg font-display font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <span>🔌</span>
-                <span>Canaux de Dépôt & Numéros de Réception</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Configurez ici les numéros de téléphone et noms de comptes Mobile Money associés à chaque pays et chaque opérateur.
-                Ces numéros s'afficheront directement aux membres sur l'interface de dépôt lorsqu'ils initieront un transfert manuel.
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveManualDepositNumbers} className="space-y-6">
-              {canalsSuccess && (
-                <div className={`p-4 rounded-xl text-xs font-bold border transition-all animate-fade-in ${
-                  canalsSuccess.startsWith('❌') 
-                    ? "bg-red-500/10 border-red-500/20 text-red-400" 
-                    : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                }`}>
-                  {canalsSuccess}
-                </div>
-              )}
-
-              <div className="space-y-6">
-                {(Object.entries({
-                  'TG': { name: 'Togo 🇹🇬', ops: [{ id: '37', name: 'TMoney' }, { id: '38', name: 'Moov Money' }] },
-                  'CI': { name: 'Côte d’Ivoire 🇨🇮', ops: [{ id: '29', name: 'Orange Money' }, { id: '30', name: 'MTN Mobile Money' }, { id: '31', name: 'Moov Money' }, { id: '32', name: 'Wave' }] },
-                  'BJ': { name: 'Bénin 🇧🇯', ops: [{ id: '35', name: 'MTN Mobile Money' }, { id: '36', name: 'Moov Money' }] },
-                  'BF': { name: 'Burkina Faso 🇧🇫', ops: [{ id: '33', name: 'Moov Money' }, { id: '34', name: 'Orange Money' }] },
-                  'SN': { name: 'Sénégal 🇸🇳', ops: [{ id: '57', name: 'Orange Money' }, { id: '58', name: 'Wave' }] },
-                  'ML': { name: 'Mali 🇲🇱', ops: [{ id: '60', name: 'Orange Money' }] },
-                  'NE': { name: 'Niger 🇳🇪', ops: [{ id: '70', name: 'Airtel Money' }, { id: '71', name: 'Moov Money' }, { id: '72', name: 'Orange Money' }] }
-                }) as [string, { name: string, ops: { id: string, name: string }[] }][]).map(([countryCode, countryInfo]) => (
-                  <div key={countryCode} className="bg-slate-950/50 border border-slate-800/60 rounded-xl p-5">
-                    <span className="text-xs font-black text-yellow-500 block mb-4 uppercase tracking-wider font-sans border-b border-slate-800 pb-2">{countryInfo.name}</span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {countryInfo.ops.map((op) => {
-                        const key = `${countryCode}_${op.id}`;
-                        return (
-                          <div key={op.id} className="space-y-2">
-                            <span className="text-[11px] text-slate-300 font-bold font-mono">{op.name}</span>
-                            <input
-                              type="text"
-                              placeholder="Ex: TTMoney - 90 90 33 19 (Nom de Titulaire)"
-                              value={manualDepositNumbers[key] || ''}
-                              onChange={(e) => {
-                                setManualDepositNumbers({
-                                  ...manualDepositNumbers,
-                                  [key]: e.target.value
-                                });
-                              }}
-                              className="w-full bg-slate-900 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-xs text-white font-mono focus:outline-none placeholder-slate-700"
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  className="w-full py-3.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-display font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
-                >
-                  <span>💾</span>
-                  <span>Enregistrer tous les Canaux de Dépôt</span>
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
@@ -3643,7 +3553,7 @@ export default function AdminPanel({
                               : tx.type === 'Retrait'
                               ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                               : tx.type === 'Achat VIP'
-                              ? 'bg-rose-500/10 text-rose-450 border border-rose-500/20'
+                              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
                               : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
                           }`}>
                             {tx.type}
@@ -3724,7 +3634,7 @@ export default function AdminPanel({
 
         const selectChatSession = async (uid: string) => {
           setSelectedUserId(uid);
-          await DataStore.markSupportMessagesAsRead(uid);
+          await DataStore.markSupportMessagesAsRead(uid, 'admin');
           executeDirectCentralSync();
         };
 
@@ -3882,7 +3792,30 @@ export default function AdminPanel({
                                 ? 'bg-yellow-500 text-slate-950 font-medium rounded-tr-none shadow-md shadow-yellow-500/5'
                                 : 'bg-[#1e293b] text-white font-extrabold rounded-tl-none border-2 border-slate-700/60'
                             }`}>
-                              <div className="whitespace-pre-line text-white !text-white font-black text-[13px] tracking-wide" style={{ color: '#ffffff' }}>{m.message}</div>
+                              {m.image && (
+                                <div className="mb-2.5 rounded-xl overflow-hidden border border-slate-700/80 bg-black/50">
+                                  <img 
+                                    src={m.image} 
+                                    alt="Capture utilisateur" 
+                                    className="w-full max-h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity" 
+                                    onClick={() => setLightboxImg(m.image)}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <div className="px-2.5 py-1 bg-slate-950/90 text-slate-300 text-[10px] flex items-center justify-between border-t border-slate-800">
+                                    <span className="font-mono text-slate-400">📸 Capture d'écran utilisateur</span>
+                                    <button 
+                                      type="button" 
+                                      onClick={() => setLightboxImg(m.image)} 
+                                      className="text-yellow-400 hover:underline cursor-pointer font-bold text-[10px]"
+                                    >
+                                      🔍 Agrandir
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                              {m.message && (
+                                <div className="whitespace-pre-line text-white !text-white font-black text-[13px] tracking-wide" style={{ color: '#ffffff' }}>{m.message}</div>
+                              )}
                             </div>
 
                             {/* Requirement 3 specifications display footer */}
@@ -3903,7 +3836,7 @@ export default function AdminPanel({
                                   <span>•</span>
                                   <span className={`font-bold uppercase ${
                                     m.status === 'unread'
-                                      ? 'text-rose-450'
+                                      ? 'text-red-400'
                                       : m.status === 'read'
                                       ? 'text-sky-400'
                                       : 'text-emerald-400'
@@ -4081,7 +4014,7 @@ export default function AdminPanel({
                         <button
                           type="button"
                           onClick={() => setAdminImage('')}
-                          className="px-3 py-1.5 bg-rose-500/10 text-rose-450 hover:bg-rose-500 hover:text-white rounded-lg text-[10px] font-bold duration-150 border border-rose-500/10"
+                          className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg text-[10px] font-bold duration-150 border border-red-500/10"
                         >
                           Supprimer la photo
                         </button>
@@ -4180,7 +4113,7 @@ export default function AdminPanel({
                               <span className="text-slate-500 font-mono text-[9px]">{proof.id}</span>
                               <button
                                 onClick={() => handleDeleteProof(proof.id)}
-                                className="px-3 py-1.5 bg-rose-600/15 text-rose-450 hover:bg-rose-600 hover:text-white border border-rose-600/20 hover:border-transparent rounded-xl font-bold transition-all flex items-center space-x-1 duration-150 cursor-pointer"
+                                className="px-3 py-1.5 bg-red-600/15 text-red-400 hover:bg-red-600 hover:text-white border border-red-600/20 hover:border-transparent rounded-xl font-bold transition-all flex items-center space-x-1 duration-150 cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                                 <span>Supprimer la publication</span>
@@ -4205,7 +4138,7 @@ export default function AdminPanel({
                     {forumPosts.length > 0 && (
                       <button
                         onClick={handleClearAllForumPosts}
-                        className="px-3 py-1 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-600/30 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1"
+                        className="px-3 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/30 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>Tout Supprimer</span>
@@ -4433,7 +4366,7 @@ export default function AdminPanel({
                             <span className="text-slate-500 font-mono text-[9px]">{post.id}</span>
                             <button
                               onClick={() => handleDeleteForumPost(post.id)}
-                              className="px-3 py-1.5 bg-rose-600/15 text-rose-450 hover:bg-rose-600 hover:text-white border border-rose-600/20 hover:border-transparent rounded-xl font-bold transition-all flex items-center space-x-1 duration-150 cursor-pointer"
+                              className="px-3 py-1.5 bg-red-600/15 text-red-400 hover:bg-red-600 hover:text-white border border-red-600/20 hover:border-transparent rounded-xl font-bold transition-all flex items-center space-x-1 duration-150 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                               <span>Supprimer du Forum</span>
@@ -4558,7 +4491,7 @@ export default function AdminPanel({
                               </div>
                             ) : (
                               <div className="space-y-0.5">
-                                <span className="font-sans font-black text-rose-450 italic block">Utilisateur supprimé</span>
+                                <span className="font-sans font-black text-red-400 italic block">Utilisateur supprimé</span>
                                 <span className="text-[10px] text-slate-500 font-mono">ID: {inv.userId}</span>
                               </div>
                             )}
@@ -4608,7 +4541,7 @@ export default function AdminPanel({
                           <td className="py-4 pr-4 text-center">
                             <button
                               onClick={() => handleDeleteInvestment(inv.id)}
-                              className="px-2.5 py-1.5 bg-rose-600/10 hover:bg-rose-600 text-rose-450 hover:text-white border border-rose-600/20 hover:border-transparent rounded-lg font-bold transition-all flex items-center space-x-1"
+                              className="px-2.5 py-1.5 bg-red-600/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/20 hover:border-transparent rounded-lg font-bold transition-all flex items-center space-x-1"
                               title="Annuler & Supprimer"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -4630,7 +4563,7 @@ export default function AdminPanel({
       {confirmConfig && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 relative shadow-2xl">
-            <h3 className="font-sans font-black text-sm uppercase tracking-wider text-rose-500 mb-2">
+            <h3 className="font-sans font-black text-sm uppercase tracking-wider text-red-500 mb-2">
               {confirmConfig.title}
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed mb-6 font-sans">
@@ -4649,7 +4582,7 @@ export default function AdminPanel({
                   setConfirmConfig(null);
                   await onConf();
                 }}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-rose-600/20"
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-red-600/20"
               >
                 Confirmer
               </button>

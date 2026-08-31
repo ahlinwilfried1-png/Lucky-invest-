@@ -267,9 +267,9 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
     const netVal = wth.netAmount !== undefined ? wth.netAmount : (wth.amount - feeVal);
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] pb-12 text-white animate-fadeIn font-sans">
-        {/* Rose Rouge Header Section */}
-        <div className="bg-gradient-to-r from-[#9f1239] via-[#881337] to-[#4c0519] text-white pt-6 pb-24 px-4 rounded-b-[2rem] relative shadow-lg border-b border-rose-700/40">
+      <div className="min-h-screen bg-[#f8fafc] pb-12 text-slate-900 animate-fadeIn font-sans">
+        {/* Header Section */}
+        <div className="bg-white text-slate-900 pt-6 pb-20 px-4 rounded-b-[2rem] relative shadow-sm border-b border-slate-200">
           <div className="max-w-md mx-auto flex items-center space-x-3">
             <button 
               onClick={() => {
@@ -280,65 +280,65 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
                   setActiveTab('recharge');
                 }
               }}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-all cursor-pointer border-none outline-none"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all cursor-pointer border-none outline-none"
             >
               <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
             </button>
-            <h1 className="font-sans font-extrabold text-base sm:text-lg tracking-wide">
+            <h1 className="font-sans font-extrabold text-base sm:text-lg tracking-wide text-slate-900">
               {t('Relevé des enregistrements', 'Record statement')}
             </h1>
           </div>
         </div>
 
-        {/* Content overlapping the Rose Rouge header */}
-        <div className="max-w-md mx-auto px-4 -mt-14 space-y-4 relative z-10">
+        {/* Content overlapping the header */}
+        <div className="max-w-md mx-auto px-4 -mt-10 space-y-4 relative z-10">
           {/* Account Balance */}
-          <div className="p-4 text-left">
-            <div className="font-sans font-black text-3xl text-white leading-tight">
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm text-left">
+            <div className="font-sans font-black text-3xl text-slate-900 leading-tight">
               FCFA{user.balance.toFixed(2)}
             </div>
-            <div className="text-[12px] font-extrabold text-rose-200 mt-1 uppercase tracking-wide">
+            <div className="text-[12px] font-extrabold text-slate-500 mt-1 uppercase tracking-wide">
               {t('Solde du Compte', 'Account Balance')}
             </div>
           </div>
 
           {/* Transaction Details */}
-          <div className="p-4 space-y-3 text-left text-white bg-rose-950/40 border border-rose-700/40 rounded-3xl backdrop-blur-sm shadow-md">
-            <div className="flex justify-between items-center py-2">
-              <span className="text-rose-200 font-extrabold text-[13px]">{t('Statut du Retrait', 'Withdrawal Status')}</span>
+          <div className="p-5 space-y-3 text-left text-slate-800 bg-white border border-slate-200 rounded-3xl shadow-sm">
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-500 font-bold text-[13px]">{t('Statut du Retrait', 'Withdrawal Status')}</span>
               <span className={`font-sans font-black text-[14px] ${
-                wth.status === 'approved' ? 'text-emerald-300' : 
-                wth.status === 'pending' ? 'text-amber-300' : 'text-rose-300'
+                wth.status === 'approved' ? 'text-emerald-600' : 
+                wth.status === 'pending' ? 'text-amber-600' : 'text-red-600'
               }`}>
                 {wth.status === 'approved' ? t('Réussi', 'Successful') : 
                  wth.status === 'pending' ? t('En attente', 'Pending') : t('Refusé', 'Rejected')}
               </span>
             </div>
 
-            <div className="flex justify-between items-center py-2">
-              <span className="text-rose-200 font-extrabold text-[13px]">{t('Montant du Retrait', 'Withdrawal Amount')}</span>
-              <span className="font-mono font-black text-amber-300 text-[14px]">
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-500 font-bold text-[13px]">{t('Montant du Retrait', 'Withdrawal Amount')}</span>
+              <span className="font-mono font-black text-slate-900 text-[14px]">
                 FCFA{wth.amount.toFixed(2)}
               </span>
             </div>
 
-            <div className="flex justify-between items-center py-2">
-              <span className="text-rose-200 font-extrabold text-[13px]">{t('Montant Reçu', 'Amount Received')}</span>
-              <span className="font-mono font-black text-white text-[14px]">
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-500 font-bold text-[13px]">{t('Montant Reçu', 'Amount Received')}</span>
+              <span className="font-mono font-black text-slate-900 text-[14px]">
                 FCFA{netVal.toFixed(2)}
               </span>
             </div>
 
-            <div className="flex justify-between items-center py-2">
-              <span className="text-rose-200 font-extrabold text-[13px]">{t('Montant de Taxe', 'Tax Amount')}</span>
-              <span className="font-mono font-black text-rose-200 text-[14px]">
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-500 font-bold text-[13px]">{t('Montant de Taxe', 'Tax Amount')}</span>
+              <span className="font-mono font-black text-slate-600 text-[14px]">
                 FCFA{feeVal.toFixed(2)}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-2">
-              <span className="text-rose-200 font-extrabold text-[13px]">{t("Heure d'Initiation", 'Initiation Time')}</span>
-              <span className="font-mono font-black text-rose-100 text-[13px]">
+              <span className="text-slate-500 font-bold text-[13px]">{t("Heure d'Initiation", 'Initiation Time')}</span>
+              <span className="font-mono font-black text-slate-700 text-[13px]">
                 {formatInitiationTime(wth.createdAt)}
               </span>
             </div>
@@ -350,9 +350,9 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
 
   if (isRetraitMode && withdrawals.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] pb-12 text-white animate-fadeIn font-sans">
-        {/* Rose Rouge Header Section */}
-        <div className="bg-gradient-to-r from-[#9f1239] via-[#881337] to-[#4c0519] text-white pt-6 pb-24 px-4 rounded-b-[2rem] relative shadow-lg border-b border-rose-700/40">
+      <div className="min-h-screen bg-[#f8fafc] pb-12 text-slate-900 animate-fadeIn font-sans">
+        {/* Header Section */}
+        <div className="bg-white text-slate-900 pt-6 pb-20 px-4 rounded-b-[2rem] relative shadow-sm border-b border-slate-200">
           <div className="max-w-md mx-auto flex items-center space-x-3">
             <button 
               onClick={() => {
@@ -362,44 +362,44 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
                   setActiveTab('recharge');
                 }
               }}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-all cursor-pointer border-none outline-none"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all cursor-pointer border-none outline-none"
             >
               <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
             </button>
-            <h1 className="font-sans font-extrabold text-base sm:text-lg tracking-wide">
+            <h1 className="font-sans font-extrabold text-base sm:text-lg tracking-wide text-slate-900">
               {t('Relevé des enregistrements', 'Record statement')}
             </h1>
           </div>
         </div>
 
-        {/* Content overlapping the Rose Rouge header */}
-        <div className="max-w-md mx-auto px-4 -mt-14 space-y-4 relative z-10">
+        {/* Content overlapping header */}
+        <div className="max-w-md mx-auto px-4 -mt-10 space-y-4 relative z-10">
           {/* First Card: Account Balance */}
-          <div className="bg-rose-950/50 backdrop-blur-sm rounded-2xl p-6 shadow-md border border-rose-700/40 text-left">
-            <div className="font-sans font-black text-2xl text-white leading-tight">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 text-left">
+            <div className="font-sans font-black text-2xl text-slate-900 leading-tight">
               FCFA{user.balance.toFixed(2)}
             </div>
-            <div className="text-[12px] font-extrabold text-rose-200 mt-1.5 uppercase tracking-wide">
+            <div className="text-[12px] font-extrabold text-slate-500 mt-1.5 uppercase tracking-wide">
               {t('Solde du Compte', 'Account Balance')}
             </div>
           </div>
 
           {/* Second Card: Empty State Details */}
-          <div className="bg-rose-950/50 backdrop-blur-sm rounded-2xl p-8 shadow-md border border-rose-700/40 text-center py-12 space-y-4">
-            <div className="w-16 h-16 bg-rose-500/20 text-rose-300 rounded-full flex items-center justify-center mx-auto">
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 text-center py-12 space-y-4">
+            <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
               <Clock className="w-8 h-8" />
             </div>
             <div className="space-y-1">
-              <h3 className="font-sans font-black text-base text-white uppercase tracking-wide">
+              <h3 className="font-sans font-black text-base text-slate-900 uppercase tracking-wide">
                 {t('Aucun Retrait', 'No Withdrawals')}
               </h3>
-              <p className="text-xs text-rose-200 max-w-xs mx-auto leading-relaxed">
+              <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
                 {t("Vous n'avez pas encore effectué de demande de retrait pour le moment.", "You have not made any withdrawal requests yet.")}
               </p>
             </div>
             <button
               onClick={() => onNavigate('/')}
-              className="bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-black text-xs uppercase tracking-wider px-6 py-3 rounded-xl shadow-md active:scale-95 transition-all cursor-pointer inline-block"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider px-6 py-3 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer inline-block"
             >
               {t("Faire un Retrait", "Make a Withdrawal")}
             </button>
@@ -410,26 +410,26 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
   }
 
   return (
-    <div className="min-h-screen pb-12 text-white">
+    <div className="min-h-screen pb-12 text-slate-900 bg-[#f8fafc]">
       {/* HEADER SECTION */}
-      <header className="sticky top-0 z-50 py-3 bg-[#9f1239]/90 backdrop-blur-md border-b border-rose-700/40">
+      <header className="sticky top-0 z-50 py-3 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <button 
             onClick={() => onNavigate('/')}
-            className="flex items-center space-x-2 text-white hover:text-amber-300 transition-colors font-bold text-sm cursor-pointer"
+            className="flex items-center space-x-2 text-slate-700 hover:text-slate-950 transition-colors font-bold text-sm cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
             <span>{t('Tableau de bord', 'Dashboard')}</span>
           </button>
           
-          <h1 className="font-sans font-black text-base sm:text-lg text-white uppercase tracking-wider">
+          <h1 className="font-sans font-black text-base sm:text-lg text-slate-900 uppercase tracking-wider">
             {hashActive === '#retrait' ? t('Historique des Retraits', 'Withdrawals History') : t('Historique de Compte', 'Account History')}
           </h1>
 
           <button 
             onClick={handleRefresh}
             disabled={loading}
-            className={`p-2 text-white hover:text-amber-300 transition-all cursor-pointer ${loading ? 'animate-spin' : ''}`}
+            className={`p-2 text-slate-700 hover:text-slate-950 transition-all cursor-pointer ${loading ? 'animate-spin' : ''}`}
             title={t('Synchroniser', 'Synchronize')}
           >
             <RefreshCw className="w-4 h-4 stroke-[2.5]" />
@@ -449,8 +449,8 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
               }}
               className={`flex-1 md:flex-initial py-2.5 px-4 rounded-full font-sans font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all flex flex-row items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'recharge' 
-                  ? 'bg-[#f43f5e] text-white shadow-md' 
-                  : 'text-rose-200 hover:text-white bg-rose-950/40'
+                  ? 'bg-slate-900 text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
               }`}
             >
               <PlusCircle className="w-4 h-4 shrink-0" />
@@ -464,8 +464,8 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
               }}
               className={`flex-1 md:flex-initial py-2.5 px-4 rounded-full font-sans font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all flex flex-row items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'retrait' 
-                  ? 'bg-[#f43f5e] text-white shadow-md' 
-                  : 'text-rose-200 hover:text-white bg-rose-950/40'
+                  ? 'bg-slate-900 text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
               }`}
             >
               <ArrowUpCircle className="w-4 h-4 shrink-0" />
@@ -479,8 +479,8 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
               }}
               className={`flex-1 md:flex-initial py-2.5 px-4 rounded-full font-sans font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all flex flex-row items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'achat' 
-                  ? 'bg-[#f43f5e] text-white shadow-md' 
-                  : 'text-rose-200 hover:text-white bg-rose-950/40'
+                  ? 'bg-slate-900 text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
               }`}
             >
               <ShoppingBag className="w-4 h-4 shrink-0" />
@@ -494,8 +494,8 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
               }}
               className={`flex-1 md:flex-initial py-2.5 px-4 rounded-full font-sans font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all flex flex-row items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'revenu' 
-                  ? 'bg-[#f43f5e] text-white shadow-md' 
-                  : 'text-rose-200 hover:text-white bg-rose-950/40'
+                  ? 'bg-slate-900 text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
               }`}
             >
               <TrendingUp className="w-4 h-4 shrink-0" />
@@ -507,7 +507,7 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
         {/* SEARCH AND FILTER BAR */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-300 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder={
@@ -519,16 +519,16 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm text-white placeholder:text-slate-300 focus:outline-none font-medium"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs md:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 font-medium"
             />
           </div>
 
-          <div className="flex items-center space-x-2 bg-white/10 px-3 py-2 rounded-xl">
-            <SlidersHorizontal className="w-4 h-4 text-amber-300" />
+          <div className="flex items-center space-x-2 bg-white border border-slate-200 px-3 py-2 rounded-xl">
+            <SlidersHorizontal className="w-4 h-4 text-slate-500" />
             <select
               value={statusFilter}
               onChange={(e: any) => setStatusFilter(e.target.value)}
-              className="bg-transparent border-none text-xs font-bold font-sans text-white focus:outline-none pr-3"
+              className="bg-transparent border-none text-xs font-bold font-sans text-slate-800 focus:outline-none pr-3 cursor-pointer"
               disabled={activeTab === 'commission' || activeTab === 'revenu'}
             >
               <option value="all" className="text-slate-900">{t("Statut: Tous", "Status: All")}</option>
@@ -551,7 +551,7 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
         </div>
 
         {/* RESULT CONTAINER */}
-        <div className="overflow-hidden min-h-[250px] text-white">
+        <div className="overflow-hidden min-h-[250px] bg-white border border-slate-200 rounded-2xl shadow-sm">
           
           {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-3">
@@ -559,10 +559,10 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
                 <Clock className="w-8 h-8 stroke-[1.5]" />
               </div>
               <div className="space-y-1">
-                <p className="font-sans font-black text-sm text-white">{t("Aucune opération trouvée", "No transactions found")}</p>
-                <p className="text-xs text-slate-300 max-w-sm">
+                <p className="font-sans font-black text-sm text-slate-800">{t("Aucune opération trouvée", "No transactions found")}</p>
+                <p className="text-xs text-slate-500 max-w-sm">
                   {t("Il n’y a aucun historique correspondant à vos critères ou de type", "There is no history matching your criteria or of type")}{' '}
-                  <span className="font-bold text-amber-300">
+                  <span className="font-bold text-slate-900">
                     {activeTab}
                   </span>.
                 </p>
@@ -572,45 +572,45 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr className="font-sans font-black text-[11px] text-amber-300 uppercase tracking-widest select-none">
-                    <th className="py-3 px-3">{t("Date & ID", "Date & ID")}</th>
-                    {activeTab !== 'retrait' && activeTab !== 'recharge' && <th className="py-3 px-3">{t("Détails de l’opération", "Transaction Details")}</th>}
-                    <th className="py-3 px-3 text-right">{t("Montant", "Amount")} ({getCurrency()})</th>
-                    <th className="py-3 px-3 text-right">{t("Statut / Type", "Status / Type")}</th>
+                  <tr className="font-sans font-black text-[11px] text-slate-600 uppercase tracking-widest select-none bg-slate-50 border-b border-slate-200">
+                    <th className="py-3 px-4">{t("Date & ID", "Date & ID")}</th>
+                    {activeTab !== 'retrait' && activeTab !== 'recharge' && <th className="py-3 px-4">{t("Détails de l’opération", "Transaction Details")}</th>}
+                    <th className="py-3 px-4 text-right">{t("Montant", "Amount")} ({getCurrency()})</th>
+                    <th className="py-3 px-4 text-right">{t("Statut / Type", "Status / Type")}</th>
                   </tr>
                 </thead>
-                <tbody className="text-xs">
+                <tbody className="text-xs divide-y divide-slate-100">
                   
                   {/* RECHARGE TAB ROWS */}
                   {activeTab === 'recharge' && (filteredItems as Deposit[]).map((dep) => (
-                    <tr key={dep.id} className="transition-colors">
-                      <td className="py-3 px-3 space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-slate-200">
-                          <Calendar className="w-3.5 h-3.5" />
+                    <tr key={dep.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4 space-y-0.5">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span className="font-mono font-medium text-[11px]">{formatDate(dep.createdAt)}</span>
                         </div>
                         <div className="font-mono text-[9px] text-slate-400">ID: {dep.id}</div>
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <span className="font-mono font-black text-emerald-300 text-[13px]">
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="font-mono font-black text-emerald-600 text-[13px]">
                           +{dep.amount.toLocaleString()}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-3.5 px-4 text-right">
                         {dep.status === 'approved' && (
-                          <span className="inline-flex items-center gap-1 text-emerald-300 font-black text-[11px] uppercase">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px] uppercase bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                             <CheckCircle className="w-3.5 h-3.5" />
                             Validé
                           </span>
                         )}
                         {dep.status === 'pending' && (
-                          <span className="inline-flex items-center gap-1 text-amber-300 font-black text-[11px] uppercase">
+                          <span className="inline-flex items-center gap-1 text-amber-700 font-bold text-[11px] uppercase bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
                             <Clock className="w-3.5 h-3.5 animate-pulse" />
                             En attente
                           </span>
                         )}
                         {dep.status === 'rejected' && (
-                          <span className="inline-flex items-center gap-1 text-rose-300 font-black text-[11px] uppercase">
+                          <span className="inline-flex items-center gap-1 text-red-700 font-bold text-[11px] uppercase bg-red-50 px-2.5 py-1 rounded-full border border-red-200">
                             <XCircle className="w-3.5 h-3.5" />
                             Refusé
                           </span>
@@ -624,39 +624,39 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
                     <tr 
                       key={wth.id} 
                       onClick={() => setSelectedWithdrawal(wth)}
-                      className="transition-colors cursor-pointer group"
+                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
                       title={t("Cliquez pour voir le reçu", "Click to view receipt")}
                     >
-                      <td className="py-3 px-3 space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-slate-200">
-                          <Calendar className="w-3.5 h-3.5" />
+                      <td className="py-3.5 px-4 space-y-0.5">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span className="font-mono font-medium text-[11px]">{formatDate(wth.createdAt)}</span>
                         </div>
                         <div className="font-mono text-[9px] text-slate-400">ID: {wth.id}</div>
-                        <div className="text-[10px] text-slate-300 font-bold group-hover:text-amber-300 transition-colors">
+                        <div className="text-[10px] text-slate-600 font-bold group-hover:text-slate-900 transition-colors">
                           Vers: {wth.operator} ({maskPhoneNumber(wth.number)})
                         </div>
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <span className="font-mono font-black text-rose-300 text-[13px] inline-block">
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="font-mono font-black text-red-600 text-[13px] inline-block">
                           -{wth.amount.toLocaleString()}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-3.5 px-4 text-right">
                         {wth.status === 'approved' && (
-                          <span className="inline-flex items-center gap-1 text-emerald-300 font-black text-[11px] uppercase">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px] uppercase bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                             <CheckCircle className="w-3.5 h-3.5" />
                             {t('Réussi', 'Successful')}
                           </span>
                         )}
                         {wth.status === 'pending' && (
-                          <span className="inline-flex items-center gap-1 text-amber-300 font-black text-[11px] uppercase">
+                          <span className="inline-flex items-center gap-1 text-amber-700 font-bold text-[11px] uppercase bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
                             <Clock className="w-3.5 h-3.5 animate-pulse" />
                             En attente
                           </span>
                         )}
                         {wth.status === 'rejected' && (
-                          <span className="inline-flex items-center gap-1 text-rose-300 font-black text-[11px] uppercase">
+                          <span className="inline-flex items-center gap-1 text-red-700 font-bold text-[11px] uppercase bg-red-50 px-2.5 py-1 rounded-full border border-red-200">
                             <XCircle className="w-3.5 h-3.5" />
                             Refusé
                           </span>
@@ -667,40 +667,40 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
 
                   {/* ACHAT TAB ROWS */}
                   {activeTab === 'achat' && (filteredItems as Investment[]).map((inv) => (
-                    <tr key={inv.id} className="hover:bg-rose-900/20 transition-colors">
-                      <td className="py-4 px-4 sm:px-6 space-y-1">
-                        <div className="flex items-center gap-1.5 text-slate-500">
-                          <Calendar className="w-3.5 h-3.5" />
+                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4 space-y-1">
+                        <div className="flex items-center gap-1.5 text-slate-600">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span className="font-mono font-medium text-[11px]">{formatDate(inv.createdAt)}</span>
                         </div>
                         <div className="font-mono text-[9px] text-slate-400">ID: {inv.id}</div>
                       </td>
-                      <td className="py-4 px-4 space-y-1">
-                        <div className="font-sans font-bold text-slate-850 flex items-center gap-1.5">
-                          <span className="bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                      <td className="py-3.5 px-4 space-y-1">
+                        <div className="font-sans font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-black uppercase border border-slate-200">
                             type = achat
                           </span>
                           <span>Formule {inv.productName}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                        <div className="text-[11px] text-slate-600 font-medium leading-relaxed">
                           Revenu: <span className="font-bold text-emerald-600">+{inv.dailyReturn.toLocaleString()} F / jour</span><br />
                           Durée: <span className="text-slate-700 font-semibold">{inv.durationDays} jours</span> (Plan actuel: Jour {inv.daysPassed}/{inv.durationDays})
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-right">
-                        <span className="font-mono font-black text-rose-400 text-[13px]">
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="font-mono font-black text-slate-800 text-[13px]">
                           {inv.price.toLocaleString()}
                         </span>
                       </td>
-                      <td className="py-4 px-4 sm:px-6 text-right">
+                      <td className="py-3.5 px-4 text-right">
                         {inv.status === 'active' && (
-                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-black text-[10px] uppercase border border-emerald-100">
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold text-[10px] uppercase border border-emerald-200">
                             <CheckCircle className="w-3 h-3 text-emerald-600" />
                             Actif
                           </span>
                         )}
                         {inv.status === 'completed' && (
-                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-black text-[10px] uppercase border border-slate-200">
+                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-bold text-[10px] uppercase border border-slate-200">
                             <CheckCircle className="w-3 h-3 text-slate-500" />
                             Terminé
                           </span>
@@ -711,32 +711,32 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
 
                   {/* COMMISSION TAB ROWS */}
                   {activeTab === 'commission' && (filteredItems as Commission[]).map((comm) => (
-                    <tr key={comm.id} className="hover:bg-rose-900/20 transition-colors">
-                      <td className="py-4 px-4 sm:px-6 space-y-1">
-                        <div className="flex items-center gap-1.5 text-slate-500">
-                          <Calendar className="w-3.5 h-3.5" />
+                    <tr key={comm.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4 space-y-1">
+                        <div className="flex items-center gap-1.5 text-slate-600">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span className="font-mono font-medium text-[11px]">{formatDate(comm.createdAt)}</span>
                         </div>
                         <div className="font-mono text-[9px] text-slate-400">ID: {comm.id}</div>
                       </td>
-                      <td className="py-4 px-4 space-y-1">
-                        <div className="font-sans font-bold text-slate-850 flex items-center gap-1.5 flex-wrap">
-                          <span className="bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                      <td className="py-3.5 px-4 space-y-1">
+                        <div className="font-sans font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-black uppercase border border-slate-200">
                             type = commission
                           </span>
                           <span>Parrainage de {comm.fromUserName}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500 font-bold">
-                          Filleul direct de <span className="text-rose-400 font-extrabold">Niveau {comm.level}</span>
+                        <div className="text-[11px] text-slate-600 font-bold">
+                          Filleul direct de <span className="text-amber-600 font-extrabold">Niveau {comm.level}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-right">
-                        <span className="font-mono font-black text-rose-400 text-[13px]">
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="font-mono font-black text-emerald-600 text-[13px]">
                           +{comm.amount.toLocaleString()}
                         </span>
                       </td>
-                      <td className="py-4 px-4 sm:px-6 text-right">
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-black text-[10px] uppercase border border-emerald-100">
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold text-[10px] uppercase border border-emerald-200">
                           <CheckCircle className="w-3 h-3 text-emerald-600" />
                           Crédité
                         </span>
@@ -746,32 +746,32 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
 
                   {/* REVENU TAB ROWS */}
                   {activeTab === 'revenu' && (filteredItems as any[]).map((rev) => (
-                    <tr key={rev.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 px-4 sm:px-6 space-y-1">
-                        <div className="flex items-center gap-1.5 text-slate-500">
-                          <Calendar className="w-3.5 h-3.5" />
+                    <tr key={rev.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4 space-y-1">
+                        <div className="flex items-center gap-1.5 text-slate-600">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span className="font-mono font-medium text-[11px]">{formatDate(rev.createdAt)}</span>
                         </div>
                         <div className="font-mono text-[9px] text-slate-400">ID: {rev.id}</div>
                       </td>
-                      <td className="py-4 px-4 space-y-1">
-                        <div className="font-sans font-bold text-slate-850 flex items-center gap-1.5 flex-wrap">
-                          <span className="bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                      <td className="py-3.5 px-4 space-y-1">
+                        <div className="font-sans font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-black uppercase border border-slate-200">
                             type = revenu
                           </span>
                           <span>Formule {rev.productName}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500 font-bold">
-                          Versement journalier : <span className="text-rose-400">Jour {rev.dayNumber}</span>
+                        <div className="text-[11px] text-slate-600 font-bold">
+                          Versement journalier : <span className="text-slate-900">Jour {rev.dayNumber}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-right">
-                        <span className="font-mono font-black text-rose-400 text-[13px]">
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="font-mono font-black text-emerald-600 text-[13px]">
                           +{rev.amount.toLocaleString()}
                         </span>
                       </td>
-                      <td className="py-4 px-4 sm:px-6 text-right">
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-black text-[10px] uppercase border border-emerald-100">
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold text-[10px] uppercase border border-emerald-200">
                           <CheckCircle className="w-3 h-3 text-emerald-600" />
                           Récolté
                         </span>
@@ -785,8 +785,6 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
           )}
 
         </div>
-
-        {/* SECURITY REASSURANCE BADGES MOVED OR REMOVED AT USER REQUEST */}
 
       </main>
     </div>

@@ -21,7 +21,9 @@ export interface User {
   bankCardNumber?: string;
   lastCheckInDate?: string;
   checkInStreak?: number;
+  totalCheckInEarnings?: number;
   claimedMissions?: string[];
+  claimedTasks?: string[];
 }
 
 export interface Deposit {
@@ -114,6 +116,7 @@ export interface SupportMessage {
   userId: string;
   sender: 'user' | 'admin';
   message: string;
+  image?: string;
   createdAt: string;
   lastModified?: number;
   status?: 'unread' | 'read' | 'replied';

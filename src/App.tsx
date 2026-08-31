@@ -199,8 +199,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-transparent font-sans tracking-tight leading-normal overflow-x-hidden select-none relative text-slate-900">
       
-      {/* Rose Rouge Gradient Background across the entire site */}
-      <div className="fixed inset-0 -z-10 pointer-events-none bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519]" id="site-global-brand-background" />
+      {/* Clean White Background across the entire site */}
+      <div className="fixed inset-0 -z-10 pointer-events-none bg-[#f8fafc]" id="site-global-brand-background" />
 
       {/* 1. AUTHENTICATION & REGISTRATION SCREEN */}
       {!user && (
