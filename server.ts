@@ -4,6 +4,16 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import {
+  getNeonPool,
+  testNeonConnection,
+  initAllNeonTables,
+  fetchNeonStoreData,
+  saveNeonStoreBatch,
+  syncRelationalTables,
+  fetchLiveNeonCounts,
+  sanitizeDatabaseUrl
+} from "./server_neon";
 
 dotenv.config();
 
@@ -418,6 +428,70 @@ CREATE POLICY "Allow anon full access" ON public.store FOR ALL TO anon USING (tr
     return modified;
   }
 
+const DEFAULT_CATEGORY_SCHEDULES: Record<string, any> = {
+  wellbeing: {
+    mode: "auto",
+    openTime: "08:00",
+    closeTime: "20:00",
+    enabled: true,
+    lastModified: Date.now()
+  },
+  activity: {
+    mode: "auto",
+    openTime: "08:00",
+    closeTime: "20:00",
+    enabled: true,
+    lastModified: Date.now()
+  }
+};
+
+function evaluateCategorySchedule(category: 'wellbeing' | 'activity', schedulesObj?: any, date: Date = new Date()): {
+  isOpen: boolean;
+  statusLabel: 'OUVERT' | 'FERMÉ';
+  reason: string;
+} {
+  const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Activité';
+  const schedules = schedulesObj || DEFAULT_CATEGORY_SCHEDULES;
+  const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
+
+  if (!schedule) {
+    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts.` };
+  }
+
+  if (schedule.mode === 'open') {
+    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts.` };
+  }
+
+  if (schedule.mode === 'closed') {
+    return { isOpen: false, statusLabel: 'FERMÉ', reason: 'Ce produit est temporairement indisponible pour le moment.' };
+  }
+
+  // mode === 'auto'
+  if (!schedule.enabled) {
+    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts.` };
+  }
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const currentHM = `${hours}:${minutes}`;
+
+  const openTime = schedule.openTime || '08:00';
+  const closeTime = schedule.closeTime || '20:00';
+
+  let open = false;
+  if (openTime <= closeTime) {
+    open = currentHM >= openTime && currentHM < closeTime;
+  } else {
+    open = currentHM >= openTime || currentHM < closeTime;
+  }
+
+  if (open) {
+    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts (${openTime} - ${closeTime}).` };
+  } else {
+    return { isOpen: false, statusLabel: 'FERMÉ', reason: 'Ce produit est temporairement indisponible pour le moment.' };
+  }
+}
+
 const SERVER_DEFAULT_PRODUCTS = [
   // STABILITÉ (7 products)
   { id: "stab-1", vipLevel: 1, name: "Gold Avenue Option Bronze", tag: "Option Bronze", price: 2000, dailyReturn: 100, durationDays: 40, totalReturn: 4000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
@@ -498,7 +572,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         "CI_32": "+225 01 02 03 04 05 (Wave)",
         "BF_34": "+226 70 90 33 19 (Orange Money)",
         "BF_33": "+226 60 00 00 00 (Moov Money)"
-      }
+      },
+      "gi_category_schedules": JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES))
     };
 
     let modified = false;
@@ -928,10 +1003,39 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
     }
 
-    // Run active cloud sync relay in background using Supabase
+    // Run active cloud sync relay in background (Neon PostgreSQL first, Supabase fallback)
     Promise.resolve().then(async () => {
+      // 1. Neon PostgreSQL Priority Check
+      const neonPool = getNeonPool();
+      if (neonPool) {
+        try {
+          console.log("[SERVER STARTUP] Neon PostgreSQL détecté. Vérification de la connexion...");
+          const neonTest = await testNeonConnection();
+          if (neonTest.ok) {
+            console.log(`[SERVER STARTUP] ✅ Connecté avec succès à Neon PostgreSQL (BD: ${neonTest.database}) !`);
+            await initAllNeonTables();
+            const neonData = await fetchNeonStoreData();
+            if (neonData && Object.keys(neonData).length > 0) {
+              console.log(`[SERVER STARTUP] ${Object.keys(neonData).length} clés récupérées depuis Neon PostgreSQL.`);
+              mergeData(neonData);
+            } else {
+              console.log("[SERVER STARTUP] La table Neon 'store' est vide. Synchronisation initiale de db.json vers Neon...");
+              await saveStore();
+            }
+            syncRelationalTables(storeData).catch((err) => console.warn('[NEON RELATIONAL SYNC]', err.message));
+            console.log("[SERVER STARTUP] Neon PostgreSQL est configuré et actif comme base de données principale !");
+            return;
+          } else {
+            console.warn("[SERVER STARTUP] Échec du test de connexion Neon PostgreSQL:", neonTest.message);
+          }
+        } catch (e: any) {
+          console.error("[SERVER STARTUP] Exception lors de l'initialisation Neon:", e.message);
+        }
+      }
+
+      // 2. Supabase Fallback
       if (!isSupabaseReady()) {
-        console.log("[SERVER STARTUP] Supabase client is not available or disabled. Running on local db.json. (Automatic cleanup disabled to preserve user accounts)");
+        console.log("[SERVER STARTUP] Ni Neon ni Supabase actif. Fonctionnement sécurisé sur la base de données locale db.json.");
         return;
       }
       try {
@@ -1051,6 +1155,31 @@ const SERVER_DEFAULT_PRODUCTS = [
   }
 
   async function saveStoreRemote(specificKeys?: string[]): Promise<void> {
+    // 1. Neon PostgreSQL Priority (Direct pooled PostgreSQL connection)
+    const neonPool = getNeonPool();
+    if (neonPool) {
+      try {
+        const keys = specificKeys || Object.keys(storeData);
+        const validKeys = keys.filter(k => storeData[k] !== undefined);
+        if (validKeys.length > 0) {
+          const rowsToUpsert = validKeys.map(key => ({
+            key,
+            value: storeData[key]
+          }));
+          const savedOk = await saveNeonStoreBatch(rowsToUpsert);
+          if (savedOk) {
+            saveStoreLocal();
+            // Background sync to relational tables
+            syncRelationalTables(storeData).catch(() => {});
+            return;
+          }
+        }
+      } catch (e: any) {
+        console.warn('[NEON SAVE ERROR]', e.message);
+      }
+    }
+
+    // 2. Supabase Fallback (if Neon not configured)
     if (!isSupabaseReady()) return;
     
     try {
@@ -2007,6 +2136,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
       }
 
+      const hasNeon = Boolean(process.env.DATABASE_URL?.trim());
       res.json({
         success: true,
         totalUsersInMem: usersInMem.length,
@@ -2014,6 +2144,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         timestamp: Date.now(),
         dbPath,
         dbExists: exists,
+        databaseType: hasNeon ? "neon_postgresql" : (supabase ? "supabase" : "local_db_json"),
+        neonConfigured: hasNeon,
         supabaseStatus,
         supabaseUrl: supabaseUrl ? supabaseUrl.replace(/([^/]*\/\/)[^.]*(.*)/, '$1***$2') : "aucun",
         storeTableAccessible,
@@ -2024,7 +2156,124 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
   });
 
+  // Neon PostgreSQL Diagnostics and Test Route
+  app.get("/api/neon/test", async (req, res) => {
+    try {
+      const result = await testNeonConnection();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ ok: false, message: e.message });
+    }
+  });
+
+  // General Database Status Route
+  app.get("/api/db-status", async (req, res) => {
+    try {
+      const hasNeon = Boolean(process.env.DATABASE_URL?.trim());
+      let neonTest: any = null;
+      if (hasNeon) {
+        neonTest = await testNeonConnection();
+      }
+
+      res.json({
+        primaryDatabase: hasNeon ? "Neon PostgreSQL" : (hasValidSupabaseEnv ? "Supabase" : "Local db.json"),
+        neon: {
+          configured: hasNeon,
+          sanitizedUrl: sanitizeDatabaseUrl(process.env.DATABASE_URL),
+          connected: neonTest ? neonTest.ok : false,
+          details: neonTest
+        },
+        supabase: {
+          configured: hasValidSupabaseEnv,
+          enabled: supabaseEnabled,
+          url: supabaseUrl ? supabaseUrl.replace(/([^/]*\/\/)[^.]*(.*)/, '$1***$2') : "aucun"
+        },
+        localStorage: {
+          path: dbPath,
+          usersCount: (storeData["gi_users"] || []).length,
+          depositsCount: (storeData["gi_deposits"] || []).length,
+          withdrawalsCount: (storeData["gi_withdrawals"] || []).length,
+          investmentsCount: (storeData["gi_investments"] || []).length,
+          productsCount: (storeData["gi_products"] || []).length
+        }
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Neon Table Creation and Initialization
+  app.post("/api/neon/init-tables", async (req, res) => {
+    try {
+      const initRes = await initAllNeonTables();
+      if (initRes.success) {
+        await syncRelationalTables(storeData);
+      }
+      res.json(initRes);
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  // Neon Full Sync Trigger
+  app.post("/api/neon/sync", async (req, res) => {
+    try {
+      const p = getNeonPool();
+      if (!p) {
+        return res.status(400).json({ success: false, message: "DATABASE_URL n'est pas configurée." });
+      }
+      const direction = req.body?.direction || 'push';
+      if (direction === 'pull') {
+        const data = await fetchNeonStoreData();
+        if (data && Object.keys(data).length > 0) {
+          mergeData(data);
+          saveStoreLocal();
+          return res.json({ success: true, message: `Synchronisé depuis Neon (${Object.keys(data).length} clés).` });
+        }
+        return res.json({ success: false, message: "Aucune donnée trouvée dans Neon." });
+      } else {
+        await saveStore();
+        await syncRelationalTables(storeData);
+        return res.json({ success: true, message: "Données locales synchronisées avec succès vers Neon PostgreSQL." });
+      }
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  let lastNeonSyncTime = 0;
+  const NEON_MIN_PULL_INTERVAL = 600; // ms
+
+  async function syncFromNeonIfAvailable(force: boolean = false): Promise<boolean> {
+    const neonPool = getNeonPool();
+    if (!neonPool) return false;
+    const now = Date.now();
+    if (!force && (now - lastNeonSyncTime < NEON_MIN_PULL_INTERVAL)) {
+      return true;
+    }
+    try {
+      const neonData = await fetchNeonStoreData();
+      if (neonData && Object.keys(neonData).length > 0) {
+        for (const key of Object.keys(neonData)) {
+          if (neonData[key] !== undefined && neonData[key] !== null) {
+            storeData[key] = neonData[key];
+          }
+        }
+        saveStoreLocal();
+        lastNeonSyncTime = Date.now();
+        return true;
+      }
+    } catch (err: any) {
+      console.warn("[NEON LIVE PULL WARN]", err.message);
+    }
+    return false;
+  }
+
   app.get("/api/get-store", async (req, res) => {
+    // 1. Authoritative real-time sync with Neon PostgreSQL
+    const forceFresh = req.query.fresh === 'true';
+    await syncFromNeonIfAvailable(forceFresh);
+
     // Process automatic daily earnings on the server to stay fully up-to-date
     try {
       await processAutomaticDailyInstallmentsServer();
@@ -2053,7 +2302,54 @@ const SERVER_DEFAULT_PRODUCTS = [
       sanitizeProductsInPlace(storeData["gi_products"]);
     }
 
+    if (Array.isArray(storeData["gi_support_messages"])) {
+      const seenIds = new Set<string>();
+      const seenContent = new Set<string>();
+      const deduped: any[] = [];
+      for (const m of storeData["gi_support_messages"]) {
+        if (!m || !m.userId) continue;
+        const key = String(m.id || '');
+        const timeBucket = Math.floor(new Date(m.createdAt || 0).getTime() / 15000);
+        const contentKey = `${m.userId}_${m.sender}_${(m.message || '').trim()}_${m.image ? 'img' : 'no'}_${timeBucket}`;
+        if ((key && seenIds.has(key)) || seenContent.has(contentKey)) continue;
+        if (key) seenIds.add(key);
+        seenContent.add(contentKey);
+        deduped.push(m);
+      }
+      if (deduped.length !== storeData["gi_support_messages"].length) {
+        storeData["gi_support_messages"] = deduped;
+      }
+    }
+
     res.json(storeData);
+  });
+
+  app.get("/api/neon/live-sync", async (req, res) => {
+    try {
+      const neonPool = getNeonPool();
+      if (!neonPool) {
+        return res.json({
+          success: false,
+          configured: false,
+          message: "Neon PostgreSQL non configuré (variable DATABASE_URL manquante)."
+        });
+      }
+      await syncFromNeonIfAvailable(true);
+      const counts = await fetchLiveNeonCounts();
+      return res.json({
+        success: true,
+        configured: true,
+        message: "Synchronisation directe avec Neon PostgreSQL réussie.",
+        counts,
+        usersCount: Array.isArray(storeData["gi_users"]) ? storeData["gi_users"].length : 0,
+        depositsCount: Array.isArray(storeData["gi_deposits"]) ? storeData["gi_deposits"].length : 0,
+        withdrawalsCount: Array.isArray(storeData["gi_withdrawals"]) ? storeData["gi_withdrawals"].length : 0,
+        productsCount: Array.isArray(storeData["gi_products"]) ? storeData["gi_products"].length : 0,
+        investmentsCount: Array.isArray(storeData["gi_investments"]) ? storeData["gi_investments"].length : 0
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
   });
 
   app.post("/api/save-store", async (req, res) => {
@@ -2627,21 +2923,70 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
 
     const user = users[uIdx];
-    if (user.balance < targetProduct.price) {
-      return res.json({ success: false, message: `Solde insuffisant. Vous devez avoir au moins ${targetProduct.price.toLocaleString()} XOF.` });
+    if (user.balance <= 0 || user.balance < targetProduct.price) {
+      return res.json({ success: false, message: 'Votre solde est insuffisant. Veuillez effectuer un investissement/rechargement avant d’activer un produit.' });
     }
 
-    // Condition d'achat: Un utilisateur ne doit pas pouvoir acheter un produit du bien-être ou une activité s'il n'a pas d'abord payé la stabilité.
-    const isSpecialCategory = targetProduct.category === 'wellbeing' || targetProduct.category === 'activity';
-    if (isSpecialCategory) {
-      const hasStability = investments.some(
-        (inv: any) => inv.userId === userId && (inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')))
-      );
-      if (!hasStability) {
+    // Horaires d'ouverture / fermeture pour Bien-être et Activités (sécurisé côté serveur)
+    if (targetProduct.category === 'wellbeing' || targetProduct.category === 'activity') {
+      const catKey = targetProduct.category as 'wellbeing' | 'activity';
+      const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
+      const scheduleStatus = evaluateCategorySchedule(catKey, schedules);
+      if (!scheduleStatus.isOpen) {
         return res.json({
           success: false,
-          message: 'Condition requise : Vous devez d\'abord acheter et payer un produit de Stabilité VIP avant de pouvoir acheter un produit Bien-être ou une Activité.'
+          message: scheduleStatus.reason
         });
+      }
+    }
+
+    // Condition d'achat: Bien-être et Activités
+    const isSpecialCategory = targetProduct.category === 'wellbeing' || targetProduct.category === 'activity';
+    if (isSpecialCategory) {
+      const userInvs = investments.filter((inv: any) => inv.userId === userId);
+      const categoryLabel = targetProduct.category === 'wellbeing' ? 'Bien-être' : 'Activités';
+
+      // 1. Empêcher toute nouvelle activation tant que le cycle précédent n’est pas terminé et réglé
+      const activeInCategory = userInvs.find((inv: any) => inv.category === targetProduct.category && inv.status === 'active');
+      if (activeInCategory) {
+        return res.json({
+          success: false,
+          message: `Vous avez déjà un cycle en cours pour la catégorie ${categoryLabel}. Veuillez attendre l'échéance de ce cycle pour pouvoir activer un nouveau produit.`
+        });
+      }
+
+      // 2. Condition de base : Avoir au moins un investissement Stabilité VIP
+      const stabilityInvs = userInvs.filter((inv: any) => inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')));
+      if (stabilityInvs.length === 0) {
+        return res.json({
+          success: false,
+          message: `Un investissement préalable dans un produit Stabilité VIP est requis avant de pouvoir souscrire à un produit ${categoryLabel}.`
+        });
+      }
+
+      // 3. Une fois le cycle terminé et le revenu total versé, l’utilisateur doit effectuer un nouvel investissement avant de pouvoir activer un nouveau produit Bien-être ou Activités
+      const completedInCategory = userInvs.filter((inv: any) => inv.category === targetProduct.category && inv.status === 'completed');
+      if (completedInCategory.length > 0) {
+        // Find the most recently completed cycle of this category
+        const latestCompleted = [...completedInCategory].sort((a: any, b: any) => {
+          const timeA = new Date(a.createdAt).getTime();
+          const timeB = new Date(b.createdAt).getTime();
+          return timeB - timeA;
+        })[0];
+
+        const latestCycleCreationTime = new Date(latestCompleted.createdAt).getTime();
+
+        // Check if a new stability investment was made after the latest cycle was started
+        const hasNewStabilityInvestment = stabilityInvs.some((inv: any) => new Date(inv.createdAt).getTime() > latestCycleCreationTime);
+        const totalCategoryAttempts = userInvs.filter((inv: any) => inv.category === targetProduct.category).length;
+        const hasUnusedStability = stabilityInvs.length > totalCategoryAttempts;
+
+        if (!hasNewStabilityInvestment && !hasUnusedStability) {
+          return res.json({
+            success: false,
+            message: `Un nouvel investissement dans la catégorie Stabilité VIP est requis avant de pouvoir activer un nouveau produit ${categoryLabel}.`
+          });
+        }
       }
     }
 
@@ -2700,6 +3045,55 @@ const SERVER_DEFAULT_PRODUCTS = [
     res.json({ success: true, message: `Vous avez investi avec succès dans le plan ${targetProduct.name} !`, user });
   });
 
+  // Endpoints pour la gestion des horaires d'ouverture Bien-être et Activités
+  app.get("/api/category-schedules", (req, res) => {
+    const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
+    const wellbeingStatus = evaluateCategorySchedule('wellbeing', schedules);
+    const activityStatus = evaluateCategorySchedule('activity', schedules);
+    res.json({
+      success: true,
+      schedules,
+      status: {
+        wellbeing: wellbeingStatus,
+        activity: activityStatus
+      },
+      serverTime: new Date().toISOString()
+    });
+  });
+
+  app.post("/api/category-schedules", async (req, res) => {
+    const { schedules, category, schedule } = req.body || {};
+    let currentSchedules = storeData["gi_category_schedules"] || JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES));
+
+    if (schedules && typeof schedules === 'object') {
+      currentSchedules = {
+        ...currentSchedules,
+        ...schedules
+      };
+    } else if (category && (category === 'wellbeing' || category === 'activity') && schedule) {
+      currentSchedules[category] = {
+        ...currentSchedules[category],
+        ...schedule,
+        lastModified: Date.now()
+      };
+    }
+
+    storeData["gi_category_schedules"] = currentSchedules;
+    await saveStore(["gi_category_schedules"]);
+
+    const wellbeingStatus = evaluateCategorySchedule('wellbeing', currentSchedules);
+    const activityStatus = evaluateCategorySchedule('activity', currentSchedules);
+
+    res.json({
+      success: true,
+      schedules: currentSchedules,
+      status: {
+        wellbeing: wellbeingStatus,
+        activity: activityStatus
+      }
+    });
+  });
+
   // Centralized Daily Loyalty Reward claim API
   app.post("/api/claim-daily", async (req, res) => {
     const { userId } = req.body;
@@ -2753,9 +3147,11 @@ const SERVER_DEFAULT_PRODUCTS = [
       return res.json({ success: false, message: 'Cet investissement est déjà arrivé à terme.', amount: 0 });
     }
 
-    const isCyclicProduct = inv.category === 'activity' || inv.category === 'wellbeing' || inv.isCyclic;
+    const isCyclicProduct = true; // All plans (Stabilité, Bien-être, Activité) are strictly cyclic - revenue paid only at cycle completion
     if (isCyclicProduct) {
-      const planName = inv.category === 'wellbeing' ? 'Bien-être' : 'Activité de Cycle Court';
+      const isWellbeing = inv.category === 'wellbeing';
+      const isStability = inv.category === 'stability' || !inv.category;
+      const planName = isWellbeing ? 'Bien-être' : isStability ? 'Stabilité VIP' : 'Activité de Cycle Court';
       return res.json({
         success: false,
         message: `Les revenus de ce plan ${planName} (${inv.productName}) vous seront versés automatiquement et en intégralité à la fin de son cycle de ${inv.durationDays} jours.`,
@@ -4514,9 +4910,45 @@ const SERVER_DEFAULT_PRODUCTS = [
 
   // Support Msg API
   app.post("/api/send-message", async (req, res) => {
-    const { userId, message, sender, image } = req.body;
+    const { id, userId, message, sender, image, createdAt, lastModified, status } = req.body;
     let msgs = storeData["gi_support_messages"] || [];
     
+    // First, deduplicate existing msgs
+    const seenIds = new Set<string>();
+    const seenContent = new Set<string>();
+    const deduped: any[] = [];
+    for (const m of msgs) {
+      if (!m || !m.userId) continue;
+      const key = String(m.id || '');
+      const timeBucket = Math.floor(new Date(m.createdAt || 0).getTime() / 15000);
+      const contentKey = `${m.userId}_${m.sender}_${(m.message || '').trim()}_${m.image ? 'img' : 'no'}_${timeBucket}`;
+      if ((key && seenIds.has(key)) || seenContent.has(contentKey)) continue;
+      if (key) seenIds.add(key);
+      seenContent.add(contentKey);
+      deduped.push(m);
+    }
+    msgs = deduped;
+
+    const cleanMessage = (message || '').trim();
+    // Check if an identical message was already recorded
+    const existingMsg = msgs.find((m: any) => {
+      if (id && m.id === id) return true;
+      if (m.userId === userId && m.sender === sender && (m.message || '').trim() === cleanMessage) {
+        const imgMatch = (!image && !m.image) || (image && m.image === image);
+        if (imgMatch) {
+          const reqTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+          const existingTime = new Date(m.createdAt || 0).getTime();
+          if (Math.abs(reqTime - existingTime) < 15000) return true;
+        }
+      }
+      return false;
+    });
+
+    if (existingMsg) {
+      storeData["gi_support_messages"] = msgs;
+      return res.json({ success: true, message: existingMsg });
+    }
+
     let updatedMsgs = [...msgs];
     if (sender === 'admin') {
       // Mark preceding user messages as replied when the admin posts a response
@@ -4529,14 +4961,14 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
 
     const newMsg = {
-      id: `msg-${Date.now()}`,
+      id: id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       userId,
       sender,
-      message: message || '',
+      message: cleanMessage,
       ...(image ? { image } : {}),
-      status: 'unread',
-      lastModified: Date.now(),
-      createdAt: new Date().toISOString()
+      status: status || 'unread',
+      lastModified: lastModified || Date.now(),
+      createdAt: createdAt || new Date().toISOString()
     };
     updatedMsgs.push(newMsg);
     storeData["gi_support_messages"] = updatedMsgs;

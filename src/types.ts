@@ -88,6 +88,7 @@ export interface Investment {
   createdAt: string;
   lastModified?: number;
   autoRenew?: boolean;
+  totalReturn?: number;
 }
 
 export interface Commission {
@@ -150,5 +151,18 @@ export interface WithdrawalProof {
   status?: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   lastModified?: number;
+}
+
+export interface CategorySchedule {
+  mode: 'auto' | 'open' | 'closed'; // 'auto' = suit les heures d'ouverture/fermeture; 'open' = forcé ouvert; 'closed' = forcé fermé
+  openTime: string; // "HH:mm" ex: "08:00"
+  closeTime: string; // "HH:mm" ex: "20:00"
+  enabled: boolean; // active ou non la vérification horaire en mode auto
+  lastModified?: number;
+}
+
+export interface CategorySchedules {
+  wellbeing: CategorySchedule;
+  activity: CategorySchedule;
 }
 

@@ -390,14 +390,14 @@ const liveTransactions = [
 ];
 
 export const WHEEL_REWARDS = [
-  { amount: 20, label: "20 F", color: "#38bdf8" }, // light sky blue
+  { amount: 20, label: "20 F", color: "#38bdf8" }, // sky blue
   { amount: 25, label: "25 F", color: "#eab308" }, // gold
-  { amount: 50, label: "50 F", color: "#a855f7" }, // purple
-  { amount: 200, label: "200 F", color: "#f97316" }, // orange
-  { amount: 500, label: "500 F", color: "#ec4899" }, // pink
+  { amount: 50, label: "50 F", color: "#d97706" }, // amber gold
+  { amount: 200, label: "200 F", color: "#f59e0b" }, // light gold
+  { amount: 500, label: "500 F", color: "#b45309" }, // deep gold
   { amount: 1000, label: "1 000 F", color: "#22c55e" }, // green
   { amount: 1500, label: "1 500 F", color: "#14b8a6" }, // teal
-  { amount: 20, label: "20 F", color: "#ef4444" }  // red
+  { amount: 20, label: "20 F", color: "#1e3a8a" }  // navy blue
 ];
 
 export const GOLD_AVENUE_SLIDES = [
@@ -1067,6 +1067,7 @@ export default function Dashboard({
 
   const [isSupportMenuOpen, setIsSupportMenuOpen] = useState<boolean>(false);
   const [isLiveChatOpen, setIsLiveChatOpen] = useState<boolean>(false);
+  const [isSendingChatMessage, setIsSendingChatMessage] = useState<boolean>(false);
   const [chatImageAttachment, setChatImageAttachment] = useState<string | null>(null);
   const [isUploadingChatImage, setIsUploadingChatImage] = useState<boolean>(false);
   const [zoomedChatImage, setZoomedChatImage] = useState<string | null>(null);
@@ -1600,11 +1601,13 @@ export default function Dashboard({
     };
     window.addEventListener('gi_new_message', handleNewMessage);
     window.addEventListener('gi_store_updated', handleStoreUpdated);
+    window.addEventListener('gi_category_schedules_updated', handleStoreUpdated);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('gi_new_message', handleNewMessage);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
+      window.removeEventListener('gi_category_schedules_updated', handleStoreUpdated);
     };
   }, [currentUser.id]);
 
@@ -2390,41 +2393,47 @@ export default function Dashboard({
       return;
     }
 
-    // Condition d'achat: Un utilisateur ne doit pas pouvoir acheter un produit du bien-être ou une activité s'il n'a pas d'abord payé la stabilité.
+    // 1. Vérification du solde : si 0 XOF ou insuffisant, afficher le message professionnel sans lancer de confirmation
+    if (userState.balance <= 0 || userState.balance < product.price) {
+      openAlert(
+        'Solde Insuffisant',
+        'Votre solde est insuffisant. Veuillez effectuer un investissement/rechargement avant d’activer un produit.',
+        'info'
+      );
+      return;
+    }
+
+    // 2. Vérification discrète de la disponibilité du produit (état géré discrètement par le système)
+    if (product.category === 'wellbeing' || product.category === 'activity') {
+      const scheduleStatus = DataStore.isCategoryOpen(product.category);
+      if (!scheduleStatus.isOpen) {
+        openAlert(
+          'Indisponible',
+          'Ce produit est temporairement indisponible pour le moment.',
+          'info'
+        );
+        return;
+      }
+    }
+
+    // 2. Condition d'activation pour les catégories spéciales (appliquée automatiquement par le système)
     const isSpecialCategory = product.category === 'wellbeing' || product.category === 'activity';
     if (isSpecialCategory) {
-      const allInvs = DataStore.getInvestments() || [];
-      const hasStability = allInvs.some(
-        inv => inv.userId === userState.id && (inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')))
-      );
-      if (!hasStability) {
+      const check = DataStore.checkSpecialProductActivation(userState.id, product.category as 'wellbeing' | 'activity');
+      if (!check.canActivate) {
         openAlert(
-          'Stabilité Requise',
-          'Vous devez obligatoirement acheter et payer un produit de Stabilité VIP avant de pouvoir souscrire à un produit Bien-être ou une Activité.',
+          'Activation Non Autorisée',
+          check.reason || 'Activation impossible pour ce produit actuellement.',
           'error'
         );
         return;
       }
     }
 
-    if (userState.balance < product.price) {
-      setProductErrors(prev => ({
-        ...prev,
-        [product.id]: `Solde insuffisant ! Votre solde est de ${userState.balance.toLocaleString()} ${getCurrency()} mais ce package requiert ${product.price.toLocaleString()} ${getCurrency()}.`
-      }));
-      // Auto-clear after 10 seconds
-      setTimeout(() => {
-        setProductErrors(prev => ({
-          ...prev,
-          [product.id]: ''
-        }));
-      }, 10000);
-      return;
-    }
-
+    // 3. Solde suffisant et conditions validées : Confirmation d'activation
     openConfirm(
-      'Activer le Plan VIP',
-      `Voulez-vous activer le plan d'investissement "${product.name}" pour ${product.price.toLocaleString()} ${getCurrency()} ? Ce montant sera débité.`,
+      "Confirmer l'activation ?",
+      `Voulez-vous activer ce produit pour ${product.price.toLocaleString()} XOF ?`,
       async () => {
         const res = await DataStore.buyProduct(userState.id, product.id);
         if (res.success) {
@@ -2467,19 +2476,25 @@ export default function Dashboard({
   // Send support message
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSendingChatMessage) return;
     if (!chatMessageInput.trim() && !chatImageAttachment) return;
 
-    const input = chatMessageInput;
+    const input = chatMessageInput.trim();
     const attachedImage = chatImageAttachment || undefined;
     setChatMessageInput('');
     setChatImageAttachment(null);
+    setIsSendingChatMessage(true);
 
-    await DataStore.sendMessageToSupport(userState.id, input, 'user', attachedImage);
-    
-    // Update ref immediately to prevent triggering unread replies toasts on our own message
-    lastSupportMsgsCount.current = DataStore.getSupportMessages().filter(m => m.userId === currentUser.id).length;
-    
-    syncDashboardData();
+    try {
+      await DataStore.sendMessageToSupport(userState.id, input, 'user', attachedImage);
+      
+      // Update ref immediately to prevent triggering unread replies toasts on our own message
+      lastSupportMsgsCount.current = DataStore.getSupportMessages().filter(m => m.userId === currentUser.id).length;
+      
+      syncDashboardData();
+    } finally {
+      setIsSendingChatMessage(false);
+    }
   };
 
   // Submit withdrawal proof
@@ -2728,73 +2743,73 @@ export default function Dashboard({
               exit={{ scale: 0.95, y: 20, opacity: 0 }}
               transition={{ type: "spring", duration: 0.5 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white border-2 border-purple-200 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-[0_25px_60px_-15px_rgba(168,85,247,0.12)] relative overflow-hidden flex flex-col max-h-[90vh]"
+              className="bg-[#0f1d38] border border-amber-500/30 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-                <div className="flex items-center space-x-3 text-[#7c3aed]">
-                  <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                <div className="flex items-center space-x-3 text-amber-400">
+                  <div className="w-10 h-10 bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-2xl flex items-center justify-center shrink-0">
                     <BookOpen className="w-5 h-5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <h3 className="font-sans font-black text-sm uppercase tracking-wider text-slate-800">
+                    <h3 className="font-sans font-black text-sm uppercase tracking-wider text-white">
                       Règlement Général
                     </h3>
-                    <p className="text-[9px] text-purple-600 font-black uppercase tracking-wider font-mono">
+                    <p className="text-[9px] text-amber-400/90 font-black uppercase tracking-wider font-mono">
                       Conditions de la plateforme
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setIsRulesModalOpen(false)}
-                  className="p-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-500 transition-colors cursor-pointer border border-slate-200"
+                  className="p-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer border border-slate-700"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Scrollable Rules List - Fluid text display without boxes or borders */}
-              <div className="flex-1 overflow-y-auto pr-1 space-y-6 text-slate-700 text-left text-xs sm:text-sm leading-relaxed">
+              <div className="flex-1 overflow-y-auto pr-1 space-y-6 text-slate-300 text-left text-xs sm:text-sm leading-relaxed">
                 <div className="space-y-1.5">
-                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-[#7c3aed]">1. Principes d'Investissement</h4>
-                  <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
-                    Chaque utilisateur peut acquérir des équipements agricoles pour générer des revenus journaliers passifs. Les retours sont calculés et versés chaque jour à minuit.
+                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-amber-400">1. Principes d'Investissement</h4>
+                  <p className="text-[12px] text-slate-300 font-medium leading-relaxed">
+                    Chaque utilisateur peut acquérir des équipements pour générer des revenus journaliers passifs. Les retours sont calculés et versés chaque jour à minuit.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-slate-900">2. Système de Retrait</h4>
-                  <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-white">2. Système de Retrait</h4>
+                  <p className="text-[12px] text-slate-300 font-medium leading-relaxed">
                     Les retraits sont traités via Mobile Money sous 24h à 48h. Le montant minimum de retrait dépend de votre niveau VIP et de votre région. Assurez-vous que vos coordonnées de paiement sont valides.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-slate-900">3. Programme de Parrainage (MLM)</h4>
-                  <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-white">3. Programme de Parrainage (MLM)</h4>
+                  <p className="text-[12px] text-slate-300 font-medium leading-relaxed">
                     Bénéficiez d'une structure de commissions sur 3 niveaux pour chaque achat de vos affiliés :
                   </p>
-                  <div className="space-y-1 pt-1 text-[12px] text-slate-700 font-bold">
-                    <p className="text-purple-700">• Niveau 1 (Direct) : 20% de commission</p>
-                    <p className="text-purple-700">• Niveau 2 (Indirect) : 3% de commission</p>
-                    <p className="text-purple-700">• Niveau 3 (Sous-indirect) : 1% de commission</p>
+                  <div className="space-y-1 pt-1 text-[12px] text-amber-300 font-bold">
+                    <p className="text-amber-300">• Niveau 1 (Direct) : 20% de commission</p>
+                    <p className="text-amber-300/90">• Niveau 2 (Indirect) : 3% de commission</p>
+                    <p className="text-amber-300/80">• Niveau 3 (Sous-indirect) : 1% de commission</p>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-amber-700">4. Sécurité du Compte</h4>
-                  <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                  <h4 className="font-sans font-black text-xs uppercase tracking-wider text-amber-400">4. Sécurité du Compte</h4>
+                  <p className="text-[12px] text-slate-300 font-medium leading-relaxed">
                     Un utilisateur est strictement limité à un seul compte par personne physique. La détection de multi-comptes frauduleux entraînera la suspension immédiate de tous les soldes et comptes associés.
                   </p>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="border-t border-slate-100 pt-4 mt-4 flex items-center justify-between">
+              <div className="border-t border-slate-800 pt-4 mt-4 flex items-center justify-between">
                 <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider">Sécurité certifiée</span>
                 <button 
                   onClick={() => setIsRulesModalOpen(false)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-105 text-slate-950 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
                 >
                   Accepter
                 </button>
@@ -3686,7 +3701,7 @@ export default function Dashboard({
               };
 
               return (
-                <div className="bg-[#f8fafc] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-16 text-slate-900 text-left animate-fadeIn">
+                <div className="bg-transparent -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-16 text-slate-900 text-left animate-fadeIn">
                   {/* Clean Slate & Amber Header */}
                   <div className="bg-slate-900 text-white pt-6 pb-14 px-4 rounded-b-[2.5rem] relative shadow-md overflow-hidden border-b border-slate-800">
                     <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 mb-6">
@@ -3939,8 +3954,12 @@ export default function Dashboard({
             // 0. MES COMMANDES (DEDICATED FULL PAGE IN PORTEFEUILLE)
             if (profileSubPage === 'orders') {
               const activeInvs = activeInvestments.filter(i => i.status === 'active');
+              const completedInvs = activeInvestments.filter(i => i.status === 'completed');
               const totalInvested = activeInvestments.reduce((acc, i) => acc + (i.price || 0), 0);
-              const totalReturns = activeInvestments.reduce((acc, i) => acc + ((i.dailyReturn || 0) * (i.daysPassed || 0)), 0);
+              const totalExpectedPayout = activeInvestments.reduce((acc, i) => {
+                const payout = (i as any).totalReturn || (i.price + ((i.dailyReturn || 0) * (i.durationDays || 0)));
+                return acc + payout;
+              }, 0);
 
               return (
                 <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
@@ -3967,10 +3986,10 @@ export default function Dashboard({
                         </div>
                         <div>
                           <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-white leading-tight">
-                            Suivi des Équipements
+                            Suivi des Cycles d'Investissement
                           </h3>
                           <span className="text-[10px] sm:text-[11px] text-rose-200/90 font-medium">
-                            Revenus & cycles d'investissement
+                            Revenus bloqués & versements à terme
                           </span>
                         </div>
                       </div>
@@ -3983,15 +4002,15 @@ export default function Dashboard({
                           </span>
                         </div>
                         <div className="bg-rose-950/60 rounded-xl p-2.5 border border-rose-800/40">
-                          <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">Gains</span>
+                          <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">Revenu Attendu</span>
                           <span className="text-xs sm:text-sm font-black text-emerald-300 font-mono block mt-0.5">
-                            +{totalReturns.toLocaleString()} F
+                            {totalExpectedPayout.toLocaleString()} F
                           </span>
                         </div>
                         <div className="bg-rose-950/60 rounded-xl p-2.5 border border-rose-800/40">
-                          <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">Actifs</span>
+                          <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">En Cours</span>
                           <span className="text-xs sm:text-sm font-black text-white font-mono block mt-0.5">
-                            {activeInvs.length}
+                            {activeInvs.length} {activeInvs.length > 1 ? 'plans' : 'plan'}
                           </span>
                         </div>
                       </div>
@@ -5352,13 +5371,13 @@ export default function Dashboard({
               </div>
 
               {/* 2. QUICK ACCESS BUTTONS ROW (4 BUTTONS FLUID & BORDERLESS) */}
-              <div className="bg-rose-950/40 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-sm grid grid-cols-4 gap-2 sm:gap-4 py-3.5">
+              <div className="bg-[#0f1d38]/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-sm grid grid-cols-4 gap-2 sm:gap-4 py-3.5">
                 {/* Recharger */}
                 <button
                   onClick={() => setActiveTab('deposit')}
                   className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
                 >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-amber-500 to-yellow-500 text-white flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-amber-500/20 shrink-0">
+                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-amber-500 to-yellow-500 text-slate-950 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-amber-500/20 shrink-0">
                     <Wallet className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
                   </div>
                   <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
@@ -5371,7 +5390,7 @@ export default function Dashboard({
                   onClick={() => setActiveTab('withdraw')}
                   className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
                 >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-rose-600 to-red-600 text-white flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-rose-600/30 shrink-0">
+                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-amber-600 to-amber-700 text-white flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-amber-600/30 shrink-0">
                     <ArrowUpCircle className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
                   </div>
                   <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
@@ -5387,7 +5406,7 @@ export default function Dashboard({
                   }}
                   className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
                 >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-rose-900 to-slate-900 text-white flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-slate-950/40 shrink-0">
+                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-slate-800 to-slate-900 border border-slate-700 text-amber-400 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-slate-950/40 shrink-0">
                     <Users className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
                   </div>
                   <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
@@ -5411,13 +5430,13 @@ export default function Dashboard({
               </div>
 
               {/* 3. CARD: RÉCOMPENSES D'INVITATION (FLUID & BORDERLESS) */}
-              <div className="bg-rose-950/40 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
+              <div className="bg-[#0f1d38]/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="flex justify-between items-center">
                   <div className="space-y-0.5">
                     <h3 className="font-sans font-black text-white text-xs sm:text-sm uppercase tracking-tight">
                       {t("Récompenses d'invitation", "Invitation Rewards")}
                     </h3>
-                    <p className="text-[11px] sm:text-xs text-rose-200/80 font-bold leading-none">
+                    <p className="text-[11px] sm:text-xs text-slate-300 font-bold leading-none">
                       {t("Investissez ensemble, enrichissez-vous ensemble", "Invest together, grow rich together")}
                     </p>
                   </div>
@@ -5426,16 +5445,16 @@ export default function Dashboard({
                   </div>
                 </div>
 
-                <div className="bg-rose-900/30 rounded-xl sm:rounded-2xl p-3 flex items-center justify-between gap-3">
+                <div className="bg-slate-900/60 border border-slate-800 rounded-xl sm:rounded-2xl p-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 bg-purple-500/20 text-purple-300 rounded-lg flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 bg-amber-500/20 text-amber-400 rounded-lg flex items-center justify-center shrink-0">
                       <Users className="w-3.5 h-3.5 stroke-[2.25]" />
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs sm:text-sm text-white font-sans font-black block leading-none uppercase tracking-tight">
                         {t("Inviter des amis", "Invite Friends")}
                       </span>
-                      <span className="text-[9.5px] sm:text-[11px] text-rose-200/70 font-bold block mt-0.5 leading-tight truncate">
+                      <span className="text-[9.5px] sm:text-[11px] text-slate-400 font-bold block mt-0.5 leading-tight truncate">
                         {t("Obtenez votre lien et vos commissions d'invitation", "Get your invitation link and referral commissions")}
                       </span>
                     </div>
@@ -5454,7 +5473,7 @@ export default function Dashboard({
               </div>
 
               {/* 4. CARD: RÉCOMPENSES DES TÂCHES (REPLACES ROUE DE LA CHANCE) */}
-              <div className="bg-rose-950/40 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
+              <div className="bg-[#0f1d38]/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="space-y-0.5">
                   <span className="text-[9.5px] text-amber-400 font-extrabold uppercase tracking-widest block leading-none">
                     {t("Tâches & Récompenses", "Tasks & Rewards")}
@@ -5466,7 +5485,7 @@ export default function Dashboard({
 
                 <div className="space-y-2.5 pt-0.5">
                   {/* Tâches row */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-rose-900/30 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all duration-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all duration-300">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center shrink-0 shadow-xs">
                         <Gift className="w-5 h-5 stroke-[2.25]" />
@@ -5475,7 +5494,7 @@ export default function Dashboard({
                         <h4 className="font-sans font-black text-xs sm:text-sm text-white leading-snug">
                           {t("Tâches", "Tasks")}
                         </h4>
-                        <span className="text-[11px] sm:text-xs text-rose-200/80 font-bold block mt-0.5 leading-normal">
+                        <span className="text-[11px] sm:text-xs text-slate-300 font-bold block mt-0.5 leading-normal">
                           {t("Activez vos amis et recevez jusqu'à 20 000 FCFA", "Activate friends and receive up to 20,000 FCFA")}
                         </span>
                       </div>
@@ -5499,57 +5518,54 @@ export default function Dashboard({
           {!profileSubPage && activeTab === 'orders' && (() => {
             const activeInvs = activeInvestments.filter(i => i.status === 'active');
             const totalInvested = activeInvestments.reduce((acc, i) => acc + (i.price || 0), 0);
-            const totalReturns = activeInvestments.reduce((acc, i) => acc + ((i.dailyReturn || 0) * (i.daysPassed || 0)), 0);
+            const totalExpectedPayout = activeInvestments.reduce((acc, i) => {
+              const payout = (i as any).totalReturn || (i.price + ((i.dailyReturn || 0) * (i.durationDays || 0)));
+              return acc + payout;
+            }, 0);
 
             return (
-              <div className="space-y-6 animate-fade-in max-w-4xl mx-auto pt-2 pb-12 text-left">
-                {/* Header Summary Banner */}
-                <div className="bg-gradient-to-r from-[#881337] via-[#9f1239] to-[#4c0519] rounded-3xl p-5 sm:p-7 text-white shadow-lg border border-rose-700/50">
+              <div className="space-y-4 animate-fade-in max-w-3xl mx-auto pt-1 pb-10 text-left">
+                {/* Header Summary Banner - sleek & compact */}
+                <div className="bg-gradient-to-r from-[#881337] via-[#9f1239] to-[#4c0519] rounded-2xl p-3.5 sm:p-4 text-white shadow-sm border border-rose-700/50">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shadow-xs">
-                          <ShoppingBag className="w-5 h-5 text-rose-200" />
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center shadow-xs">
+                          <ShoppingBag className="w-4 h-4 text-rose-200" />
                         </div>
-                        <h2 className="text-lg sm:text-2xl font-sans font-black uppercase tracking-tight text-white">
-                          {t('Suivi de vos Commandes', 'Order Tracking')}
+                        <h2 className="text-base sm:text-lg font-sans font-black uppercase tracking-tight text-white">
+                          {t('Mes Commandes', 'My Orders')}
                         </h2>
                       </div>
-                      <p className="text-xs sm:text-sm text-rose-200/90 font-medium">
-                        {t('Retrouvez tous vos équipements payés, l\'évolution de vos cycles et vos gains quotidiens accumulés.', 'Track your paid equipment, cycle progression, and accumulated daily earnings.')}
+                      <p className="text-[11px] sm:text-xs text-rose-200/90 font-medium">
+                        {t('Suivi de vos produits activés : statut, progression et revenus.', 'Track your activated products: status, progression, and returns.')}
                       </p>
                     </div>
                   </div>
 
                   {/* Summary Metric Cards in Order Page */}
-                  <div className="grid grid-cols-3 gap-2.5 sm:gap-4 mt-5 pt-4 border-t border-rose-700/40">
-                    <div className="bg-rose-950/60 rounded-2xl p-3 sm:p-4 text-center border border-rose-800/40">
-                      <span className="text-[11px] sm:text-xs text-rose-300 font-bold uppercase tracking-wider block">{t('Total Investi', 'Total Invested')}</span>
-                      <span className="text-sm sm:text-lg font-black text-amber-300 font-mono block mt-1">
-                        {totalInvested.toLocaleString()} F
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-3 pt-2.5 border-t border-rose-700/40">
+                    <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
+                      <span className="text-[10px] sm:text-[11px] text-rose-300 font-bold uppercase tracking-wider block">{t('Commandes Actives', 'Active Orders')}</span>
+                      <span className="text-xs sm:text-sm font-black text-white font-mono block mt-0.5">
+                        {activeInvs.length}
                       </span>
                     </div>
-                    <div className="bg-rose-950/60 rounded-2xl p-3 sm:p-4 text-center border border-rose-800/40">
-                      <span className="text-[11px] sm:text-xs text-rose-300 font-bold uppercase tracking-wider block">{t('Gains Générés', 'Earned Returns')}</span>
-                      <span className="text-sm sm:text-lg font-black text-emerald-300 font-mono block mt-1">
-                        +{totalReturns.toLocaleString()} F
-                      </span>
-                    </div>
-                    <div className="bg-rose-950/60 rounded-2xl p-3 sm:p-4 text-center border border-rose-800/40">
-                      <span className="text-[11px] sm:text-xs text-rose-300 font-bold uppercase tracking-wider block">{t('Commandes', 'Orders')}</span>
-                      <span className="text-sm sm:text-lg font-black text-white font-mono block mt-1">
-                        {activeInvestments.length} {t('plans', 'plans')}
+                    <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
+                      <span className="text-[10px] sm:text-[11px] text-rose-300 font-bold uppercase tracking-wider block">{t('Revenu Total Prévu', 'Total Expected Return')}</span>
+                      <span className="text-xs sm:text-sm font-black text-amber-300 font-mono block mt-0.5">
+                        {totalExpectedPayout.toLocaleString()} F CFA
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* List of Orders */}
-                <div className="space-y-3.5">
+                <div className="space-y-2.5">
                   <div className="flex items-center justify-between px-1">
-                    <h3 className="text-base sm:text-lg font-sans font-black text-white uppercase tracking-tight flex items-center gap-2">
-                      <Clock className="w-4.5 h-4.5 text-amber-400" />
-                      {t('Mes Équipements Payés', 'My Paid Equipment')} ({activeInvestments.length})
+                    <h3 className="text-sm sm:text-base font-sans font-black text-white uppercase tracking-tight flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-400" />
+                      {t('Produits Activés', 'Activated Products')} ({activeInvestments.length})
                     </h3>
                   </div>
 
@@ -5563,7 +5579,7 @@ export default function Dashboard({
                           {t('Aucune commande enregistrée', 'No orders recorded yet')}
                         </h4>
                         <p className="text-xs sm:text-sm text-rose-200/80 font-medium max-w-xs mx-auto leading-relaxed">
-                          {t('Vous n\'avez pas encore activé d\'équipement. Découvrez nos plans d\'investissement pour commencer à générer des revenus quotidiens.', 'You have not yet activated any equipment. Explore our investment plans to start earning daily returns.')}
+                          {t('Vous n\'avez pas encore activé de produit. Découvrez notre catalogue pour commencer.', 'You have not yet activated any product. Explore our catalog to get started.')}
                         </p>
                       </div>
                       <button
@@ -5718,7 +5734,6 @@ export default function Dashboard({
 
                 {/* Right Column: Products List */}
                 <div className="flex-1 w-full space-y-3">
-
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {products
                       .filter(p => {
@@ -5788,6 +5803,10 @@ export default function Dashboard({
                         const theme = getCardStyle(p.category);
                         const displayName = getVipDisplayName(p, p.vipLevel || (index + 1));
                         const purchasedCount = activeInvestments.filter(i => i.productName === p.name || i.productId === p.id).length;
+                        const specialCheck = (p.category === 'wellbeing' || p.category === 'activity')
+                          ? DataStore.checkSpecialProductActivation(userState.id, p.category as 'wellbeing' | 'activity')
+                          : { canActivate: true };
+                        const totalExpectedProductPayout = p.totalReturn || (p.price + (p.dailyReturn * p.durationDays));
 
                         return (
                           <div 
@@ -5830,41 +5849,24 @@ export default function Dashboard({
                               {/* Key-Value Details */}
                               <div className="mt-1 space-y-2 text-left select-none border-t border-rose-800/30 pt-2.5">
                                 <div className="flex justify-between items-center text-xs sm:text-sm">
-                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Revenus Quotidiens</span>
-                                  <span className={`${theme.statVal} font-black text-sm sm:text-base`}>{p.dailyReturn.toLocaleString()} {getCurrency()}</span>
+                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Rendement Journalier</span>
+                                  <span className={`${theme.statVal} font-black text-sm sm:text-base`}>+{p.dailyReturn.toLocaleString()} {getCurrency()}/j</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs sm:text-sm">
-                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Revenu</span>
+                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Durée du Cycle</span>
                                   <span className="font-extrabold text-white font-mono bg-rose-900/60 px-2.5 py-0.5 rounded-md text-xs sm:text-sm border border-rose-800/40">
                                     {p.durationDays} Jours
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs sm:text-sm">
-                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Revenu Total</span>
-                                  <span className={`${theme.statValTotal} font-black text-sm sm:text-base`}>{(p.dailyReturn * p.durationDays).toLocaleString()} {getCurrency()}</span>
+                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Revenu Total Prévu</span>
+                                  <span className={`${theme.statValTotal} font-black text-sm sm:text-base`}>{totalExpectedProductPayout.toLocaleString()} {getCurrency()}</span>
                                 </div>
                               </div>
                             </div>
 
                             {/* Button Area */}
                             <div className="mt-3.5 text-left">
-                              {productErrors[p.id] && (
-                                <div className="mb-2.5 p-2.5 bg-red-950/90 border border-red-500/50 rounded-xl text-xs font-bold text-red-200 leading-normal">
-                                  <span className="text-red-300 block font-black mb-0.5">⚠️ SOLDE INSUFFISANT</span>
-                                  <span>{productErrors[p.id]}</span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveTab('deposit');
-                                    }}
-                                    className="mt-1.5 block text-amber-300 font-black underline uppercase tracking-wide cursor-pointer text-xs"
-                                  >
-                                    📥 Recharger mon compte maintenant
-                                  </button>
-                                </div>
-                              )}
-
                               {/* Elegant Split Button with Rose Rouge Theme */}
                               <button
                                 onClick={() => handleBuyProduct(p)}
@@ -5877,7 +5879,7 @@ export default function Dashboard({
                                 <div className={`${theme.buttonLeft} flex items-center justify-center px-1 font-bold select-none text-xs sm:text-sm text-amber-300`}>
                                   ⚡
                                 </div>
-                                <div className={`${theme.buttonRight} text-white font-black text-xs sm:text-sm px-4 py-2.5 flex items-center justify-center flex-1 text-center uppercase tracking-wider`}>
+                                <div className={`${theme.buttonRight} text-white font-black text-xs sm:text-sm px-3 py-2.5 flex items-center justify-center flex-1 text-center uppercase tracking-wider`}>
                                   Investir
                                 </div>
                               </button>
@@ -6090,12 +6092,12 @@ export default function Dashboard({
 
           {/* WITHDRAW FORM TAB */}
           {!profileSubPage && activeTab === 'withdraw' && (
-            <div className="max-w-xl mx-auto bg-gradient-to-br from-[#9f1239] via-[#881337] to-[#4c0519] border border-rose-700/50 p-6 md:p-8 rounded-3xl shadow-2xl text-white">
-              <div className="flex flex-row gap-3 justify-between items-center mb-5 pb-4 border-b border-rose-700/40">
+            <div className="max-w-xl mx-auto bg-gradient-to-br from-[#0c1629] via-[#0f1d38] to-[#080d19] border border-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl text-white">
+              <div className="flex flex-row gap-3 justify-between items-center mb-5 pb-4 border-b border-slate-800">
                 <div className="text-left flex-1 min-w-0">
-                  <span className="text-xs md:text-sm font-black text-rose-300 tracking-widest uppercase block mb-1">CASH OUT DETECTÉ</span>
+                  <span className="text-xs md:text-sm font-black text-amber-400 tracking-widest uppercase block mb-1">CASH OUT DÉTECTÉ</span>
                   <h3 className="text-xl md:text-2xl font-display font-black text-white uppercase tracking-tight leading-none truncate">Demande de Retrait</h3>
-                  <p className="text-xs md:text-sm text-rose-200 font-bold mt-1 hidden xs:block">Saisissez vos paramètres de transfert de solde.</p>
+                  <p className="text-xs md:text-sm text-slate-400 font-bold mt-1 hidden xs:block">Saisissez vos paramètres de transfert de solde.</p>
                 </div>
                 <button
                   type="button"
@@ -6104,35 +6106,35 @@ export default function Dashboard({
                       onNavigate('/historique#retrait');
                     }
                   }}
-                  className="bg-rose-900/60 hover:bg-rose-800/80 text-rose-100 border border-rose-700/60 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                  className="bg-slate-900/80 hover:bg-slate-800 text-amber-400 border border-slate-700 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
                 >
-                  <History className="w-4 h-4 text-rose-300" />
+                  <History className="w-4 h-4 text-amber-400" />
                   <span>Relevé des renseignements</span>
                 </button>
               </div>
 
               {/* INSTRUCTION CARD */}
-              <div className="mb-5 p-4 rounded-2xl bg-rose-950/80 border border-rose-600/60 text-left space-y-2 shadow-md">
+              <div className="mb-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-left space-y-2 shadow-md">
                 <div className="flex items-center gap-2">
                   <span className="text-base">ℹ️</span>
                   <h4 className="font-bold text-xs sm:text-sm uppercase tracking-wide text-amber-300">
                     Comment fonctionne le retrait ?
                   </h4>
                 </div>
-                <p className="text-xs text-rose-100 font-medium leading-relaxed">
+                <p className="text-xs text-slate-300 font-medium leading-relaxed">
                   Saisissez le montant que vous souhaitez retirer, sélectionnez votre moyen de paiement et vérifiez attentivement vos informations avant de confirmer. Votre demande sera ensuite envoyée pour traitement. Vous pouvez suivre son statut dans votre historique des retraits.
                 </p>
               </div>
 
               {(new Date().getHours() < 9 || new Date().getHours() >= 17) && (
-                <div className="mb-4 p-4 rounded-xl bg-rose-950/80 border border-amber-400/40 text-xs md:text-sm text-amber-300 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
+                <div className="mb-4 p-4 rounded-xl bg-slate-900/90 border border-amber-400/40 text-xs md:text-sm text-amber-300 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
                   <span>⚠️ SYSTÈME HORS PLAGE HORAIRE</span>
                   <span>Les retraits sont ouverts uniquement de 09h00 à 17h00 chaque jour.</span>
                 </div>
               )}
 
               {(DataStore.areWithdrawalsBlocked() || userState.withdrawBlocked) && (
-                <div className="mb-4 p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 text-xs md:text-sm text-rose-200 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
+                <div className="mb-4 p-4 rounded-xl bg-slate-900/90 border border-amber-500/50 text-xs md:text-sm text-amber-200 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
                   <span>⚠️ RETRAITS SUSPENDUS TEMPORAIREMENT</span>
                   <span>Les retraits sont restreints sur votre compte.</span>
                 </div>
@@ -6160,38 +6162,38 @@ export default function Dashboard({
 
                   if (hasLinkedCard) {
                     return (
-                      <div className="bg-rose-950/60 border-2 border-rose-700/60 rounded-2xl p-4 sm:p-5 relative overflow-hidden shadow-sm text-white">
-                        <div className="absolute -top-3 -right-3 p-3 text-rose-400/10">
+                      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 relative overflow-hidden shadow-sm text-white">
+                        <div className="absolute -top-3 -right-3 p-3 text-amber-400/5">
                           <CreditCard className="w-24 h-24 transform rotate-12" />
                         </div>
                         <div className="flex items-center gap-2 mb-3">
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-[11px] font-black text-rose-300 uppercase tracking-wider block">
+                          <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider block">
                             Ref : 💳 COMPTE DE RÉCEPTION LIÉ
                           </span>
                         </div>
                         <div className="space-y-2 relative z-10 text-white">
                           <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-rose-300 font-extrabold uppercase text-[9px] tracking-wider">Titulaire :</span>
+                            <span className="text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">Titulaire :</span>
                             <span className="font-extrabold uppercase text-white">{cardHolder || 'Non spécifié'}</span>
                           </div>
                           <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-rose-300 font-extrabold uppercase text-[9px] tracking-wider">Réseau / Opérateur :</span>
+                            <span className="text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">Réseau / Opérateur :</span>
                             <span className="font-black text-amber-300">{cardOp}</span>
                           </div>
                           <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-rose-300 font-extrabold uppercase text-[9px] tracking-wider">Numéro de Réception :</span>
-                            <span className="font-mono font-black text-white tracking-wider bg-rose-900/60 px-2 py-0.5 rounded border border-rose-700/50">{cardNum}</span>
+                            <span className="text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">Numéro de Réception :</span>
+                            <span className="font-mono font-black text-white tracking-wider bg-slate-950/80 px-2 py-0.5 rounded border border-slate-700">{cardNum}</span>
                           </div>
                         </div>
-                        <div className="mt-4 pt-3 border-t border-rose-700/50 flex items-center justify-between">
-                          <span className="text-[10px] text-rose-300/80 font-extrabold">
+                        <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 font-extrabold">
                             Les fonds seront versés automatiquement sur ce compte.
                           </span>
                           <button
                             type="button"
                             onClick={() => setIsBankCardModalOpen(true)}
-                            className="text-xs font-black text-rose-300 hover:text-white underline focus:outline-none cursor-pointer"
+                            className="text-xs font-black text-amber-400 hover:text-amber-300 underline focus:outline-none cursor-pointer"
                           >
                             Modifier le compte
                           </button>
@@ -7074,7 +7076,7 @@ export default function Dashboard({
               .reduce((acc, i) => acc + (i.dailyReturn || 0), 0);
 
             return (
-              <div className="bg-[#f8fafc] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+              <div className="bg-transparent -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
                 <div className="max-w-md mx-auto w-full space-y-3">
                   
                   {/* TOP WALLET / PROFILE STATS CARD */}
@@ -7629,7 +7631,7 @@ export default function Dashboard({
                   </div>
                 ) : (
                   <div className="space-y-3 max-w-2xl mx-auto">
-                    {supportMessages.map((msg) => {
+                    {DataStore.deduplicateSupportMessages(supportMessages.filter(m => m.userId === currentUser.id)).map((msg) => {
                       const isMe = msg.sender === 'user';
                       return (
                         <div 
@@ -7733,21 +7735,22 @@ export default function Dashboard({
                 <input 
                   type="text" 
                   value={chatMessageInput}
+                  disabled={isSendingChatMessage}
                   onChange={(e) => setChatMessageInput(e.target.value)}
-                  placeholder={chatImageAttachment ? "Ajouter un commentaire..." : "Posez votre question à l'assistance..."}
-                  className="flex-1 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 font-medium transition-all"
+                  placeholder={isSendingChatMessage ? "Envoi en cours..." : (chatImageAttachment ? "Ajouter un commentaire..." : "Posez votre question à l'assistance...")}
+                  className="flex-1 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 font-medium transition-all disabled:opacity-50"
                 />
                 <button 
-                  type="submit"
-                  disabled={!chatMessageInput.trim() && !chatImageAttachment}
+                  type="submit" 
+                  disabled={isSendingChatMessage || (!chatMessageInput.trim() && !chatImageAttachment)}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                    chatMessageInput.trim() || chatImageAttachment
+                    !isSendingChatMessage && (chatMessageInput.trim() || chatImageAttachment)
                       ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 font-bold' 
                       : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                   }`}
                   id="btn-chat-send"
                 >
-                  <Send className="w-4 h-4 stroke-[2.5]" />
+                  <Send className={`w-4 h-4 stroke-[2.5] ${isSendingChatMessage ? 'animate-pulse' : ''}`} />
                 </button>
               </form>
             </div>
@@ -7862,86 +7865,106 @@ export default function Dashboard({
 
       {/* CUSTOM LUXURY ALERT/CONFIRM POPUP MODAL */}
       {customModal.isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md z-50 animate-fade-in">
-          <div className={`border-2 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl space-y-5 text-center animate-scale-up ${
-            customModal.type === 'purchase_success' 
-              ? 'bg-gradient-to-br from-[#00bd74] to-[#016e3c] border-emerald-400 text-white shadow-emerald-500/20' 
-              : 'bg-[#eef3fc] border-slate-200/50 text-slate-800'
-          }`}>
-            
-            {/* Modal Icon Indicator based on type */}
-            <div className="mx-auto w-12 h-12 rounded-full flex items-center justify-center shadow-md">
-              {customModal.type === 'purchase_success' && (
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white ring-4 ring-white/10 animate-bounce">
-                  <CheckCircle2 className="w-7 h-7 stroke-[3]" />
-                </div>
-              )}
-              {customModal.type === 'success' && (
-                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                  <CheckCircle2 className="w-7 h-7 stroke-[2.5]" />
-                </div>
-              )}
-              {customModal.type === 'error' && (
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                  <AlertCircle className="w-7 h-7 stroke-[2.5]" />
-                </div>
-              )}
-              {customModal.type === 'info' && (
-                <div className="w-12 h-12 rounded-full bg-[#1b64d9]/10 flex items-center justify-center text-[#1b64d9]">
-                  <HelpCircle className="w-7 h-7 stroke-[2.5]" />
-                </div>
-              )}
-              {customModal.type === 'confirm' && (
-                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
-                  <Gift className="w-7 h-7 stroke-[2.5] animate-bounce" />
-                </div>
-              )}
-            </div>
-            
-            {/* Title & Message */}
-            <div className="space-y-2">
-              <h3 className={`text-lg font-black tracking-tight uppercase font-sans ${
-                customModal.type === 'purchase_success' ? 'text-white' : 'text-slate-800'
-              }`}>
-                {customModal.title}
-              </h3>
-              <p className={`text-xs font-bold leading-relaxed whitespace-pre-line text-center ${
-                customModal.type === 'purchase_success' ? 'text-emerald-50' : 'text-slate-600'
-              }`}>
-                {customModal.message}
-              </p>
-            </div>
+        <div className="fixed inset-0 flex items-center justify-center p-3.5 sm:p-4 bg-slate-950/75 backdrop-blur-sm z-50 animate-fade-in">
+          {customModal.type === 'confirm' ? (
+            /* COMPACT MODERN GOLD & WHITE CONFIRMATION MODAL */
+            <div className="bg-white border border-amber-300/80 rounded-2xl p-4 sm:p-5 max-w-[320px] w-full shadow-2xl shadow-amber-900/10 text-center space-y-3.5 animate-scale-up">
+              {/* Subtle gold badge icon */}
+              <div className="mx-auto w-11 h-11 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/80 border border-amber-200/90 flex items-center justify-center text-amber-500 shadow-xs">
+                <Zap className="w-5 h-5 fill-amber-400/20 stroke-[2.5]" />
+              </div>
+              
+              {/* Title & Message */}
+              <div className="space-y-1.5 px-0.5">
+                <h3 className="text-sm sm:text-base font-black tracking-tight text-slate-900 font-sans">
+                  {customModal.title}
+                </h3>
+                <p className="text-xs sm:text-[13px] font-semibold text-slate-600 leading-snug">
+                  {customModal.message}
+                </p>
+              </div>
 
-            {/* Action Buttons */}
-            <div className="pt-2 flex gap-2.5">
-              {customModal.type === 'confirm' ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setCustomModal(prev => ({ ...prev, isOpen: false }));
-                    }}
-                    className="flex-1 py-3 text-slate-600 bg-slate-200 hover:bg-slate-300 active:scale-95 transition-all text-xs font-black uppercase tracking-widest rounded-2xl cursor-pointer"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCustomModal(prev => ({ ...prev, isOpen: false }));
-                      if (customModal.onConfirm) {
-                        customModal.onConfirm();
-                      }
-                    }}
-                    className="flex-1 py-3 text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:opacity-95 active:scale-95 transition-all text-xs font-black uppercase tracking-widest rounded-2xl cursor-pointer shadow-md"
-                  >
-                    OK / Confirmer
-                  </button>
-                </>
-              ) : (
+              {/* Action Buttons: ANNULER & CONFIRMER */}
+              <div className="pt-1 grid grid-cols-2 gap-2.5 w-full">
                 <button
+                  type="button"
                   onClick={() => {
                     setCustomModal(prev => ({ ...prev, isOpen: false }));
                   }}
-                  className={`w-full py-3.5 text-xs font-black uppercase tracking-widest rounded-2xl cursor-pointer shadow-md active:scale-95 transition-all ${
+                  className="w-full py-2.5 px-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer border border-slate-200/80 select-none"
+                  id="btn-modal-cancel"
+                >
+                  ANNULER
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomModal(prev => ({ ...prev, isOpen: false }));
+                    if (customModal.onConfirm) {
+                      customModal.onConfirm();
+                    }
+                  }}
+                  className="w-full py-2.5 px-2.5 text-slate-950 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-500 hover:to-amber-400 active:scale-95 transition-all text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer shadow-md shadow-amber-500/25 border border-amber-300 select-none"
+                  id="btn-modal-confirm"
+                >
+                  CONFIRMER
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* STANDARD MODAL FOR ALERTS / SUCCESS */
+            <div className={`border-2 rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 text-center animate-scale-up ${
+              customModal.type === 'purchase_success' 
+                ? 'bg-gradient-to-br from-[#00bd74] to-[#016e3c] border-emerald-400 text-white shadow-emerald-500/20' 
+                : 'bg-[#eef3fc] border-slate-200/50 text-slate-800'
+            }`}>
+              
+              {/* Modal Icon Indicator based on type */}
+              <div className="mx-auto w-11 h-11 rounded-full flex items-center justify-center shadow-md">
+                {customModal.type === 'purchase_success' && (
+                  <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center text-white ring-4 ring-white/10 animate-bounce">
+                    <CheckCircle2 className="w-6 h-6 stroke-[3]" />
+                  </div>
+                )}
+                {customModal.type === 'success' && (
+                  <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                    <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                )}
+                {customModal.type === 'error' && (
+                  <div className="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                    <AlertCircle className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                )}
+                {customModal.type === 'info' && (
+                  <div className="w-11 h-11 rounded-full bg-[#1b64d9]/10 flex items-center justify-center text-[#1b64d9]">
+                    <HelpCircle className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Title & Message */}
+              <div className="space-y-1.5">
+                <h3 className={`text-base font-black tracking-tight uppercase font-sans ${
+                  customModal.type === 'purchase_success' ? 'text-white' : 'text-slate-800'
+                }`}>
+                  {customModal.title}
+                </h3>
+                <p className={`text-xs font-semibold leading-relaxed whitespace-pre-line text-center ${
+                  customModal.type === 'purchase_success' ? 'text-emerald-50' : 'text-slate-600'
+                }`}>
+                  {customModal.message}
+                </p>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomModal(prev => ({ ...prev, isOpen: false }));
+                  }}
+                  className={`w-full py-3 text-xs font-black uppercase tracking-widest rounded-xl cursor-pointer shadow-md active:scale-95 transition-all ${
                     customModal.type === 'purchase_success'
                       ? 'bg-white text-emerald-950 hover:bg-emerald-50'
                       : 'bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] text-white hover:opacity-95'
@@ -7949,10 +7972,9 @@ export default function Dashboard({
                 >
                   {customModal.type === 'purchase_success' ? 'EXCELLENT ! 🎉' : 'OK'}
                 </button>
-              )}
+              </div>
             </div>
-
-          </div>
+          )}
         </div>
       )}
 

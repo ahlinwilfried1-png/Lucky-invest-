@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   TrendingUp, 
@@ -20,10 +20,18 @@ import {
   ChevronRight,
   Search,
   RefreshCw,
-  Zap
+  Zap,
+  Clock,
+  Flame,
+  Calendar,
+  Power,
+  CheckCircle,
+  AlertCircle,
+  Save,
+  Database
 } from 'lucide-react';
-import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof } from '../types';
-import { DataStore, DEFAULT_PRODUCTS, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore } from '../dataStore';
+import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules } from '../types';
+import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore } from '../dataStore';
 
 const maskUserPhone = (str: string): string => {
   if (!str) return str;
@@ -74,6 +82,7 @@ export default function AdminPanel({
   const [isPublishingAvis, setIsPublishingAvis] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [adminReplyInput, setAdminReplyInput] = useState('');
+  const [isSendingAdminReply, setIsSendingAdminReply] = useState(false);
 
   // Confirmation and Notification overlay states for sandboxed iframe safety
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -102,7 +111,15 @@ export default function AdminPanel({
     supabaseUrl?: string;
     storeTableAccessible?: boolean;
     storeTableError?: string | null;
+    databaseType?: string;
+    neonConfigured?: boolean;
   } | null>(null);
+
+  // Neon PostgreSQL State
+  const [neonTesting, setNeonTesting] = useState(false);
+  const [neonTestResult, setNeonTestResult] = useState<any>(null);
+  const [neonSyncLoading, setNeonSyncLoading] = useState(false);
+  const [neonSyncResult, setNeonSyncResult] = useState<string | null>(null);
 
   // Navigation tab
   const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'deposits' | 'withdrawals' | 'products' | 'platform' | 'transactions' | 'support' | 'proofs' | 'investments'>('deposits');
@@ -119,6 +136,96 @@ export default function AdminPanel({
   React.useEffect(() => {
     setForumPosts(DataStore.getForumPosts());
   }, [proofsSubTab]);
+
+  // Category Schedules Management (Bien-être & Activités)
+  const [categorySchedules, setCategorySchedules] = useState<CategorySchedules>(() => DataStore.getCategorySchedules());
+  const [currentSystemTime, setCurrentSystemTime] = useState<Date>(new Date());
+  const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'activity' | null>(null);
+  const [timeInputs, setTimeInputs] = useState({
+    wellbeing: {
+      openTime: categorySchedules.wellbeing?.openTime || '08:00',
+      closeTime: categorySchedules.wellbeing?.closeTime || '20:00',
+      enabled: categorySchedules.wellbeing?.enabled ?? true
+    },
+    activity: {
+      openTime: categorySchedules.activity?.openTime || '08:00',
+      closeTime: categorySchedules.activity?.closeTime || '20:00',
+      enabled: categorySchedules.activity?.enabled ?? true
+    }
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSystemTime(new Date());
+    }, 1000);
+
+    const handleSchedulesUpdate = () => {
+      const fresh = DataStore.getCategorySchedules();
+      setCategorySchedules(fresh);
+      setTimeInputs({
+        wellbeing: {
+          openTime: fresh.wellbeing?.openTime || '08:00',
+          closeTime: fresh.wellbeing?.closeTime || '20:00',
+          enabled: fresh.wellbeing?.enabled ?? true
+        },
+        activity: {
+          openTime: fresh.activity?.openTime || '08:00',
+          closeTime: fresh.activity?.closeTime || '20:00',
+          enabled: fresh.activity?.enabled ?? true
+        }
+      });
+    };
+
+    window.addEventListener('gi_category_schedules_updated', handleSchedulesUpdate);
+    window.addEventListener('gi_store_updated', handleSchedulesUpdate);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('gi_category_schedules_updated', handleSchedulesUpdate);
+      window.removeEventListener('gi_store_updated', handleSchedulesUpdate);
+    };
+  }, []);
+
+  const handleUpdateCategorySchedule = async (
+    category: 'wellbeing' | 'activity',
+    updates: Partial<CategorySchedule>
+  ) => {
+    setIsSavingSchedule(category);
+    try {
+      const current = { ...categorySchedules };
+      const updatedCat: CategorySchedule = {
+        ...current[category],
+        ...updates,
+        lastModified: Date.now()
+      };
+      const newSchedules: CategorySchedules = {
+        ...current,
+        [category]: updatedCat
+      };
+
+      setCategorySchedules(newSchedules);
+      DataStore.saveCategorySchedules(newSchedules, true);
+
+      const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Activités';
+      let actionLabel = 'mis à jour';
+      if (updates.mode === 'open') actionLabel = 'ouverts immédiatement';
+      else if (updates.mode === 'closed') actionLabel = 'fermés immédiatement';
+      else if (updates.mode === 'auto') actionLabel = `programmés en mode automatique (${updatedCat.openTime} - ${updatedCat.closeTime})`;
+
+      setNotification({
+        type: 'success',
+        message: `✨ Achats ${catLabel} ${actionLabel}. Synchronisé en direct avec tous les comptes utilisateurs.`
+      });
+      onRefreshData();
+    } catch (e: any) {
+      setNotification({
+        type: 'error',
+        message: `Erreur lors de l'enregistrement : ${e.message}`
+      });
+    } finally {
+      setIsSavingSchedule(null);
+    }
+  };
 
   const handleDeleteInvestment = (investmentId: string) => {
     const inv = investments.find(i => i.id === investmentId);
@@ -380,7 +487,7 @@ export default function AdminPanel({
     isSyncingRef.current = true;
     try {
       setSyncStatus('checking');
-      const resp = await apiFetch(getApiUrl('/api/get-store?t=' + Date.now()));
+      const resp = await apiFetch(getApiUrl('/api/get-store?fresh=true&t=' + Date.now()));
       if (resp.ok) {
         const data = await resp.json();
         if (data && typeof data === 'object') {
@@ -480,6 +587,81 @@ export default function AdminPanel({
       setSupabaseSyncResult(`❌ Erreur de transfert : ${err.message}`);
     } finally {
       setSupabaseSyncLoading(false);
+    }
+  };
+
+  const handleTestNeon = async () => {
+    try {
+      setNeonTesting(true);
+      setNeonTestResult(null);
+      const resp = await apiFetch(getApiUrl('/api/neon/test'));
+      const data = await resp.json();
+      setNeonTestResult(data);
+    } catch (e: any) {
+      setNeonTestResult({ ok: false, message: e.message });
+    } finally {
+      setNeonTesting(false);
+    }
+  };
+
+  const handleInitNeonTables = async () => {
+    try {
+      setNeonSyncLoading(true);
+      setNeonSyncResult(null);
+      const resp = await apiFetch(getApiUrl('/api/neon/init-tables'), { method: 'POST' });
+      const data = await resp.json();
+      if (data.success) {
+        setNeonSyncResult(`✅ ${data.message}`);
+        handleTestNeon();
+      } else {
+        setNeonSyncResult(`❌ ${data.message}`);
+      }
+    } catch (e: any) {
+      setNeonSyncResult(`❌ Erreur: ${e.message}`);
+    } finally {
+      setNeonSyncLoading(false);
+    }
+  };
+
+  const handlePushToNeon = async () => {
+    try {
+      setNeonSyncLoading(true);
+      setNeonSyncResult(null);
+      const resp = await apiFetch(getApiUrl('/api/neon/sync'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction: 'push' })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        setNeonSyncResult(`✅ ${data.message}`);
+        executeDirectCentralSync();
+      } else {
+        setNeonSyncResult(`❌ ${data.message}`);
+      }
+    } catch (e: any) {
+      setNeonSyncResult(`❌ Erreur: ${e.message}`);
+    } finally {
+      setNeonSyncLoading(false);
+    }
+  };
+
+  const handleLivePullNeon = async () => {
+    try {
+      setNeonSyncLoading(true);
+      setNeonSyncResult(null);
+      const resp = await apiFetch(getApiUrl('/api/neon/live-sync'));
+      const data = await resp.json();
+      if (data.success) {
+        setNeonSyncResult(`✅ ${data.message} (${data.usersCount} utilisateurs, ${data.depositsCount} dépôts, ${data.withdrawalsCount} retraits, ${data.productsCount} produits)`);
+        await executeDirectCentralSync();
+      } else {
+        setNeonSyncResult(`❌ ${data.message}`);
+      }
+    } catch (e: any) {
+      setNeonSyncResult(`❌ Erreur: ${e.message}`);
+    } finally {
+      setNeonSyncLoading(false);
     }
   };
 
@@ -1794,12 +1976,27 @@ export default function AdminPanel({
             <span>ESPACE SÉCURISÉ ADMIN</span>
           </div>
           <h2 className="text-base sm:text-lg font-bold text-white leading-tight">Console d'Administration</h2>
-          <div className="flex items-center space-x-1.5 mt-0.5 text-[10px] text-emerald-400 font-bold font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Synchro automatique (1s ⚡)</span>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Neon PostgreSQL : Connecté en Direct</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Données 100% réelles cloud (1s ⚡)
+            </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleLivePullNeon}
+            disabled={neonSyncLoading}
+            title="Forcer la synchronisation directe depuis la base Neon PostgreSQL"
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono tracking-wide transition-all border flex items-center space-x-1.5 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40 hover:border-emerald-400 cursor-pointer disabled:opacity-50"
+          >
+            <Database className="w-3 h-3 text-emerald-400" />
+            <span>{neonSyncLoading ? 'Synchro Neon...' : 'Actualiser Neon'}</span>
+          </button>
+
           <button
             onClick={handleGlobalSync}
             disabled={isSyncing}
@@ -2647,6 +2844,236 @@ export default function AdminPanel({
       {/* 4. PRODUCTS MANAGEMENT */}
       {activeAdminTab === 'products' && (
         <div className="space-y-6">
+          {/* HORAIRES D'OUVERTURE ET DE FERMETURE (BIEN-ÊTRE & ACTIVITÉS) */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-800/80">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-display font-bold text-base text-white uppercase tracking-wider">
+                    Gestion des Horaires d'Ouverture et Fermeture
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Contrôlez l'accès aux achats pour les catégories Bien-être et Activités séparément. La fermeture bloque uniquement les nouveaux achats. Les cycles déjà commencés continuent jusqu'à leur terme avec versement automatique des gains.
+                </p>
+              </div>
+
+              {/* Current System Time Live Badge */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700/60 text-slate-200 text-xs shrink-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-slate-400">Heure système :</span>
+                <span className="font-mono font-black text-amber-300">
+                  {currentSystemTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              </div>
+            </div>
+
+            {/* Two Category Columns: Wellbeing and Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {(['wellbeing', 'activity'] as const).map((cat) => {
+                const sched = categorySchedules[cat] || DEFAULT_CATEGORY_SCHEDULES[cat];
+                const catLabel = cat === 'wellbeing' ? 'Bien-être' : 'Activité';
+                const isWellbeing = cat === 'wellbeing';
+                const status = DataStore.isCategoryOpen(cat, currentSystemTime);
+                const isSaving = isSavingSchedule === cat;
+
+                return (
+                  <div 
+                    key={cat}
+                    className={`rounded-xl p-4 border transition-all ${
+                      status.isOpen 
+                        ? 'bg-slate-900/80 border-emerald-500/30 shadow-emerald-950/20' 
+                        : 'bg-slate-900/80 border-amber-500/30 shadow-amber-950/20'
+                    }`}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        {isWellbeing ? (
+                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                            <Flame className="w-4 h-4" />
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="font-sans font-black text-white text-sm uppercase tracking-wide">
+                            Catégorie {catLabel}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 block">
+                            {isWellbeing ? 'Produits Cycles Bien-être' : 'Produits Cycles Courts Activité'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Live Status Badge: OUVERT / FERMÉ */}
+                      <div className="flex items-center gap-1.5">
+                        {status.isOpen ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            OUVERT
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            FERMÉ
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Mode Information & Quick Action Buttons */}
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Mode de Contrôle Actuel
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCategorySchedule(cat, { mode: 'open' })}
+                            className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                              sched.mode === 'open'
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-950/40 ring-1 ring-emerald-400'
+                                : 'bg-slate-800/80 hover:bg-emerald-950/40 text-slate-300 hover:text-emerald-300 border-slate-700'
+                            }`}
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Ouvrir</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCategorySchedule(cat, { mode: 'closed' })}
+                            className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                              sched.mode === 'closed'
+                                ? 'bg-slate-700 text-amber-300 border-amber-400/60 shadow-md ring-1 ring-amber-400'
+                                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                            }`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Fermer</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCategorySchedule(cat, { mode: 'auto' })}
+                            className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                              sched.mode === 'auto'
+                                ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-950/40 ring-1 ring-indigo-400'
+                                : 'bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-indigo-300 border-slate-700'
+                            }`}
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Auto</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Time Scheduling Configuration */}
+                      <div className="bg-slate-950/40 rounded-xl p-3 border border-slate-800/80 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            Plage Horaire Programmée
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {sched.openTime} ➔ {sched.closeTime}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                              Heure d'ouverture
+                            </label>
+                            <input
+                              type="time"
+                              value={timeInputs[cat].openTime}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTimeInputs(prev => ({
+                                  ...prev,
+                                  [cat]: { ...prev[cat], openTime: val }
+                                }));
+                              }}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-amber-400 focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                              Heure de fermeture
+                            </label>
+                            <input
+                              type="time"
+                              value={timeInputs[cat].closeTime}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTimeInputs(prev => ({
+                                  ...prev,
+                                  [cat]: { ...prev[cat], closeTime: val }
+                                }));
+                              }}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-amber-400 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={timeInputs[cat].enabled}
+                              onChange={(e) => {
+                                const val = e.target.checked;
+                                setTimeInputs(prev => ({
+                                  ...prev,
+                                  [cat]: { ...prev[cat], enabled: val }
+                                }));
+                              }}
+                              className="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0 cursor-pointer"
+                            />
+                            <span className="text-[11px] text-slate-300 font-medium">Activer la règle horaire</span>
+                          </label>
+
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => {
+                              handleUpdateCategorySchedule(cat, {
+                                openTime: timeInputs[cat].openTime,
+                                closeTime: timeInputs[cat].closeTime,
+                                enabled: timeInputs[cat].enabled
+                              });
+                            }}
+                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>{isSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Current Status Message displayed to users */}
+                      <div className="text-[11px] text-slate-400 bg-slate-950/60 rounded-lg p-2 border border-slate-800/60">
+                        <span className="text-slate-500 font-bold block uppercase text-[9px] tracking-wider mb-0.5">Message utilisateur si fermé :</span>
+                        <span className="text-amber-300 font-medium italic">
+                          "Les achats pour les produits {catLabel} sont actuellement fermés."
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* New VIP creator Form */}
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
@@ -2797,7 +3224,7 @@ export default function AdminPanel({
                               <span className="text-[10px] text-yellow-500 font-mono uppercase font-bold">Niveau {p.vipLevel}</span>
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-sans font-bold uppercase tracking-wider ${
                                 p.category === 'wellbeing'
-                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                   : p.category === 'activity'
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                   : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
@@ -3306,6 +3733,131 @@ export default function AdminPanel({
             </form>
           </div>
 
+          {/* NEON POSTGRESQL DATABASE MANAGEMENT */}
+          <div id="neon-db-section" className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-5 col-span-1 lg:col-span-2 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                    <span>Base de Données Principale (Neon PostgreSQL)</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono border border-emerald-500/30">
+                      neondb
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Connexion serveur sécurisée via Connection Pooling SSL. Les identifiants ne sont jamais exposés au client.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                {serverDiag?.neonConfigured ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    DATABASE_URL Configurée
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                    En attente de DATABASE_URL
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={handleTestNeon}
+                disabled={neonTesting || neonSyncLoading}
+                className="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              >
+                {neonTesting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Test en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 text-emerald-200" />
+                    <span>Tester Connexion</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleInitNeonTables}
+                disabled={neonTesting || neonSyncLoading}
+                className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 text-slate-200 hover:text-white font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-slate-700 cursor-pointer"
+              >
+                {neonSyncLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Traitement SQL...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <span>Créer / Vérifier Tables</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePushToNeon}
+                disabled={neonTesting || neonSyncLoading}
+                className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 text-slate-200 hover:text-white font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-slate-700 cursor-pointer"
+              >
+                <Save className="w-4 h-4 text-yellow-400" />
+                <span>Pousser vers Neon</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLivePullNeon}
+                disabled={neonTesting || neonSyncLoading}
+                className="py-2.5 px-3.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/50 text-emerald-300 hover:text-emerald-200 font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <RefreshCw className={`w-4 h-4 text-emerald-400 ${neonSyncLoading ? 'animate-spin' : ''}`} />
+                <span>Récupérer Réel de Neon</span>
+              </button>
+            </div>
+
+            {/* Test result display */}
+            {neonTestResult && (
+              <div className={`p-3.5 rounded-xl border text-xs mb-3 font-mono leading-relaxed ${
+                neonTestResult.ok 
+                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200' 
+                  : 'bg-red-950/40 border-red-500/40 text-red-200'
+              }`}>
+                <div className="font-bold mb-1 flex items-center gap-2">
+                  <span>{neonTestResult.ok ? '✅ SUCCÈS :' : '❌ ERREUR :'}</span>
+                  <span>{neonTestResult.message}</span>
+                </div>
+                {neonTestResult.ok && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-emerald-800/40 text-[11px]">
+                    <div><span className="text-slate-400">Base:</span> <span className="text-white font-bold">{neonTestResult.database}</span></div>
+                    <div><span className="text-slate-400">Hôte:</span> <span className="text-white font-bold">{neonTestResult.host}</span></div>
+                    <div><span className="text-slate-400">Utilisateur:</span> <span className="text-white font-bold">{neonTestResult.user}</span></div>
+                    <div><span className="text-slate-400">Tables trouvées:</span> <span className="text-white font-bold">{neonTestResult.tablesCount}</span></div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sync feedback */}
+            {neonSyncResult && (
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono">
+                {neonSyncResult}
+              </div>
+            )}
+          </div>
+
           {/* BASE DE DONNÉES & MAINTENANCE */}
           <div id="db-maintenance-section" className="bg-red-950/20 border border-red-900/40 rounded-2xl p-5 col-span-1 lg:col-span-2 shadow-xl">
             <h3 className="font-display font-bold text-sm text-red-400 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -3598,7 +4150,7 @@ export default function AdminPanel({
         
         const chatSessions = uniqueMsgUserIds.map(uid => {
           const userObj = users.find(u => u.id === uid);
-          const userMsgs = supportMessages.filter(m => m.userId === uid);
+          const userMsgs = DataStore.deduplicateSupportMessages(supportMessages.filter(m => m.userId === uid));
           const sortedMessages = [...userMsgs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           const lastMsgObj = sortedMessages[sortedMessages.length - 1];
           const unreadCount = userMsgs.filter(m => m.sender === 'user' && m.status === 'unread').length;
@@ -3640,12 +4192,17 @@ export default function AdminPanel({
 
         const handleSendAdminReply = async (e: React.FormEvent) => {
           e.preventDefault();
-          if (!selectedUserId || !adminReplyInput.trim()) return;
+          if (isSendingAdminReply || !selectedUserId || !adminReplyInput.trim()) return;
 
-          const replyText = adminReplyInput;
+          const replyText = adminReplyInput.trim();
           setAdminReplyInput('');
-          await DataStore.sendMessageToSupport(selectedUserId, replyText, 'admin');
-          executeDirectCentralSync();
+          setIsSendingAdminReply(true);
+          try {
+            await DataStore.sendMessageToSupport(selectedUserId, replyText, 'admin');
+            executeDirectCentralSync();
+          } finally {
+            setIsSendingAdminReply(false);
+          }
         };
 
         return (
@@ -3856,16 +4413,17 @@ export default function AdminPanel({
                       <input
                         type="text"
                         value={adminReplyInput}
+                        disabled={isSendingAdminReply}
                         onChange={(e) => setAdminReplyInput(e.target.value)}
-                        placeholder={`Saisissez votre réponse pour ${selectedSession.user.name}...`}
-                        className="flex-1 bg-slate-950 border border-slate-850 focus:border-yellow-500 focus:outline-none rounded-lg text-xs text-white p-3 font-medium transition-colors"
+                        placeholder={isSendingAdminReply ? "Envoi en cours..." : `Saisissez votre réponse pour ${selectedSession.user.name}...`}
+                        className="flex-1 bg-slate-950 border border-slate-850 focus:border-yellow-500 focus:outline-none rounded-lg text-xs text-white p-3 font-medium transition-colors disabled:opacity-50"
                       />
                       <button
                         type="submit"
-                        disabled={!adminReplyInput.trim()}
-                        className="px-5 py-3 rounded-lg text-xs font-bold tracking-wide transition-colors duration-150 flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed"
+                        disabled={isSendingAdminReply || !adminReplyInput.trim()}
+                        className="px-5 py-3 rounded-lg text-xs font-bold tracking-wide transition-colors duration-150 flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                       >
-                        <span>Envoyer</span>
+                        <span>{isSendingAdminReply ? 'Envoi...' : 'Envoyer'}</span>
                       </button>
                     </form>
                   </div>

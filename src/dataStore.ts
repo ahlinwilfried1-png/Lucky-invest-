@@ -9,8 +9,27 @@ import {
   SupportMessage, 
   BonusCode,
   ChatSession,
-  WithdrawalProof
+  WithdrawalProof,
+  CategorySchedule,
+  CategorySchedules
 } from './types';
+
+export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
+  wellbeing: {
+    mode: 'auto',
+    openTime: '08:00',
+    closeTime: '20:00',
+    enabled: true,
+    lastModified: Date.now()
+  },
+  activity: {
+    mode: 'auto',
+    openTime: '08:00',
+    closeTime: '20:00',
+    enabled: true,
+    lastModified: Date.now()
+  }
+};
 
 // Default mock configuration values
 export const DEFAULT_PRODUCTS: Product[] = [
@@ -412,7 +431,7 @@ export function getApiUrl(endpoint: string): string {
     
     if (!isCloudRun && !isLocalhost) {
       // Automatic fallback to our stable, centralized production backend URL!
-      return `https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app${endpoint}`;
+      return `https://ais-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app${endpoint}`;
     }
   }
 
@@ -751,6 +770,22 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
   return new Response(JSON.stringify({ success: false, message: "Use local database fallback" }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 }
 
+export const dispatchStoreUpdated = () => {
+  setTimeout(() => {
+    try {
+      window.dispatchEvent(new Event('gi_store_updated'));
+    } catch (e) {}
+  }, 0);
+};
+
+export const dispatchCustomEvent = (eventName: string) => {
+  setTimeout(() => {
+    try {
+      window.dispatchEvent(new Event(eventName));
+    } catch (e) {}
+  }, 0);
+};
+
 export const getFromStore = <T>(key: string, defaultValue: T): T => {
   try {
     const item = localStorage.getItem(key) || inMemoryStore[key];
@@ -811,10 +846,8 @@ export const setToStore = <T>(key: string, value: T): void => {
       // Silently fall back to inMemoryStore if sandboxed context rejects write
     }
 
-    // Dispatch event for other views/components to react immediately in real-time
-    try {
-      window.dispatchEvent(new Event('gi_store_updated'));
-    } catch (e) {}
+    // Dispatch event safely deferred for other views/components to react immediately in real-time
+    dispatchStoreUpdated();
 
     // Asynchronously send update to central Express database or KVdb
     let userId = '';
@@ -953,7 +986,8 @@ export const syncWithBackend = async (): Promise<boolean> => {
           'gi_deleted_forum_posts',
           'gi_deleted_products',
           'gi_manual_deposit_numbers',
-          'gi_official_banners'
+          'gi_official_banners',
+          'gi_category_schedules'
         ];
         
         // Ensure standard keys are read with their default fallback if they are not in local storage yet
@@ -972,6 +1006,7 @@ export const syncWithBackend = async (): Promise<boolean> => {
         DataStore.getWithdrawalProofs();
         DataStore.getForumPosts();
         DataStore.getManualDepositNumbers();
+        DataStore.getCategorySchedules();
  
         for (const key of keysToSync) {
           try {
@@ -1086,6 +1121,9 @@ export const syncWithBackend = async (): Promise<boolean> => {
               }
             }
             mergedVal = Array.from(mergedMap.values());
+            if (key === "gi_support_messages") {
+              mergedVal = DataStore.deduplicateSupportMessages(mergedVal);
+            }
             
             // If local storage had newer items that the server didn't have, push merged updates to server asynchronously
             if (localHasNewItems) {
@@ -1117,7 +1155,7 @@ export const syncWithBackend = async (): Promise<boolean> => {
       }
 
       if (changed) {
-        window.dispatchEvent(new Event('gi_store_updated'));
+        dispatchStoreUpdated();
       }
       return changed;
     }
@@ -1133,7 +1171,8 @@ export class DataStore {
     let list = getFromStore<User[]>('gi_users', INITIAL_USERS);
     const deletedUsers = getFromStore<string[]>('gi_deleted_users', []);
     list = list.filter(u => u && u.id && !deletedUsers.includes(u.id));
-    // Ensure the default administrative account has the updated credentials in existing local storage
+    
+    // Ensure the default administrative account has the updated credentials
     let changed = false;
     let updated = list.map(u => {
       if (u.id === 'u-admin') {
@@ -1177,33 +1216,11 @@ export class DataStore {
     }
 
     if (changed) {
-      setToStore<User[]>('gi_users', updated);
-      // Also update current user if online
-      let current: User | null = null;
-      try {
-        const item = sessionStorage.getItem('gi_current_user');
-        current = item ? JSON.parse(item) : null;
-      } catch (e) {}
-      if (current) {
-        if (current.id === 'u-admin') {
-          current.whatsapp = '+237600000000';
-          current.password = 'agro777';
-          current.country = 'Cameroun';
-          current.role = 'admin';
-          try {
-            sessionStorage.setItem('gi_current_user', JSON.stringify(current));
-          } catch (e) {}
-        }
-        const cDigits = current.whatsapp ? current.whatsapp.replace(/\D/g, '') : '';
-        if (cDigits.endsWith('22670903319') || cDigits === '22670903319' || cDigits === '70903319') {
-          current.role = 'admin';
-          try {
-            sessionStorage.setItem('gi_current_user', JSON.stringify(current));
-          } catch (e) {}
-        }
-      }
+      setTimeout(() => {
+        setToStore<User[]>('gi_users', updated);
+      }, 0);
     }
-    return changed ? updated : list;
+    return updated;
   }
 
   static getCurrencyForUser(user: any): string {
@@ -1435,17 +1452,15 @@ export class DataStore {
     });
 
     if (changed) {
-      this.saveProducts(updated);
-      return updated;
+      setTimeout(() => {
+        setToStore<Product[]>('gi_products', updated);
+      }, 0);
     }
-    return list;
+    return updated;
   }
 
   static saveProducts(products: Product[]): void {
     setToStore<Product[]>('gi_products', products);
-    try {
-      window.dispatchEvent(new Event('gi_store_updated'));
-    } catch (e) {}
 
     // Persist to server database
     apiFetch(getApiUrl('/api/save-store'), {
@@ -1496,6 +1511,119 @@ export class DataStore {
     setToStore<Commission[]>('gi_commissions', commissions);
   }
 
+  // --- GESTION DES HORAIRES BIEN-ÊTRE ET ACTIVITÉS ---
+  static getCategorySchedules(): CategorySchedules {
+    const data = getFromStore<CategorySchedules>('gi_category_schedules', DEFAULT_CATEGORY_SCHEDULES);
+    return {
+      wellbeing: {
+        ...DEFAULT_CATEGORY_SCHEDULES.wellbeing,
+        ...(data && data.wellbeing ? data.wellbeing : {})
+      },
+      activity: {
+        ...DEFAULT_CATEGORY_SCHEDULES.activity,
+        ...(data && data.activity ? data.activity : {})
+      }
+    };
+  }
+
+  static saveCategorySchedules(schedules: CategorySchedules, pushToServer: boolean = true): void {
+    setToStore<CategorySchedules>('gi_category_schedules', schedules);
+    try {
+      window.dispatchEvent(new CustomEvent('gi_category_schedules_updated', { detail: schedules }));
+    } catch (e) {}
+
+    if (pushToServer) {
+      apiFetch(getApiUrl('/api/category-schedules'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedules })
+      }).catch(err => {
+        console.warn('Failed to save category schedules to server:', err);
+      });
+    }
+  }
+
+  static isCategoryOpen(category: 'wellbeing' | 'activity', targetDate: Date = new Date()): {
+    isOpen: boolean;
+    statusLabel: 'OUVERT' | 'FERMÉ';
+    reason: string;
+    mode: 'auto' | 'open' | 'closed';
+    openTime: string;
+    closeTime: string;
+  } {
+    const schedules = this.getCategorySchedules();
+    const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
+    const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Activité';
+
+    const openTime = schedule.openTime || '08:00';
+    const closeTime = schedule.closeTime || '20:00';
+
+    if (schedule.mode === 'open') {
+      return {
+        isOpen: true,
+        statusLabel: 'OUVERT',
+        reason: `Les achats pour les produits ${catLabel} sont ouverts.`,
+        mode: 'open',
+        openTime,
+        closeTime
+      };
+    }
+
+    if (schedule.mode === 'closed') {
+      return {
+        isOpen: false,
+        statusLabel: 'FERMÉ',
+        reason: 'Ce produit est temporairement indisponible pour le moment.',
+        mode: 'closed',
+        openTime,
+        closeTime
+      };
+    }
+
+    // mode === 'auto'
+    if (!schedule.enabled) {
+      return {
+        isOpen: true,
+        statusLabel: 'OUVERT',
+        reason: `Les achats pour les produits ${catLabel} sont ouverts (accès libre).`,
+        mode: 'auto',
+        openTime,
+        closeTime
+      };
+    }
+
+    const hours = String(targetDate.getHours()).padStart(2, '0');
+    const minutes = String(targetDate.getMinutes()).padStart(2, '0');
+    const currentHM = `${hours}:${minutes}`;
+
+    let open = false;
+    if (openTime <= closeTime) {
+      open = currentHM >= openTime && currentHM < closeTime;
+    } else {
+      open = currentHM >= openTime || currentHM < closeTime;
+    }
+
+    if (open) {
+      return {
+        isOpen: true,
+        statusLabel: 'OUVERT',
+        reason: `Les achats pour les produits ${catLabel} sont ouverts (${openTime} - ${closeTime}).`,
+        mode: 'auto',
+        openTime,
+        closeTime
+      };
+    } else {
+      return {
+        isOpen: false,
+        statusLabel: 'FERMÉ',
+        reason: 'Ce produit est temporairement indisponible pour le moment.',
+        mode: 'auto',
+        openTime,
+        closeTime
+      };
+    }
+  }
+
   static getNotifications(): SystemNotification[] {
     return getFromStore<SystemNotification[]>('gi_notifications', INITIAL_NOTIFICATIONS);
   }
@@ -1518,12 +1646,40 @@ export class DataStore {
     setToStore<BonusCode[]>('gi_bonus_codes', codes);
   }
 
+  static deduplicateSupportMessages(messages: SupportMessage[]): SupportMessage[] {
+    if (!Array.isArray(messages)) return [];
+    const seenIds = new Set<string>();
+    const seenContent = new Set<string>();
+    const result: SupportMessage[] = [];
+
+    for (const m of messages) {
+      if (!m || !m.userId) continue;
+      const idStr = String(m.id || '');
+      const timeBucket = Math.floor(new Date(m.createdAt || 0).getTime() / 15000);
+      const contentKey = `${m.userId}_${m.sender}_${(m.message || '').trim()}_${m.image ? 'img' : 'no'}_${timeBucket}`;
+
+      if ((idStr && seenIds.has(idStr)) || seenContent.has(contentKey)) {
+        continue;
+      }
+      if (idStr) seenIds.add(idStr);
+      seenContent.add(contentKey);
+      result.push(m);
+    }
+    return result;
+  }
+
   static getSupportMessages(): SupportMessage[] {
-    return getFromStore<SupportMessage[]>('gi_support_messages', INITIAL_CHATS);
+    const raw = getFromStore<SupportMessage[]>('gi_support_messages', INITIAL_CHATS);
+    const deduped = this.deduplicateSupportMessages(raw);
+    if (deduped.length !== raw.length) {
+      setToStore<SupportMessage[]>('gi_support_messages', deduped);
+    }
+    return deduped;
   }
 
   static saveSupportMessages(messages: SupportMessage[]): void {
-    setToStore<SupportMessage[]>('gi_support_messages', messages);
+    const deduped = this.deduplicateSupportMessages(messages);
+    setToStore<SupportMessage[]>('gi_support_messages', deduped);
   }
 
   static getWithdrawalProofs(): WithdrawalProof[] {
@@ -1552,7 +1708,7 @@ export class DataStore {
     try {
       localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(updated));
     } catch (e) {}
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
 
     try {
       const resp = await apiFetch(getApiUrl('/api/forum/create'), {
@@ -1578,7 +1734,7 @@ export class DataStore {
     try {
       localStorage.removeItem('rockygold_forum_posts_v3');
     } catch (e) {}
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
 
     try {
       await apiFetch(getApiUrl('/api/forum/clear-all'), {
@@ -1620,7 +1776,7 @@ export class DataStore {
           gi_cleanup_timestamp: Number(cleanupTimestamp)
         })
       });
-      window.dispatchEvent(new Event('gi_store_updated'));
+      dispatchStoreUpdated();
       await syncWithBackend();
     } catch (err) {
       console.error("Error saving forum posts to server", err);
@@ -1639,7 +1795,7 @@ export class DataStore {
     try {
       localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(updated));
     } catch (e) {}
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
 
     try {
       await apiFetch(getApiUrl('/api/forum/delete'), {
@@ -1674,7 +1830,7 @@ export class DataStore {
     });
 
     setToStore<any[]>('gi_forum_posts', updated);
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
 
     try {
       const resp = await apiFetch(getApiUrl('/api/forum/like'), {
@@ -2360,6 +2516,76 @@ export class DataStore {
     return { success: true, withdrawal: newWth };
   }
 
+  // Vérifie les conditions d'activation pour les produits Bien-être et Activités
+  static checkSpecialProductActivation(userId: string, category: 'wellbeing' | 'activity'): {
+    canActivate: boolean;
+    reason?: string;
+    code?: 'ACTIVE_CYCLE' | 'STABILITY_REQUIRED' | 'NEW_INVESTMENT_REQUIRED' | 'SCHEDULE_CLOSED';
+    activeProduct?: Investment;
+  } {
+    const investments = this.getInvestments().filter(inv => inv.userId === userId);
+    const categoryLabel = category === 'wellbeing' ? 'Bien-être' : 'Activités';
+
+    // 0. Vérification des horaires d'ouverture / fermeture définis par l'administration
+    const scheduleStatus = this.isCategoryOpen(category);
+    if (!scheduleStatus.isOpen) {
+      return {
+        canActivate: false,
+        code: 'SCHEDULE_CLOSED',
+        reason: scheduleStatus.reason
+      };
+    }
+
+    // 1. Empêcher toute nouvelle activation tant que le cycle précédent n'est pas terminé et réglé
+    const activeInCategory = investments.find(inv => inv.category === category && inv.status === 'active');
+    if (activeInCategory) {
+      return {
+        canActivate: false,
+        code: 'ACTIVE_CYCLE',
+        activeProduct: activeInCategory,
+        reason: `Vous avez déjà un cycle en cours pour la catégorie ${categoryLabel}. Veuillez attendre l'échéance de ce cycle pour pouvoir activer un nouveau produit.`
+      };
+    }
+
+    // 2. Condition de base : Avoir au moins un investissement Stabilité VIP
+    const stabilityInvs = investments.filter(inv => inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')));
+    if (stabilityInvs.length === 0) {
+      return {
+        canActivate: false,
+        code: 'STABILITY_REQUIRED',
+        reason: `Un investissement préalable dans un produit Stabilité VIP est requis avant de pouvoir souscrire à un produit ${categoryLabel}.`
+      };
+    }
+
+    // 3. Une fois le cycle terminé et le revenu total versé, l’utilisateur doit effectuer un nouvel investissement avant de pouvoir activer un nouveau produit Bien-être ou Activités
+    const completedInCategory = investments.filter(inv => inv.category === category && inv.status === 'completed');
+    if (completedInCategory.length > 0) {
+      // Find the most recently completed cycle of this category
+      const latestCompleted = [...completedInCategory].sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      })[0];
+
+      const latestCycleCreationTime = new Date(latestCompleted.createdAt).getTime();
+
+      // Check if a new stability investment was made after the latest cycle was started
+      const hasNewStabilityInvestment = stabilityInvs.some(inv => new Date(inv.createdAt).getTime() > latestCycleCreationTime);
+      const totalCategoryAttempts = investments.filter(inv => inv.category === category).length;
+      const hasUnusedStability = stabilityInvs.length > totalCategoryAttempts;
+
+      if (!hasNewStabilityInvestment && !hasUnusedStability) {
+        return {
+          canActivate: false,
+          code: 'NEW_INVESTMENT_REQUIRED',
+          reason: `Un nouvel investissement dans la catégorie Stabilité VIP est requis avant de pouvoir activer un nouveau produit ${categoryLabel}.`
+        };
+      }
+    }
+
+    return { canActivate: true };
+  }
+
   // Invest Product logic
   static async buyProduct(userId: string, productId: string): Promise<{ success: boolean, message: string }> {
     try {
@@ -2394,21 +2620,18 @@ export class DataStore {
       return { success: false, message: 'VIP plan ou utilisateur introuvable.' };
     }
 
-    if (user.balance < targetProduct.price) {
-      return { success: false, message: `Solde insuffisant. Vous devez avoir au moins ${targetProduct.price.toLocaleString()} XOF.` };
+    if (user.balance <= 0 || user.balance < targetProduct.price) {
+      return { success: false, message: 'Votre solde est insuffisant. Veuillez effectuer un investissement/rechargement avant d’activer un produit.' };
     }
 
-    // Condition d'achat: Un utilisateur ne doit pas pouvoir acheter un produit du bien-être ou une activité s'il n'a pas d'abord payé la stabilité.
+    // Condition d'achat: Bien-être et Activités
     const isSpecialCategory = targetProduct.category === 'wellbeing' || targetProduct.category === 'activity';
     if (isSpecialCategory) {
-      const investments = this.getInvestments();
-      const hasStability = investments.some(
-        inv => inv.userId === userId && (inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')))
-      );
-      if (!hasStability) {
+      const check = this.checkSpecialProductActivation(userId, targetProduct.category as 'wellbeing' | 'activity');
+      if (!check.canActivate) {
         return {
           success: false,
-          message: 'Condition requise : Vous devez d\'abord acheter et payer un produit de Stabilité VIP avant de pouvoir acheter un produit Bien-être ou une Activité.'
+          message: check.reason || 'Activation impossible pour ce produit.'
         };
       }
     }
@@ -2592,11 +2815,18 @@ export class DataStore {
       }
     }
 
+    const isStability = targetProduct.category === 'stability' || !targetProduct.category;
+    const isWellbeing = targetProduct.category === 'wellbeing';
+    const isActivity = targetProduct.category === 'activity';
+    const returnMsg = (isStability || isWellbeing || isActivity)
+      ? `Le capital et vos bénéfices totaux de ${(targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays))).toLocaleString()} XOF vous seront automatiquement versés à la fin du cycle de ${targetProduct.durationDays} jours.`
+      : `Vous gagnerez ${targetProduct.dailyReturn.toLocaleString()} XOF chaque jour.`;
+
     notifications.unshift({
       id: `not-plan-${Date.now()}`,
       userId,
       title: 'Plan activé avec succès !',
-      message: `Votre investissement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a bien été pris en compte. Vous gagnerez ${targetProduct.dailyReturn.toLocaleString()} XOF chaque jour.`,
+      message: `Votre investissement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a bien été pris en compte. ${returnMsg}`,
       type: 'plan',
       createdAt: new Date().toISOString(),
       read: false
@@ -2878,7 +3108,7 @@ export class DataStore {
     });
     this.saveNotifications(notifs);
 
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
     return { success: true, message: `Votre plan ${inv.productName} a été renouvelé avec succès pour un nouveau cycle de ${inv.durationDays} jours !` };
   }
 
@@ -2913,7 +3143,7 @@ export class DataStore {
     investments[invIdx].lastModified = Date.now();
     this.saveInvestments(investments);
 
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
     return { success: true, message: `Renouvellement automatique ${autoRenew ? 'activé' : 'désactivé'}.` };
   }
 
@@ -2993,41 +3223,71 @@ export class DataStore {
   // Support / Live chat integration
   static async sendMessageToSupport(userId: string, messageText: string, senderRole: 'user' | 'admin' = 'user', imageBase64?: string): Promise<SupportMessage> {
     const messages = this.getSupportMessages();
-    
+    const cleanText = (messageText || '').trim();
+
+    // Prevent immediate duplicate if identical message was sent in the last 10 seconds
+    const recentDuplicate = messages.find(m => {
+      if (m.userId === userId && m.sender === senderRole && (m.message || '').trim() === cleanText) {
+        const imgMatch = (!imageBase64 && !m.image) || (imageBase64 && m.image === imageBase64);
+        if (imgMatch) {
+          const timeDiff = Math.abs(Date.now() - new Date(m.createdAt || 0).getTime());
+          if (timeDiff < 10000) return true;
+        }
+      }
+      return false;
+    });
+
+    if (recentDuplicate) {
+      return recentDuplicate;
+    }
+
+    const uniqueId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const nowIso = new Date().toISOString();
+    const nowStamp = Date.now();
+
     // Save locally first for instant, latency-free UX feedback
     let updatedMsgs = [...messages];
     if (senderRole === 'admin') {
       updatedMsgs = messages.map(m => {
         if (m.userId === userId && m.sender === 'user' && m.status !== 'replied') {
-          return { ...m, status: 'replied' as const, lastModified: Date.now() };
+          return { ...m, status: 'replied' as const, lastModified: nowStamp };
         }
         return m;
       });
     }
 
     const newMsg: SupportMessage = {
-      id: `msg-${Date.now()}`,
+      id: uniqueId,
       userId,
       sender: senderRole,
-      message: messageText || '',
+      message: cleanText,
       ...(imageBase64 ? { image: imageBase64 } : {}),
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
       status: 'unread',
-      lastModified: Date.now()
+      lastModified: nowStamp
     };
 
     updatedMsgs.push(newMsg);
     this.saveSupportMessages(updatedMsgs);
 
-    window.dispatchEvent(new Event('gi_store_updated'));
-    window.dispatchEvent(new Event('gi_new_message'));
+    dispatchStoreUpdated();
+    dispatchCustomEvent('gi_new_message');
 
-    // Push to backend server asynchronously for central database synchronization
+    // Push to backend server asynchronously with the exact matching ID to prevent duplicate generation
     try {
       await apiFetch(getApiUrl('/api/send-message'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, message: messageText || '', sender: senderRole, image: imageBase64 })
+        body: JSON.stringify({
+          id: newMsg.id,
+          userId,
+          message: cleanText,
+          sender: senderRole,
+          image: imageBase64,
+          createdAt: newMsg.createdAt,
+          lastModified: newMsg.lastModified,
+          status: newMsg.status
+        })
       });
       await syncWithBackend();
     } catch (e) {
@@ -3056,7 +3316,7 @@ export class DataStore {
 
     if (changed) {
       this.saveSupportMessages(updated);
-      window.dispatchEvent(new Event('gi_store_updated'));
+      dispatchStoreUpdated();
 
       try {
         await apiFetch(getApiUrl('/api/mark-messages-read'), {
@@ -3105,7 +3365,7 @@ export class DataStore {
     proofs.unshift(newProof);
     this.saveWithdrawalProofs(proofs);
     
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
     
     let sUserId = userId;
     let userRole = 'user';
@@ -3155,7 +3415,7 @@ export class DataStore {
     
     if (changed) {
       this.saveWithdrawalProofs(updated);
-      window.dispatchEvent(new Event('gi_store_updated'));
+      dispatchStoreUpdated();
       
       let activeUserId = userId;
       let activeUserRole = 'user';
@@ -3221,7 +3481,7 @@ export class DataStore {
         console.warn('Failed to sync deleted proof to server:', e);
       }
       this.saveWithdrawalProofs(filtered);
-      window.dispatchEvent(new Event('gi_store_updated'));
+      dispatchStoreUpdated();
       return true;
     }
     return false;
@@ -3266,7 +3526,7 @@ export class DataStore {
         console.warn('Failed to sync updated proof status to server:', e);
       }
       this.saveWithdrawalProofs(nextProofs);
-      window.dispatchEvent(new Event('gi_store_updated'));
+      dispatchStoreUpdated();
       return true;
     }
     return false;
@@ -3480,7 +3740,7 @@ export class DataStore {
       }
     }
 
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
 
     // Notify backend
     try {
@@ -3511,7 +3771,7 @@ export class DataStore {
     } catch (e) {
       console.error('Failed to sync deleted investment:', e);
     }
-    window.dispatchEvent(new Event('gi_store_updated'));
+    dispatchStoreUpdated();
     return true;
   }
 
