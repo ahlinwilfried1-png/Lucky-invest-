@@ -3656,7 +3656,7 @@ export class DataStore {
 
       // If more days should have processed than currently tracked
       if (expectedDays > inv.daysPassed) {
-        const isCyclicProduct = true; // All plans (Stabilité, Bien-être, Activité) are now cyclic
+        const isCyclicProduct = (inv as any).isCyclic !== undefined ? Boolean((inv as any).isCyclic) : true;
 
         if (isCyclicProduct) {
           if (expectedDays >= inv.durationDays) {

@@ -1280,6 +1280,8 @@ export default function AdminPanel({
   // Finance events
   const handleApproveDeposit = async (id: string) => {
     updateFirestoreDoc('deposits', id, { status: 'approved' }).catch(() => {});
+    DataStore.approveDeposit(id);
+    syncLocalStates();
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
@@ -1288,19 +1290,16 @@ export default function AdminPanel({
       });
       if (resp.ok) {
         await executeDirectCentralSync();
-      } else {
-        DataStore.approveDeposit(id);
-        syncLocalStates();
       }
     } catch (e) {
-      console.error("Failed server approval of deposit, fallback to local:", e);
-      DataStore.approveDeposit(id);
-      syncLocalStates();
+      console.error("Failed server approval of deposit:", e);
     }
   };
 
   const handleRejectDeposit = async (id: string) => {
     updateFirestoreDoc('deposits', id, { status: 'rejected' }).catch(() => {});
+    DataStore.rejectDeposit(id);
+    syncLocalStates();
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
@@ -1309,19 +1308,16 @@ export default function AdminPanel({
       });
       if (resp.ok) {
         await executeDirectCentralSync();
-      } else {
-        DataStore.rejectDeposit(id);
-        syncLocalStates();
       }
     } catch (e) {
-      console.error("Failed server rejection of deposit, fallback to local:", e);
-      DataStore.rejectDeposit(id);
-      syncLocalStates();
+      console.error("Failed server rejection of deposit:", e);
     }
   };
 
   const handleApproveWithdrawal = async (id: string) => {
     updateFirestoreDoc('withdrawals', id, { status: 'approved' }).catch(() => {});
+    DataStore.approveWithdrawal(id);
+    syncLocalStates();
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/withdrawal-action'), {
         method: 'POST',
@@ -1330,19 +1326,16 @@ export default function AdminPanel({
       });
       if (resp.ok) {
         await executeDirectCentralSync();
-      } else {
-        DataStore.approveWithdrawal(id);
-        syncLocalStates();
       }
     } catch (e) {
-      console.error("Failed server approval of withdrawal, fallback to local:", e);
-      DataStore.approveWithdrawal(id);
-      syncLocalStates();
+      console.error("Failed server approval of withdrawal:", e);
     }
   };
 
   const handleRejectWithdrawal = async (id: string) => {
     updateFirestoreDoc('withdrawals', id, { status: 'rejected' }).catch(() => {});
+    DataStore.rejectWithdrawal(id);
+    syncLocalStates();
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/withdrawal-action'), {
         method: 'POST',
@@ -1351,14 +1344,9 @@ export default function AdminPanel({
       });
       if (resp.ok) {
         await executeDirectCentralSync();
-      } else {
-        DataStore.rejectWithdrawal(id);
-        syncLocalStates();
       }
     } catch (e) {
-      console.error("Failed server rejection of withdrawal, fallback to local:", e);
-      DataStore.rejectWithdrawal(id);
-      syncLocalStates();
+      console.error("Failed server rejection of withdrawal:", e);
     }
   };
 

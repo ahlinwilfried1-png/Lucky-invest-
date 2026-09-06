@@ -1342,7 +1342,7 @@ export default function Dashboard({
       date: string;
       amount: number;
       type: 'Recharge' | 'Retrait' | 'Commission' | 'Achat VIP' | 'Revenu Quotidien';
-      status: 'Validé' | 'En attente' | 'Refusé' | 'Complété';
+      status: 'Réussi' | 'Validé' | 'En attente' | 'Refusé' | 'Complété';
       details: string;
       rawDate: Date;
     }[] = [];
@@ -1366,8 +1366,8 @@ export default function Dashboard({
 
     // 2. Withdrawals (Retraits)
     allWithdrawals.forEach((wth) => {
-      let mappedStatus: 'Validé' | 'En attente' | 'Refusé' = 'En attente';
-      if (wth.status === 'approved') mappedStatus = 'Validé';
+      let mappedStatus: 'Réussi' | 'Validé' | 'En attente' | 'Refusé' = 'En attente';
+      if (wth.status === 'approved') mappedStatus = 'Réussi';
       if (wth.status === 'rejected') mappedStatus = 'Refusé';
 
       list.push({
@@ -4565,7 +4565,7 @@ export default function Dashboard({
                       {(['all', 'approved', 'pending', 'rejected'] as const).map((filterKey) => {
                         const labels: Record<string, string> = {
                           all: 'Tous',
-                          approved: 'Validé',
+                          approved: 'Réussi',
                           pending: 'En attente',
                           rejected: 'Rejeté'
                         };
@@ -4611,7 +4611,7 @@ export default function Dashboard({
                             : isPending 
                             ? 'bg-amber-100 text-amber-800' 
                             : 'bg-red-100 text-red-800';
-                          const statusLabel = isApproved ? 'Viré' : isPending ? 'En cours' : 'Rejeté';
+                          const statusLabel = isApproved ? 'Réussi' : isPending ? 'En cours' : 'Rejeté';
 
                           return (
                             <div key={w.id || idx} className="bg-white rounded-[22px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-2.5">

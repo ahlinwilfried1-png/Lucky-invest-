@@ -14,7 +14,8 @@ import {
   fetchLiveNeonCounts,
   sanitizeDatabaseUrl,
   insertNeonForumPost,
-  deleteNeonForumPost
+  deleteNeonForumPost,
+  deleteNeonUser
 } from "./server_neon";
 
 dotenv.config();
@@ -1424,7 +1425,7 @@ const SERVER_DEFAULT_PRODUCTS = [
 
       // If more days should have processed than currently tracked
       if (expectedDays > inv.daysPassed) {
-        const isCyclicProduct = true; // All plans (Stabilité, Bien-être, Activité) are now cyclic
+        const isCyclicProduct = inv.isCyclic !== undefined ? Boolean(inv.isCyclic) : true;
 
         if (isCyclicProduct) {
           // No daily payout during active cycle for short-cycle activity and wellbeing products
@@ -1435,8 +1436,9 @@ const SERVER_DEFAULT_PRODUCTS = [
 
             const uIdx = users.findIndex((u: any) => u.id === inv.userId);
             if (uIdx !== -1) {
-              users[uIdx].balance += totalPayout;
-              users[uIdx].totalEarnings += netProfit;
+              users[uIdx].balance = (Number(users[uIdx].balance) || 0) + totalPayout;
+              users[uIdx].totalEarnings = (Number(users[uIdx].totalEarnings) || 0) + netProfit;
+              users[uIdx].lastModified = Date.now();
 
               const isWellbeing = inv.category === 'wellbeing';
               const isStability = inv.category === 'stability';
@@ -1476,22 +1478,23 @@ const SERVER_DEFAULT_PRODUCTS = [
             changed = true;
           }
         } else {
-          // Standard VIP stability plans (daily dividend credited daily) - Left as safety fallback but unused
+          // Standard daily dividend plan (dividend credited daily)
           const missingDays = expectedDays - inv.daysPassed;
           const totalPayout = inv.dailyReturn * missingDays;
 
           // Find and credit the investor
           const uIdx = users.findIndex((u: any) => u.id === inv.userId);
           if (uIdx !== -1) {
-            users[uIdx].balance += totalPayout;
-            users[uIdx].totalEarnings += totalPayout;
+            users[uIdx].balance = (Number(users[uIdx].balance) || 0) + totalPayout;
+            users[uIdx].totalEarnings = (Number(users[uIdx].totalEarnings) || 0) + totalPayout;
+            users[uIdx].lastModified = Date.now();
             
             // Add a notifications alert to show the automatic payout
             notifications.unshift({
               id: `not-autodrop-srv-${Date.now()}-${inv.id}-${inv.daysPassed}`,
               userId: inv.userId,
-              title: `💰 Gain automatique reçu (${inv.productName})`,
-              message: `Félicitations, votre gain quotidien de ${totalPayout.toLocaleString()} XOF est tombé automatiquement à l'heure d'activation de votre plan VIP.`,
+              title: `💰 Gain quotidien automatique (${inv.productName})`,
+              message: `Félicitations, votre gain quotidien de ${totalPayout.toLocaleString()} XOF a été automatiquement crédité sur votre solde.`,
               type: 'plan',
               lastModified: Date.now(),
               createdAt: new Date().toISOString(),
@@ -1500,11 +1503,16 @@ const SERVER_DEFAULT_PRODUCTS = [
           }
 
           inv.daysPassed = expectedDays;
-          inv.totalReturnClaimed += totalPayout;
+          inv.totalReturnClaimed = (Number(inv.totalReturnClaimed) || 0) + totalPayout;
           inv.lastClaimDate = new Date().toISOString();
           inv.lastModified = Date.now();
-
           if (inv.daysPassed >= inv.durationDays) {
+            inv.status = 'completed';
+          }
+          changed = true;
+        }
+
+        if (inv.daysPassed >= inv.durationDays) {
             let autoRenewed = false;
             const isWellbeing = inv.category === 'wellbeing';
             const uIdx2 = users.findIndex((u: any) => u.id === inv.userId);
@@ -1551,7 +1559,6 @@ const SERVER_DEFAULT_PRODUCTS = [
           }
           changed = true;
         }
-      }
       return inv;
     });
 
@@ -1576,6 +1583,15 @@ const SERVER_DEFAULT_PRODUCTS = [
 
   // Load store on startup
   loadStore();
+
+  // Automated 24/7 background processing of investment earnings and cycle payouts every 60 seconds
+  setInterval(async () => {
+    try {
+      await processAutomaticDailyInstallmentsServer();
+    } catch (err: any) {
+      console.warn('[BACKGROUND EARNINGS INTERVAL ERROR]', err?.message || err);
+    }
+  }, 60000);
 
   function normalizePhoneNumber(whatsapp: string, countryName?: string): string {
     let clean = (whatsapp || '').replace(/\D/g, '');
@@ -5240,16 +5256,37 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     if (action === 'approve') {
       deposits[idx].status = 'approved';
+      deposits[idx].approvedAt = new Date().toISOString();
+      deposits[idx].lastModified = Date.now();
+
       const uIdx = users.findIndex((u: any) => u.id === deposits[idx].userId);
       if (uIdx !== -1) {
-        users[uIdx].balance += deposits[idx].amount;
+        users[uIdx].balance = (Number(users[uIdx].balance) || 0) + deposits[idx].amount;
+        users[uIdx].totalRecharged = (Number(users[uIdx].totalRecharged) || 0) + deposits[idx].amount;
         users[uIdx].lastModified = Date.now();
+
+        // Direct update to Neon
+        try {
+          const p = getNeonPool();
+          if (p) {
+            await p.query(
+              `UPDATE public.deposits SET status = 'approved', approved_at = $1, last_modified = $2 WHERE id = $3;`,
+              [deposits[idx].approvedAt, deposits[idx].lastModified, depositId]
+            );
+            await p.query(
+              `UPDATE public.users SET balance = $1, total_recharged = $2, last_modified = $3 WHERE id = $4;`,
+              [users[uIdx].balance, users[uIdx].totalRecharged, users[uIdx].lastModified, deposits[idx].userId]
+            );
+          }
+        } catch (e: any) {
+          console.warn('[NEON DEPOSIT APPROVE WARN]', e.message);
+        }
       }
       notifications.unshift({
         id: `not-dep-app-${Date.now()}`,
         userId: deposits[idx].userId,
         title: '💵 Dépôt validé !',
-        message: `Votre versement de ${deposits[idx].amount.toLocaleString()} XOF via ${deposits[idx].operator} a été approuvé. Votre solde principal a été rechargé.`,
+        message: `Votre versement de ${deposits[idx].amount.toLocaleString()} XOF via ${deposits[idx].operator || deposits[idx].method} a été approuvé. Votre solde principal a été rechargé.`,
         type: 'deposit',
         lastModified: Date.now(),
         createdAt: new Date().toISOString(),
@@ -5262,6 +5299,20 @@ const SERVER_DEFAULT_PRODUCTS = [
       notifications = storeData["gi_notifications"] || notifications;
     } else {
       deposits[idx].status = 'rejected';
+      deposits[idx].lastModified = Date.now();
+
+      try {
+        const p = getNeonPool();
+        if (p) {
+          await p.query(
+            `UPDATE public.deposits SET status = 'rejected', last_modified = $1 WHERE id = $2;`,
+            [deposits[idx].lastModified, depositId]
+          );
+        }
+      } catch (e: any) {
+        console.warn('[NEON DEPOSIT REJECT WARN]', e.message);
+      }
+
       notifications.unshift({
         id: `not-dep-rej-${Date.now()}`,
         userId: deposits[idx].userId,
@@ -5280,7 +5331,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     storeData["gi_notifications"] = notifications;
 
     await saveStore();
-    res.json({ success: true });
+    res.json({ success: true, deposit: deposits[idx] });
   });
 
   app.post("/api/admin/withdrawal-action", async (req, res) => {
@@ -5298,8 +5349,31 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     if (action === 'approve') {
       withdrawals[idx].status = 'approved';
+      withdrawals[idx].processedAt = new Date().toISOString();
       withdrawals[idx].reference = `man-${Date.now()}`;
       withdrawals[idx].lastModified = Date.now();
+
+      const uIdx = users.findIndex((u: any) => u.id === withdrawal.userId);
+      if (uIdx !== -1) {
+        users[uIdx].totalWithdrawn = (Number(users[uIdx].totalWithdrawn) || 0) + withdrawal.amount;
+        users[uIdx].lastModified = Date.now();
+
+        try {
+          const p = getNeonPool();
+          if (p) {
+            await p.query(
+              `UPDATE public.withdrawals SET status = 'approved', processed_at = $1, last_modified = $2 WHERE id = $3;`,
+              [withdrawals[idx].processedAt, withdrawals[idx].lastModified, withdrawalId]
+            );
+            await p.query(
+              `UPDATE public.users SET total_withdrawn = $1, last_modified = $2 WHERE id = $3;`,
+              [users[uIdx].totalWithdrawn, users[uIdx].lastModified, withdrawal.userId]
+            );
+          }
+        } catch (e: any) {
+          console.warn('[NEON WITHDRAW APPROVE WARN]', e.message);
+        }
+      }
 
       notifications.unshift({
         id: `not-wth-manual-app-${Date.now()}`,
@@ -5313,10 +5387,27 @@ const SERVER_DEFAULT_PRODUCTS = [
       });
     } else {
       withdrawals[idx].status = 'rejected';
+      withdrawals[idx].lastModified = Date.now();
       const uIdx = users.findIndex((u: any) => u.id === withdrawals[idx].userId);
       if (uIdx !== -1) {
         users[uIdx].balance += withdrawals[idx].amount;
         users[uIdx].lastModified = Date.now();
+
+        try {
+          const p = getNeonPool();
+          if (p) {
+            await p.query(
+              `UPDATE public.withdrawals SET status = 'rejected', last_modified = $1 WHERE id = $2;`,
+              [withdrawals[idx].lastModified, withdrawalId]
+            );
+            await p.query(
+              `UPDATE public.users SET balance = $1, last_modified = $2 WHERE id = $3;`,
+              [users[uIdx].balance, users[uIdx].lastModified, withdrawals[idx].userId]
+            );
+          }
+        } catch (e: any) {
+          console.warn('[NEON WITHDRAW REJECT WARN]', e.message);
+        }
       }
       notifications.unshift({
         id: `not-wth-rej-${Date.now()}`,
@@ -5336,7 +5427,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     storeData["gi_notifications"] = notifications;
 
     await saveStore();
-    res.json({ success: true });
+    res.json({ success: true, withdrawal: withdrawals[idx] });
   });
 
   app.post("/api/admin/update-user", async (req, res) => {
@@ -5374,6 +5465,29 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
       }
       users[idx].lastModified = Date.now();
+
+      // Immediate update to Neon PostgreSQL
+      try {
+        const p = getNeonPool();
+        if (p) {
+          await p.query(
+            `UPDATE public.users 
+             SET balance = $1, is_blocked = $2, role = $3, referred_by = $4, last_modified = $5
+             WHERE id = $6;`,
+            [
+              users[idx].balance || 0,
+              Boolean(users[idx].isBlocked),
+              users[idx].role || 'user',
+              users[idx].referredBy || null,
+              users[idx].lastModified,
+              userId
+            ]
+          );
+        }
+      } catch (e: any) {
+        console.warn('[NEON UPDATE USER WARN]', e.message);
+      }
+
       await saveStore();
       res.json({ success: true, user: users[idx] });
     } else {
@@ -5381,15 +5495,83 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
   });
 
+  app.post("/api/admin/credit-user", async (req, res) => {
+    const { userId, amount, reason } = req.body;
+    const creditAmount = Number(amount);
+    if (!userId || isNaN(creditAmount)) {
+      return res.status(400).json({ error: "Paramètres invalides" });
+    }
+
+    let users = storeData["gi_users"] || [];
+    const idx = users.findIndex((u: any) => u.id === userId);
+    if (idx === -1) {
+      return res.status(404).json({ error: "Utilisateur introuvable" });
+    }
+
+    users[idx].balance = Math.max(0, (Number(users[idx].balance) || 0) + creditAmount);
+    if (creditAmount > 0) {
+      users[idx].totalEarnings = (Number(users[idx].totalEarnings) || 0) + creditAmount;
+    }
+    users[idx].lastModified = Date.now();
+
+    // Create a transaction notification for user
+    let notifications = storeData["gi_notifications"] || [];
+    notifications.unshift({
+      id: `not-credit-${Date.now()}`,
+      userId,
+      title: creditAmount >= 0 ? "💰 Compte crédité !" : "⚠️ Débit administratif",
+      message: creditAmount >= 0
+        ? `Votre compte a été crédité de ${creditAmount.toLocaleString()} XOF par l'administration${reason ? ` (${reason})` : ''}. Nouveau solde: ${users[idx].balance.toLocaleString()} XOF.`
+        : `Un débit de ${Math.abs(creditAmount).toLocaleString()} XOF a été appliqué sur votre compte${reason ? ` (${reason})` : ''}. Nouveau solde: ${users[idx].balance.toLocaleString()} XOF.`,
+      type: "bonus",
+      lastModified: Date.now(),
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+
+    storeData["gi_users"] = users;
+    storeData["gi_notifications"] = notifications;
+
+    // Direct update to Neon
+    try {
+      const p = getNeonPool();
+      if (p) {
+        await p.query(
+          `UPDATE public.users SET balance = $1, total_earnings = $2, last_modified = $3 WHERE id = $4;`,
+          [users[idx].balance, users[idx].totalEarnings || 0, users[idx].lastModified, userId]
+        );
+      }
+    } catch (e: any) {
+      console.warn('[NEON CREDIT USER WARN]', e.message);
+    }
+
+    await saveStore();
+    res.json({ success: true, user: users[idx] });
+  });
+
   app.post("/api/admin/block-user", async (req, res) => {
     const { userId, isBlocked } = req.body;
     let users = storeData["gi_users"] || [];
     const idx = users.findIndex((u: any) => u.id === userId);
     if (idx !== -1) {
-      users[idx].isBlocked = isBlocked;
+      users[idx].isBlocked = Boolean(isBlocked);
       users[idx].lastModified = Date.now();
+
+      // Direct update to Neon
+      try {
+        const p = getNeonPool();
+        if (p) {
+          await p.query(
+            `UPDATE public.users SET is_blocked = $1, last_modified = $2 WHERE id = $3;`,
+            [Boolean(isBlocked), users[idx].lastModified, userId]
+          );
+        }
+      } catch (e: any) {
+        console.warn('[NEON BLOCK USER WARN]', e.message);
+      }
+
       await saveStore();
-      res.json({ success: true });
+      res.json({ success: true, user: users[idx] });
     } else {
       res.status(404).json({ error: 'Utilisateur introuvable' });
     }
@@ -5397,8 +5579,11 @@ const SERVER_DEFAULT_PRODUCTS = [
 
   app.post("/api/admin/delete-user", async (req, res) => {
     const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: "User ID missing" });
+    }
     
-    // Track deleted user id
+    // Track deleted user id permanently
     let deletedUsers = storeData["gi_deleted_users"] || [];
     if (!deletedUsers.includes(userId)) {
       deletedUsers.push(userId);
@@ -5437,8 +5622,15 @@ const SERVER_DEFAULT_PRODUCTS = [
       storeData["gi_withdrawal_proofs"] = storeData["gi_withdrawal_proofs"].filter((p: any) => p.userId !== userId);
     }
 
+    // Purge completely from Neon PostgreSQL
+    try {
+      await deleteNeonUser(userId);
+    } catch (e: any) {
+      console.warn('[NEON DELETE USER ERROR]', e.message);
+    }
+
     await saveStore();
-    res.json({ success: true });
+    res.json({ success: true, deletedUserId: userId });
   });
 
   app.post("/api/admin/delete-investment", async (req, res) => {

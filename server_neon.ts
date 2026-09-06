@@ -351,10 +351,15 @@ export async function fetchNeonStoreData(): Promise<Record<string, any> | null> 
     // Also pull directly from relational tables to guarantee 100% real-time reflection
     // of any direct PostgreSQL inserts, updates, or administration actions
     try {
+      const deletedUsers: string[] = (result['gi_deleted_users'] && Array.isArray(result['gi_deleted_users'])) ? result['gi_deleted_users'] : [];
+      const deletedInvestments: string[] = (result['gi_deleted_investments'] && Array.isArray(result['gi_deleted_investments'])) ? result['gi_deleted_investments'] : [];
+
       // 1. Users
       const uRes = await client.query(`SELECT * FROM public.users ORDER BY created_at ASC;`);
       if (uRes.rows && uRes.rows.length > 0) {
-        result['gi_users'] = uRes.rows.map(r => {
+        result['gi_users'] = uRes.rows
+          .filter(r => !deletedUsers.includes(r.id))
+          .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
           return {
             ...raw,
@@ -380,7 +385,9 @@ export async function fetchNeonStoreData(): Promise<Record<string, any> | null> 
       // 2. Deposits
       const dRes = await client.query(`SELECT * FROM public.deposits ORDER BY created_at DESC;`);
       if (dRes.rows && dRes.rows.length > 0) {
-        result['gi_deposits'] = dRes.rows.map(r => {
+        result['gi_deposits'] = dRes.rows
+          .filter(r => !deletedUsers.includes(r.user_id))
+          .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
           return {
             ...raw,
@@ -405,7 +412,9 @@ export async function fetchNeonStoreData(): Promise<Record<string, any> | null> 
       // 3. Withdrawals
       const wRes = await client.query(`SELECT * FROM public.withdrawals ORDER BY created_at DESC;`);
       if (wRes.rows && wRes.rows.length > 0) {
-        result['gi_withdrawals'] = wRes.rows.map(r => {
+        result['gi_withdrawals'] = wRes.rows
+          .filter(r => !deletedUsers.includes(r.user_id))
+          .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
           return {
             ...raw,
@@ -453,7 +462,9 @@ export async function fetchNeonStoreData(): Promise<Record<string, any> | null> 
       // 5. Investments
       const iRes = await client.query(`SELECT * FROM public.investments ORDER BY activated_at DESC;`);
       if (iRes.rows && iRes.rows.length > 0) {
-        result['gi_investments'] = iRes.rows.map(r => {
+        result['gi_investments'] = iRes.rows
+          .filter(r => !deletedUsers.includes(r.user_id) && !deletedInvestments.includes(r.id))
+          .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
           return {
             ...raw,
@@ -477,7 +488,9 @@ export async function fetchNeonStoreData(): Promise<Record<string, any> | null> 
       // 6. Commissions
       const cRes = await client.query(`SELECT * FROM public.commissions ORDER BY created_at DESC;`);
       if (cRes.rows && cRes.rows.length > 0) {
-        result['gi_commissions'] = cRes.rows.map(r => {
+        result['gi_commissions'] = cRes.rows
+          .filter(r => !deletedUsers.includes(r.user_id) && !deletedUsers.includes(r.from_user_id))
+          .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
           return {
             ...raw,
@@ -960,6 +973,26 @@ export async function syncRelationalTables(storeData: Record<string, any>): Prom
         );
       }
     }
+
+    // 12. Purge deleted users, investments, products from relational tables
+    const deletedUsers = storeData['gi_deleted_users'];
+    if (Array.isArray(deletedUsers) && deletedUsers.length > 0) {
+      await client.query(`DELETE FROM public.users WHERE id = ANY($1::text[]);`, [deletedUsers]);
+      await client.query(`DELETE FROM public.investments WHERE user_id = ANY($1::text[]);`, [deletedUsers]);
+      await client.query(`DELETE FROM public.deposits WHERE user_id = ANY($1::text[]);`, [deletedUsers]);
+      await client.query(`DELETE FROM public.withdrawals WHERE user_id = ANY($1::text[]);`, [deletedUsers]);
+      await client.query(`DELETE FROM public.commissions WHERE user_id = ANY($1::text[]) OR from_user_id = ANY($1::text[]);`, [deletedUsers]);
+      await client.query(`DELETE FROM public.support_messages WHERE user_id = ANY($1::text[]);`, [deletedUsers]);
+      await client.query(`DELETE FROM public.withdrawal_proofs WHERE user_id = ANY($1::text[]);`, [deletedUsers]);
+    }
+    const deletedInvestments = storeData['gi_deleted_investments'];
+    if (Array.isArray(deletedInvestments) && deletedInvestments.length > 0) {
+      await client.query(`DELETE FROM public.investments WHERE id = ANY($1::text[]);`, [deletedInvestments]);
+    }
+    const deletedProducts = storeData['gi_deleted_products'];
+    if (Array.isArray(deletedProducts) && deletedProducts.length > 0) {
+      await client.query(`DELETE FROM public.products WHERE id = ANY($1::text[]);`, [deletedProducts]);
+    }
   } catch (e: any) {
     console.warn('[NEON RELATIONAL SYNC WARN]', e.message);
   } finally {
@@ -1067,6 +1100,34 @@ export async function deleteNeonForumPost(postId: string): Promise<boolean> {
     return true;
   } catch (err: any) {
     console.warn('[NEON FORUM DELETE WARN]', err.message);
+    return false;
+  } finally {
+    if (client) {
+      try { client.release(); } catch {}
+    }
+  }
+}
+
+/**
+ * Deletes a user and all related child records from Neon PostgreSQL
+ */
+export async function deleteNeonUser(userId: string): Promise<boolean> {
+  const p = getNeonPool();
+  if (!p || !userId) return false;
+
+  let client: PoolClient | null = null;
+  try {
+    client = await p.connect();
+    await client.query(`DELETE FROM public.users WHERE id = $1;`, [userId]);
+    await client.query(`DELETE FROM public.investments WHERE user_id = $1;`, [userId]);
+    await client.query(`DELETE FROM public.deposits WHERE user_id = $1;`, [userId]);
+    await client.query(`DELETE FROM public.withdrawals WHERE user_id = $1;`, [userId]);
+    await client.query(`DELETE FROM public.commissions WHERE user_id = $1 OR from_user_id = $1;`, [userId]);
+    await client.query(`DELETE FROM public.support_messages WHERE user_id = $1;`, [userId]);
+    await client.query(`DELETE FROM public.withdrawal_proofs WHERE user_id = $1;`, [userId]);
+    return true;
+  } catch (err: any) {
+    console.warn('[NEON DELETE USER WARN]', err.message);
     return false;
   } finally {
     if (client) {
