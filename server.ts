@@ -12,7 +12,9 @@ import {
   saveNeonStoreBatch,
   syncRelationalTables,
   fetchLiveNeonCounts,
-  sanitizeDatabaseUrl
+  sanitizeDatabaseUrl,
+  insertNeonForumPost,
+  deleteNeonForumPost
 } from "./server_neon";
 
 dotenv.config();
@@ -258,6 +260,24 @@ CREATE POLICY "Allow anon full access" ON public.store FOR ALL TO anon USING (tr
         else item.tag = "Or d'Investissement";
       }
 
+      // Synchronize / upgrade stability products to updated higher revenue rates
+      if (item.category === 'stability' || (!item.category && String(item.id || '').startsWith('stab-'))) {
+        const stabDefaults: Record<string, { dailyReturn: number; totalReturn: number }> = {
+          'stab-1': { dailyReturn: 180, totalReturn: 7200 },
+          'stab-2': { dailyReturn: 500, totalReturn: 20000 },
+          'stab-3': { dailyReturn: 1200, totalReturn: 48000 },
+          'stab-4': { dailyReturn: 3500, totalReturn: 140000 },
+          'stab-5': { dailyReturn: 8000, totalReturn: 320000 },
+          'stab-6': { dailyReturn: 18000, totalReturn: 720000 },
+          'stab-7': { dailyReturn: 42000, totalReturn: 1680000 }
+        };
+        if (stabDefaults[item.id] && item.dailyReturn < stabDefaults[item.id].dailyReturn) {
+          modified = true;
+          item.dailyReturn = stabDefaults[item.id].dailyReturn;
+          item.totalReturn = stabDefaults[item.id].totalReturn;
+        }
+      }
+
       // Allow admin-configured custom product image URLs without any automated sanitization
     });
 
@@ -494,13 +514,13 @@ function evaluateCategorySchedule(category: 'wellbeing' | 'activity', schedulesO
 
 const SERVER_DEFAULT_PRODUCTS = [
   // STABILITÉ (7 products)
-  { id: "stab-1", vipLevel: 1, name: "Gold Avenue Option Bronze", tag: "Option Bronze", price: 2000, dailyReturn: 100, durationDays: 40, totalReturn: 4000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "stab-2", vipLevel: 2, name: "Gold Avenue Option Argent", tag: "Option Argent", price: 5000, dailyReturn: 300, durationDays: 40, totalReturn: 12000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "stab-3", vipLevel: 3, name: "Gold Avenue Option Or", tag: "Option Or", price: 10000, dailyReturn: 700, durationDays: 40, totalReturn: 28000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "stab-4", vipLevel: 4, name: "Gold Avenue Option Platine", tag: "Option Platine", price: 25000, dailyReturn: 2000, durationDays: 40, totalReturn: 80000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "stab-5", vipLevel: 5, name: "Gold Avenue Option Diamant", tag: "Option Diamant", price: 50000, dailyReturn: 4500, durationDays: 40, totalReturn: 180000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "stab-6", vipLevel: 6, name: "Gold Avenue Option Saphir", tag: "Option Saphir", price: 100000, dailyReturn: 10000, durationDays: 40, totalReturn: 400000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "stab-7", vipLevel: 7, name: "Gold Avenue Option Émeraude", tag: "Option Émeraude", price: 200000, dailyReturn: 24000, durationDays: 40, totalReturn: 960000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
+  { id: "stab-1", vipLevel: 1, name: "Gold Avenue Option Bronze", tag: "Option Bronze", price: 2000, dailyReturn: 180, durationDays: 40, totalReturn: 7200, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
+  { id: "stab-2", vipLevel: 2, name: "Gold Avenue Option Argent", tag: "Option Argent", price: 5000, dailyReturn: 500, durationDays: 40, totalReturn: 20000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
+  { id: "stab-3", vipLevel: 3, name: "Gold Avenue Option Or", tag: "Option Or", price: 10000, dailyReturn: 1200, durationDays: 40, totalReturn: 48000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
+  { id: "stab-4", vipLevel: 4, name: "Gold Avenue Option Platine", tag: "Option Platine", price: 25000, dailyReturn: 3500, durationDays: 40, totalReturn: 140000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
+  { id: "stab-5", vipLevel: 5, name: "Gold Avenue Option Diamant", tag: "Option Diamant", price: 50000, dailyReturn: 8000, durationDays: 40, totalReturn: 320000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
+  { id: "stab-6", vipLevel: 6, name: "Gold Avenue Option Saphir", tag: "Option Saphir", price: 100000, dailyReturn: 18000, durationDays: 40, totalReturn: 720000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
+  { id: "stab-7", vipLevel: 7, name: "Gold Avenue Option Émeraude", tag: "Option Émeraude", price: 200000, dailyReturn: 42000, durationDays: 40, totalReturn: 1680000, category: "stability", isBlocked: false, isCyclic: true, generatedProductIds: [] },
 
   // BIEN-ÊTRE (7 products)
   { id: "well-1", vipLevel: 1, name: "Gold Avenue Bien-être Source", tag: "Bien-être Source", price: 5000, dailyReturn: 1000, durationDays: 10, totalReturn: 10000, category: "wellbeing", isBlocked: false, isCyclic: true, generatedProductIds: [] },
@@ -624,9 +644,9 @@ const SERVER_DEFAULT_PRODUCTS = [
         name: "Gold Avenue Option Bronze",
         tag: "Option Bronze",
         price: 2000,
-        dailyReturn: 100,
+        dailyReturn: 180,
         durationDays: 40,
-        totalReturn: 4000,
+        totalReturn: 7200,
         category: "stability",
         isBlocked: false,
         isCyclic: true,
@@ -638,9 +658,9 @@ const SERVER_DEFAULT_PRODUCTS = [
         name: "Gold Avenue Option Argent",
         tag: "Option Argent",
         price: 5000,
-        dailyReturn: 300,
+        dailyReturn: 500,
         durationDays: 40,
-        totalReturn: 12000,
+        totalReturn: 20000,
         category: "stability",
         isBlocked: false,
         isCyclic: true,
@@ -652,9 +672,9 @@ const SERVER_DEFAULT_PRODUCTS = [
         name: "Gold Avenue Option Or",
         tag: "Option Or",
         price: 10000,
-        dailyReturn: 700,
+        dailyReturn: 1200,
         durationDays: 40,
-        totalReturn: 28000,
+        totalReturn: 48000,
         category: "stability",
         isBlocked: false,
         isCyclic: true,
@@ -666,9 +686,9 @@ const SERVER_DEFAULT_PRODUCTS = [
         name: "Gold Avenue Option Platine",
         tag: "Option Platine",
         price: 25000,
-        dailyReturn: 2000,
+        dailyReturn: 3500,
         durationDays: 40,
-        totalReturn: 80000,
+        totalReturn: 140000,
         category: "stability",
         isBlocked: false,
         isCyclic: true,
@@ -680,9 +700,9 @@ const SERVER_DEFAULT_PRODUCTS = [
         name: "Gold Avenue Option Diamant",
         tag: "Option Diamant",
         price: 50000,
-        dailyReturn: 4500,
+        dailyReturn: 8000,
         durationDays: 40,
-        totalReturn: 180000,
+        totalReturn: 320000,
         category: "stability",
         isBlocked: false,
         isCyclic: true,
@@ -694,9 +714,9 @@ const SERVER_DEFAULT_PRODUCTS = [
         name: "Gold Avenue Option Saphir",
         tag: "Option Saphir",
         price: 100000,
-        dailyReturn: 10000,
+        dailyReturn: 18000,
         durationDays: 40,
-        totalReturn: 400000,
+        totalReturn: 720000,
         category: "stability",
         isBlocked: false,
         isCyclic: true,
@@ -708,9 +728,9 @@ const SERVER_DEFAULT_PRODUCTS = [
         name: "Gold Avenue Option Émeraude",
         tag: "Option Émeraude",
         price: 200000,
-        dailyReturn: 24000,
+        dailyReturn: 42000,
         durationDays: 40,
-        totalReturn: 960000,
+        totalReturn: 1680000,
         category: "stability",
         isBlocked: false,
         isCyclic: true,
@@ -4977,6 +4997,39 @@ const SERVER_DEFAULT_PRODUCTS = [
   });
 
   // Dedicated Forum endpoints for immediate cross-user synchronization
+  app.get("/api/forum/posts", async (req, res) => {
+    try {
+      await syncFromNeonIfAvailable(false);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+      const rawPosts = storeData["gi_forum_posts"] || [];
+      const deletedPosts = storeData["gi_deleted_forum_posts"] || [];
+      const filtered = rawPosts.filter((p: any) => p && p.id && !deletedPosts.includes(String(p.id)));
+
+      // Deduplicate posts
+      const seenIds = new Set<string>();
+      const deduped: any[] = [];
+      for (const p of filtered) {
+        const idStr = String(p.id);
+        if (seenIds.has(idStr)) continue;
+        seenIds.add(idStr);
+        deduped.push(p);
+      }
+
+      // Sort by createdAt descending
+      deduped.sort((a: any, b: any) => {
+        const tA = new Date(a.createdAt || a.lastModified || 0).getTime();
+        const tB = new Date(b.createdAt || b.lastModified || 0).getTime();
+        return tB - tA;
+      });
+
+      res.json({ success: true, posts: deduped });
+    } catch (err: any) {
+      console.error("[API FORUM] Error fetching forum posts:", err);
+      res.json({ success: true, posts: storeData["gi_forum_posts"] || [] });
+    }
+  });
+
   app.post("/api/forum/create", async (req, res) => {
     try {
       const { post } = req.body;
@@ -4995,6 +5048,8 @@ const SERVER_DEFAULT_PRODUCTS = [
       forumPosts = forumPosts.filter((p: any) => p && p.id !== post.id);
       const enrichedPost = {
         ...post,
+        authorId: post.authorId || ('u-' + Date.now()),
+        avatarLetter: post.avatarLetter || '★',
         likes: typeof post.likes === 'number' ? post.likes : 0,
         likedBy: Array.isArray(post.likedBy) ? post.likedBy : [],
         comments: Array.isArray(post.comments) ? post.comments : [],
@@ -5003,10 +5058,28 @@ const SERVER_DEFAULT_PRODUCTS = [
       };
       forumPosts.unshift(enrichedPost);
 
-      storeData["gi_forum_posts"] = forumPosts;
+      // Deduplicate array
+      const seenIds = new Set<string>();
+      const deduped: any[] = [];
+      for (const p of forumPosts) {
+        if (!p || !p.id) continue;
+        const idStr = String(p.id);
+        if (seenIds.has(idStr)) continue;
+        seenIds.add(idStr);
+        deduped.push(p);
+      }
+
+      storeData["gi_forum_posts"] = deduped;
+
+      // Direct synchronous insert into Neon's relational table
+      await insertNeonForumPost(enrichedPost).catch((e) => {
+        console.warn("[NEON FORUM INSERT BG WARN]", e);
+      });
+
+      // Save to store and local JSON
       await saveStore(["gi_forum_posts", "gi_deleted_forum_posts"]);
 
-      console.log(`[API FORUM] New post published: ${post.id} by ${post.authorName}. Total posts: ${forumPosts.length}`);
+      console.log(`[API FORUM] New post published: ${post.id}. Total posts: ${deduped.length}`);
       res.json({ success: true, post: enrichedPost });
     } catch (err: any) {
       console.error("[API FORUM] Error creating forum post:", err);
@@ -5030,6 +5103,12 @@ const SERVER_DEFAULT_PRODUCTS = [
       storeData["gi_deleted_forum_posts"] = deletedPosts;
 
       storeData["gi_forum_posts"] = forumPosts.filter((p: any) => p && String(p.id) !== String(postId));
+
+      // Direct delete from Neon relational table
+      await deleteNeonForumPost(String(postId)).catch((e) => {
+        console.warn("[NEON FORUM DELETE BG WARN]", e);
+      });
+
       await saveStore(["gi_forum_posts", "gi_deleted_forum_posts"]);
 
       console.log(`[API FORUM] Post deleted: ${postId}`);

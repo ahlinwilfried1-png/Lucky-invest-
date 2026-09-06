@@ -267,9 +267,9 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
     const netVal = wth.netAmount !== undefined ? wth.netAmount : (wth.amount - feeVal);
 
     return (
-      <div className="min-h-screen bg-transparent pb-12 text-white animate-fadeIn font-sans">
+      <div className="min-h-screen bg-transparent pb-4 text-white animate-fadeIn font-sans">
         {/* Header Section */}
-        <div className="bg-[#0c1629] text-white pt-6 pb-20 px-4 rounded-b-[2rem] relative shadow-lg border-b border-[#192a4a]">
+        <div className="bg-[#0c1629] text-white pt-6 pb-12 px-4 rounded-b-[2rem] relative shadow-lg border-b border-[#192a4a]">
           <div className="max-w-md mx-auto flex items-center space-x-3">
             <button 
               onClick={() => {
@@ -350,9 +350,9 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
 
   if (isRetraitMode && withdrawals.length === 0) {
     return (
-      <div className="min-h-screen bg-transparent pb-12 text-white animate-fadeIn font-sans">
+      <div className="min-h-screen bg-transparent pb-4 text-white animate-fadeIn font-sans">
         {/* Header Section */}
-        <div className="bg-[#0c1629] text-white pt-6 pb-20 px-4 rounded-b-[2rem] relative shadow-lg border-b border-[#192a4a]">
+        <div className="bg-[#0c1629] text-white pt-6 pb-12 px-4 rounded-b-[2rem] relative shadow-lg border-b border-[#192a4a]">
           <div className="max-w-md mx-auto flex items-center space-x-3">
             <button 
               onClick={() => {
@@ -410,7 +410,7 @@ export default function HistoriquePage({ user, onNavigate }: HistoriquePageProps
   }
 
   return (
-    <div className="min-h-screen pb-12 text-white bg-transparent">
+    <div className="min-h-screen pb-4 text-white bg-transparent">
       {/* HEADER SECTION */}
       <header className="sticky top-0 z-50 py-3 bg-[#070e1b]/95 backdrop-blur-md border-b border-[#192a4a]">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">

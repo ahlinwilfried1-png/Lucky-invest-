@@ -5,19 +5,22 @@
       "name": "Administrateur Principal",
       "role": "admin",
       "bonus": 5000,
-      "balance": 1250000,
+      "balance": 1225050,
       "country": "Cameroun",
       "password": "agro777",
       "whatsapp": "+237600000000",
       "createdAt": "2026-09-04T07:23:51.262Z",
       "isBlocked": false,
-      "lastModified": 1788301215544,
+      "lastModified": 1788595571360,
       "referralCode": "72AGR",
+      "checkInStreak": 1,
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
-      "referralEarnings": 0
+      "lastCheckInDate": "2026-09-05",
+      "referralEarnings": 0,
+      "totalCheckInEarnings": 50
     }
   ],
   "gi_deposits": [
@@ -30,14 +33,156 @@
       "userName": "Administrateur Principal",
       "createdAt": "2026-08-31T12:21:52.762Z",
       "reference": "WP-910527-970",
-      "lastModified": 1788184276719,
+      "lastModified": 1788507312332,
       "receiptImage": "westpay_link"
     }
   ],
-  "gi_withdrawals": [],
-  "gi_investments": [],
+  "gi_withdrawals": [
+    {
+      "id": "wth-1788595709986",
+      "fee": 6000,
+      "amount": 50000,
+      "number": "97783065",
+      "status": "approved",
+      "userId": "u-admin",
+      "operator": "Moov Money",
+      "userName": "Administrateur Principal",
+      "createdAt": "2026-09-05T08:08:29.986Z",
+      "netAmount": 44000,
+      "reference": "man-1788596071973",
+      "lastModified": 1788596071973,
+      "proof_file_url": ""
+    }
+  ],
+  "gi_investments": [
+    {
+      "id": "inv-1788595426025",
+      "price": 15000,
+      "amount": 0,
+      "status": "active",
+      "userId": "u-admin",
+      "category": "activity",
+      "isCyclic": true,
+      "createdAt": "2026-09-05T08:03:46.025Z",
+      "productId": "act-2",
+      "daysPassed": 0,
+      "activatedAt": "2026-09-05T08:07:09.225Z",
+      "dailyReturn": 8000,
+      "productName": "Gold Avenue Activité Flash",
+      "totalReturn": 24000,
+      "durationDays": 3,
+      "lastModified": 1788596045243,
+      "daysRemaining": 0,
+      "lastClaimDate": "2026-09-05T08:03:46.025Z",
+      "totalReturnClaimed": 0
+    },
+    {
+      "id": "inv-1788593020476",
+      "price": 25000,
+      "amount": 0,
+      "status": "active",
+      "userId": "u-admin",
+      "category": "stability",
+      "isCyclic": true,
+      "createdAt": "2026-09-05T07:23:40.476Z",
+      "productId": "stab-4",
+      "daysPassed": 0,
+      "activatedAt": "2026-09-05T07:23:45.727Z",
+      "dailyReturn": 3500,
+      "productName": "Gold Avenue Option Platine",
+      "totalReturn": 770000,
+      "durationDays": 220,
+      "lastModified": 1788596045393,
+      "daysRemaining": 220,
+      "lastClaimDate": "2026-09-05T07:23:40.476Z",
+      "totalReturnClaimed": 0
+    },
+    {
+      "id": "inv-1788416477773",
+      "price": 2000,
+      "amount": 0,
+      "status": "active",
+      "userId": "u-admin",
+      "category": "stability",
+      "isCyclic": true,
+      "createdAt": "2026-09-03T06:21:17.773Z",
+      "productId": "stab-1",
+      "daysPassed": 2,
+      "activatedAt": "2026-09-04T07:35:09.629Z",
+      "dailyReturn": 100,
+      "productName": "Gold Avenue Option Bronze",
+      "totalReturn": 4000,
+      "durationDays": 40,
+      "lastModified": 1788592213207,
+      "daysRemaining": 0,
+      "lastClaimDate": "2026-09-03T06:21:17.773Z",
+      "totalReturnClaimed": 0
+    },
+    {
+      "id": "inv-1788416489991",
+      "price": 5000,
+      "amount": 0,
+      "status": "active",
+      "userId": "u-admin",
+      "category": "wellbeing",
+      "isCyclic": true,
+      "createdAt": "2026-09-03T06:21:29.991Z",
+      "productId": "well-1",
+      "daysPassed": 2,
+      "activatedAt": "2026-09-04T07:35:09.530Z",
+      "dailyReturn": 1000,
+      "productName": "Gold Avenue Bien-être Source",
+      "totalReturn": 10000,
+      "durationDays": 10,
+      "lastModified": 1788592213207,
+      "daysRemaining": 0,
+      "lastClaimDate": "2026-09-03T06:21:29.991Z",
+      "totalReturnClaimed": 0
+    }
+  ],
   "gi_commissions": [],
   "gi_notifications": [
+    {
+      "id": "not-wth-manual-app-1788596071973",
+      "read": false,
+      "type": "withdraw",
+      "title": "💸 Retrait Approuvé",
+      "userId": "u-admin",
+      "message": "Votre demande de retrait de 50,000 XOF a été approuvée manuellement par l'administration.",
+      "createdAt": "2026-09-05T08:14:31.973Z",
+      "lastModified": 1788596071973
+    },
+    {
+      "id": "not-plan-1788595426049",
+      "read": false,
+      "type": "plan",
+      "title": "Plan activé avec succès !",
+      "userId": "u-admin",
+      "message": "Votre investissement de 15 000 XOF dans le plan Gold Avenue Activité Flash a bien été pris en compte. Le capital et vos bénéfices totaux de 24 000 XOF vous seront automatiquement versés à la fin du cycle de 3 jours.",
+      "createdAt": "2026-09-05T08:03:46.049Z",
+      "lastModified": 1788595426052
+    },
+    {
+      "id": "vip-point-1788594197462",
+      "read": false,
+      "type": "info",
+      "title": "Pointage validé ! 🌟",
+      "isRead": false,
+      "userId": "u-admin",
+      "message": "Félicitations ! Vous avez reçu 50 FCFA pour votre pointage quotidien correspondant à votre statut VIP 4.",
+      "createdAt": "2026-09-05T07:43:17.462Z",
+      "lastModified": 1788594197463
+    },
+    {
+      "id": "not-plan-1788593020478",
+      "read": false,
+      "type": "plan",
+      "title": "Plan activé avec succès !",
+      "userId": "u-admin",
+      "message": "Votre investissement de 25,000 XOF dans le plan Gold Avenue Option Platine a bien été pris en compte. Vous gagnerez 2,000 XOF chaque jour pendant 40 jours.",
+      "createdAt": "2026-09-05T07:23:40.559Z",
+      "lastModified": 1788593027731
+    },
     {
       "id": "not-plan-1788416489991",
       "read": false,
@@ -46,7 +191,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 10 jours.",
       "createdAt": "2026-09-03T06:21:29.991Z",
-      "lastModified": 1788416489991
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788416477776",
@@ -56,7 +201,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-09-03T06:21:17.879Z",
-      "lastModified": 1788416477879
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788388376438",
@@ -66,7 +211,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 10 jours.",
       "createdAt": "2026-09-02T22:32:56.438Z",
-      "lastModified": 1788388376438
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788388362639",
@@ -76,7 +221,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-09-02T22:32:42.654Z",
-      "lastModified": 1788388362654
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788387632827",
@@ -86,7 +231,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 10 jours.",
       "createdAt": "2026-09-02T22:20:32.841Z",
-      "lastModified": 1788387632841
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788387021147",
@@ -96,7 +241,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-09-02T22:10:21.165Z",
-      "lastModified": 1788387021165
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788345022435",
@@ -106,7 +251,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 10,000 XOF dans le plan Gold Avenue Option Or a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-09-02T10:30:22.435Z",
-      "lastModified": 1788345022435
+      "lastModified": 1788507312335
     },
     {
       "id": "vip-point-1788345016684",
@@ -117,7 +262,7 @@
       "userId": "u-admin",
       "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
       "createdAt": "2026-09-02T10:30:16.684Z",
-      "lastModified": 1788345016685
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788345009419",
@@ -127,7 +272,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-09-02T10:30:09.516Z",
-      "lastModified": 1788345009516
+      "lastModified": 1788507312335
     },
     {
       "id": "vip-point-1788260605091",
@@ -138,7 +283,7 @@
       "userId": "u-admin",
       "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
       "createdAt": "2026-09-01T11:03:25.091Z",
-      "lastModified": 1788260605091
+      "lastModified": 1788507312335
     },
     {
       "id": "not-dep-rej-1788184276704",
@@ -148,7 +293,7 @@
       "userId": "u-admin",
       "message": "Votre demande de dépôt de 5,000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
       "createdAt": "2026-08-31T13:51:16.719Z",
-      "lastModified": 1788184276719
+      "lastModified": 1788507312335
     },
     {
       "id": "vip-point-1788181159960",
@@ -159,7 +304,7 @@
       "userId": "u-admin",
       "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
       "createdAt": "2026-08-31T12:59:19.960Z",
-      "lastModified": 1788181159960
+      "lastModified": 1788507312335
     },
     {
       "id": "not-dep-1788178912762",
@@ -169,7 +314,7 @@
       "userId": "u-admin",
       "message": "Votre demande de dépôt de 5,000 XOF via WestPay (Cameroun +237 600000000) (Réf: WP-910527-970) est en cours de vérification par l'administration.",
       "createdAt": "2026-08-31T12:21:52.865Z",
-      "lastModified": 1788178912865
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788167761146",
@@ -179,7 +324,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 2 jours.",
       "createdAt": "2026-08-31T09:16:01.146Z",
-      "lastModified": 1788167761146
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788167723741",
@@ -189,7 +334,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 2 jours.",
       "createdAt": "2026-08-31T09:15:23.741Z",
-      "lastModified": 1788167723741
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788167614229",
@@ -199,7 +344,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 3,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 163 jours.",
       "createdAt": "2026-08-31T09:13:34.229Z",
-      "lastModified": 1788167614229
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788167594247",
@@ -209,7 +354,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 3,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 163 jours.",
       "createdAt": "2026-08-31T09:13:14.363Z",
-      "lastModified": 1788167594363
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788132507658",
@@ -219,7 +364,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 12,000 XOF dans le plan Gold Avenue Bien-être Harmonie a bien été pris en compte. Vous gagnerez 2,600 XOF chaque jour pendant 1 jours.",
       "createdAt": "2026-08-30T23:28:27.658Z",
-      "lastModified": 1788132507658
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1788132499594",
@@ -229,7 +374,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 2 jours.",
       "createdAt": "2026-08-30T23:28:19.609Z",
-      "lastModified": 1788132499609
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1787961651780",
@@ -239,7 +384,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 10,000 XOF dans le plan Gold Avenue Option Or a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-08-29T00:00:51.780Z",
-      "lastModified": 1787961651780
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1787961524122",
@@ -249,7 +394,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Option Argent a bien été pris en compte. Vous gagnerez 300 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-08-28T23:58:44.123Z",
-      "lastModified": 1787961524123
+      "lastModified": 1788507312335
     },
     {
       "id": "not-plan-1787961470769",
@@ -259,7 +404,7 @@
       "userId": "u-admin",
       "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
       "createdAt": "2026-08-28T23:57:50.783Z",
-      "lastModified": 1787961470783
+      "lastModified": 1788507312335
     }
   ],
   "gi_bonus_codes": [
@@ -297,7 +442,7 @@
       "userId": "u-admin",
       "message": "Cc",
       "createdAt": "2026-08-28T23:31:18.007Z",
-      "lastModified": 1787959908135
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1787959908135",
@@ -307,7 +452,7 @@
       "userId": "u-admin",
       "message": "Ouii ",
       "createdAt": "2026-08-28T23:31:48.135Z",
-      "lastModified": 1787959908135
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1787959914463",
@@ -317,7 +462,7 @@
       "userId": "u-admin",
       "message": "C'est comment ",
       "createdAt": "2026-08-28T23:31:54.463Z",
-      "lastModified": 1787959914463
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788128910057",
@@ -327,7 +472,7 @@
       "userId": "u-admin",
       "message": "Cc",
       "createdAt": "2026-08-30T22:28:30.057Z",
-      "lastModified": 1788128918231
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788129021152",
@@ -337,7 +482,7 @@
       "userId": "u-admin",
       "message": "Cc",
       "createdAt": "2026-08-30T22:30:21.152Z",
-      "lastModified": 1788129021160
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788129368652",
@@ -348,7 +493,7 @@
       "userId": "u-admin",
       "message": "",
       "createdAt": "2026-08-30T22:36:08.652Z",
-      "lastModified": 1788183408590
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788181847591",
@@ -359,7 +504,7 @@
       "userId": "u-admin",
       "message": "",
       "createdAt": "2026-08-31T13:10:47.591Z",
-      "lastModified": 1788183408590
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788183408590",
@@ -369,323 +514,322 @@
       "userId": "u-admin",
       "message": "Cc",
       "createdAt": "2026-08-31T13:36:48.590Z",
-      "lastModified": 1788183414214
+      "lastModified": 1788507312337
+    },
+    {
+      "id": "msg-1788345326499",
+      "read": false,
+      "sender": "user",
+      "status": "replied",
+      "userId": "u-admin",
+      "message": "Bonjour ",
+      "createdAt": "2026-09-02T10:35:26.499Z",
+      "lastModified": 1788507320160
+    },
+    {
+      "id": "msg-1788386964825",
+      "read": false,
+      "sender": "admin",
+      "status": "read",
+      "userId": "u-admin",
+      "message": "Bonjour ",
+      "createdAt": "2026-09-02T22:09:24.825Z",
+      "lastModified": 1788507320160
     }
   ],
   "gi_products": [
     {
       "id": "stab-1",
-      "tag": "Option Bronze",
+      "vipLevel": 1,
       "name": "Gold Avenue Option Bronze",
+      "tag": "Option Bronze",
       "price": 2000,
-      "category": "stability",
-      "isCyclic": true,
-      "vipLevel": 1,
-      "isBlocked": false,
-      "dailyReturn": 100,
-      "totalReturn": 4000,
+      "dailyReturn": 180,
       "durationDays": 40,
-      "lastModified": 1788507181281,
-      "generatedProductIds": []
-    },
-    {
-      "id": "act-1",
-      "tag": "Activité Éclair",
-      "name": "Gold Avenue Activité Éclair",
-      "price": 5000,
-      "category": "activity",
-      "isCyclic": true,
-      "vipLevel": 1,
+      "totalReturn": 7200,
+      "category": "stability",
       "isBlocked": false,
-      "dailyReturn": 2500,
-      "totalReturn": 7500,
-      "durationDays": 3,
-      "lastModified": 1788507182604,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
       "id": "stab-2",
-      "tag": "Option Argent",
-      "name": "Gold Avenue Option Argent",
-      "price": 5000,
-      "category": "stability",
-      "isCyclic": true,
       "vipLevel": 2,
-      "isBlocked": false,
-      "dailyReturn": 300,
-      "totalReturn": 12000,
-      "durationDays": 40,
-      "lastModified": 1788507181376,
-      "generatedProductIds": []
-    },
-    {
-      "id": "well-1",
-      "tag": "Bien-être Source",
-      "name": "Gold Avenue Bien-être Source",
+      "name": "Gold Avenue Option Argent",
+      "tag": "Option Argent",
       "price": 5000,
-      "category": "wellbeing",
-      "isCyclic": true,
-      "vipLevel": 1,
+      "dailyReturn": 500,
+      "durationDays": 40,
+      "totalReturn": 20000,
+      "category": "stability",
       "isBlocked": false,
-      "dailyReturn": 1000,
-      "totalReturn": 10000,
-      "durationDays": 10,
-      "lastModified": 1788507181943,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
       "id": "stab-3",
-      "tag": "Option Or",
-      "name": "Gold Avenue Option Or",
-      "price": 10000,
-      "category": "stability",
-      "isCyclic": true,
       "vipLevel": 3,
-      "isBlocked": false,
-      "dailyReturn": 700,
-      "totalReturn": 28000,
+      "name": "Gold Avenue Option Or",
+      "tag": "Option Or",
+      "price": 10000,
+      "dailyReturn": 1200,
       "durationDays": 40,
-      "lastModified": 1788507181471,
-      "generatedProductIds": []
-    },
-    {
-      "id": "well-2",
-      "tag": "Bien-être Harmonie",
-      "name": "Gold Avenue Bien-être Harmonie",
-      "price": 12000,
-      "category": "wellbeing",
-      "isCyclic": true,
-      "vipLevel": 2,
+      "totalReturn": 48000,
+      "category": "stability",
       "isBlocked": false,
-      "dailyReturn": 2600,
-      "totalReturn": 26000,
-      "durationDays": 10,
-      "lastModified": 1788507182037,
-      "generatedProductIds": []
-    },
-    {
-      "id": "act-2",
-      "tag": "Activité Flash",
-      "name": "Gold Avenue Activité Flash",
-      "price": 15000,
-      "category": "activity",
       "isCyclic": true,
-      "vipLevel": 2,
-      "isBlocked": false,
-      "dailyReturn": 8000,
-      "totalReturn": 24000,
-      "durationDays": 3,
-      "lastModified": 1788507182698,
       "generatedProductIds": []
     },
     {
       "id": "stab-4",
-      "tag": "Option Platine",
-      "name": "Gold Avenue Option Platine",
-      "price": 25000,
-      "category": "stability",
-      "isCyclic": true,
       "vipLevel": 4,
-      "isBlocked": false,
-      "dailyReturn": 2000,
-      "totalReturn": 80000,
+      "name": "Gold Avenue Option Platine",
+      "tag": "Option Platine",
+      "price": 25000,
+      "dailyReturn": 3500,
       "durationDays": 40,
-      "lastModified": 1788507181565,
-      "generatedProductIds": []
-    },
-    {
-      "id": "well-3",
-      "tag": "Bien-être Sérénité",
-      "name": "Gold Avenue Bien-être Sérénité",
-      "price": 30000,
-      "category": "wellbeing",
-      "isCyclic": true,
-      "vipLevel": 3,
+      "totalReturn": 140000,
+      "category": "stability",
       "isBlocked": false,
-      "dailyReturn": 7000,
-      "totalReturn": 70000,
-      "durationDays": 10,
-      "lastModified": 1788507182131,
-      "generatedProductIds": []
-    },
-    {
-      "id": "act-3",
-      "tag": "Activité Boost",
-      "name": "Gold Avenue Activité Boost",
-      "price": 40000,
-      "category": "activity",
       "isCyclic": true,
-      "vipLevel": 3,
-      "isBlocked": false,
-      "dailyReturn": 22000,
-      "totalReturn": 66000,
-      "durationDays": 3,
-      "lastModified": 1788507182799,
       "generatedProductIds": []
     },
     {
       "id": "stab-5",
-      "tag": "Option Diamant",
-      "name": "Gold Avenue Option Diamant",
-      "price": 50000,
-      "category": "stability",
-      "isCyclic": true,
       "vipLevel": 5,
-      "isBlocked": false,
-      "dailyReturn": 4500,
-      "totalReturn": 180000,
+      "name": "Gold Avenue Option Diamant",
+      "tag": "Option Diamant",
+      "price": 50000,
+      "dailyReturn": 8000,
       "durationDays": 40,
-      "lastModified": 1788507181659,
-      "generatedProductIds": []
-    },
-    {
-      "id": "well-4",
-      "tag": "Bien-être Vitalité",
-      "name": "Gold Avenue Bien-être Vitalité",
-      "price": 75000,
-      "category": "wellbeing",
-      "isCyclic": true,
-      "vipLevel": 4,
+      "totalReturn": 320000,
+      "category": "stability",
       "isBlocked": false,
-      "dailyReturn": 19000,
-      "totalReturn": 190000,
-      "durationDays": 10,
-      "lastModified": 1788507182225,
-      "generatedProductIds": []
-    },
-    {
-      "id": "act-4",
-      "tag": "Activité Turbo",
-      "name": "Gold Avenue Activité Turbo",
-      "price": 100000,
-      "category": "activity",
       "isCyclic": true,
-      "vipLevel": 4,
-      "isBlocked": false,
-      "dailyReturn": 58000,
-      "totalReturn": 174000,
-      "durationDays": 3,
-      "lastModified": 1788507182893,
       "generatedProductIds": []
     },
     {
       "id": "stab-6",
-      "tag": "Option Saphir",
-      "name": "Gold Avenue Option Saphir",
-      "price": 100000,
-      "category": "stability",
-      "isCyclic": true,
       "vipLevel": 6,
-      "isBlocked": false,
-      "dailyReturn": 10000,
-      "totalReturn": 400000,
+      "name": "Gold Avenue Option Saphir",
+      "tag": "Option Saphir",
+      "price": 100000,
+      "dailyReturn": 18000,
       "durationDays": 40,
-      "lastModified": 1788507181754,
-      "generatedProductIds": []
-    },
-    {
-      "id": "well-5",
-      "tag": "Bien-être Énergie",
-      "name": "Gold Avenue Bien-être Énergie",
-      "price": 150000,
-      "category": "wellbeing",
-      "isCyclic": true,
-      "vipLevel": 5,
+      "totalReturn": 720000,
+      "category": "stability",
       "isBlocked": false,
-      "dailyReturn": 42500,
-      "totalReturn": 425000,
-      "durationDays": 10,
-      "lastModified": 1788507182320,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
       "id": "stab-7",
-      "tag": "Option Émeraude",
-      "name": "Gold Avenue Option Émeraude",
-      "price": 200000,
-      "category": "stability",
-      "isCyclic": true,
       "vipLevel": 7,
-      "isBlocked": false,
-      "dailyReturn": 24000,
-      "totalReturn": 960000,
+      "name": "Gold Avenue Option Émeraude",
+      "tag": "Option Émeraude",
+      "price": 200000,
+      "dailyReturn": 42000,
       "durationDays": 40,
-      "lastModified": 1788507181848,
+      "totalReturn": 1680000,
+      "category": "stability",
+      "isBlocked": false,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
-      "id": "act-5",
-      "tag": "Activité Hyper",
-      "name": "Gold Avenue Activité Hyper",
-      "price": 250000,
-      "category": "activity",
-      "isCyclic": true,
-      "vipLevel": 5,
+      "id": "well-1",
+      "vipLevel": 1,
+      "name": "Gold Avenue Bien-être Source",
+      "tag": "Bien-être Source",
+      "price": 5000,
+      "dailyReturn": 1000,
+      "durationDays": 10,
+      "totalReturn": 10000,
+      "category": "wellbeing",
       "isBlocked": false,
-      "dailyReturn": 150000,
-      "totalReturn": 450000,
-      "durationDays": 3,
-      "lastModified": 1788507182988,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "well-2",
+      "vipLevel": 2,
+      "name": "Gold Avenue Bien-être Harmonie",
+      "tag": "Bien-être Harmonie",
+      "price": 12000,
+      "dailyReturn": 2600,
+      "durationDays": 10,
+      "totalReturn": 26000,
+      "category": "wellbeing",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "well-3",
+      "vipLevel": 3,
+      "name": "Gold Avenue Bien-être Sérénité",
+      "tag": "Bien-être Sérénité",
+      "price": 30000,
+      "dailyReturn": 7000,
+      "durationDays": 10,
+      "totalReturn": 70000,
+      "category": "wellbeing",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "well-4",
+      "vipLevel": 4,
+      "name": "Gold Avenue Bien-être Vitalité",
+      "tag": "Bien-être Vitalité",
+      "price": 75000,
+      "dailyReturn": 19000,
+      "durationDays": 10,
+      "totalReturn": 190000,
+      "category": "wellbeing",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "well-5",
+      "vipLevel": 5,
+      "name": "Gold Avenue Bien-être Énergie",
+      "tag": "Bien-être Énergie",
+      "price": 150000,
+      "dailyReturn": 42500,
+      "durationDays": 10,
+      "totalReturn": 425000,
+      "category": "wellbeing",
+      "isBlocked": false,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
       "id": "well-6",
-      "tag": "Bien-être Équilibre",
-      "name": "Gold Avenue Bien-être Équilibre",
-      "price": 300000,
-      "category": "wellbeing",
-      "isCyclic": true,
       "vipLevel": 6,
-      "isBlocked": false,
+      "name": "Gold Avenue Bien-être Équilibre",
+      "tag": "Bien-être Équilibre",
+      "price": 300000,
       "dailyReturn": 90000,
-      "totalReturn": 900000,
       "durationDays": 10,
-      "lastModified": 1788507182414,
+      "totalReturn": 900000,
+      "category": "wellbeing",
+      "isBlocked": false,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
       "id": "well-7",
-      "tag": "Bien-être Plénitude",
-      "name": "Gold Avenue Bien-être Plénitude",
-      "price": 600000,
-      "category": "wellbeing",
-      "isCyclic": true,
       "vipLevel": 7,
-      "isBlocked": false,
+      "name": "Gold Avenue Bien-être Plénitude",
+      "tag": "Bien-être Plénitude",
+      "price": 600000,
       "dailyReturn": 190000,
-      "totalReturn": 1900000,
       "durationDays": 10,
-      "lastModified": 1788507182510,
+      "totalReturn": 1900000,
+      "category": "wellbeing",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "act-1",
+      "vipLevel": 1,
+      "name": "Gold Avenue Activité Éclair",
+      "tag": "Activité Éclair",
+      "price": 5000,
+      "dailyReturn": 2500,
+      "durationDays": 3,
+      "totalReturn": 7500,
+      "category": "activity",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "act-2",
+      "vipLevel": 2,
+      "name": "Gold Avenue Activité Flash",
+      "tag": "Activité Flash",
+      "price": 15000,
+      "dailyReturn": 8000,
+      "durationDays": 3,
+      "totalReturn": 24000,
+      "category": "activity",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "act-3",
+      "vipLevel": 3,
+      "name": "Gold Avenue Activité Boost",
+      "tag": "Activité Boost",
+      "price": 40000,
+      "dailyReturn": 22000,
+      "durationDays": 3,
+      "totalReturn": 66000,
+      "category": "activity",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "act-4",
+      "vipLevel": 4,
+      "name": "Gold Avenue Activité Turbo",
+      "tag": "Activité Turbo",
+      "price": 100000,
+      "dailyReturn": 58000,
+      "durationDays": 3,
+      "totalReturn": 174000,
+      "category": "activity",
+      "isBlocked": false,
+      "isCyclic": true,
+      "generatedProductIds": []
+    },
+    {
+      "id": "act-5",
+      "vipLevel": 5,
+      "name": "Gold Avenue Activité Hyper",
+      "tag": "Activité Hyper",
+      "price": 250000,
+      "dailyReturn": 150000,
+      "durationDays": 3,
+      "totalReturn": 450000,
+      "category": "activity",
+      "isBlocked": false,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
       "id": "act-6",
-      "tag": "Activité Master",
-      "name": "Gold Avenue Activité Master",
-      "price": 600000,
-      "category": "activity",
-      "isCyclic": true,
       "vipLevel": 6,
-      "isBlocked": false,
+      "name": "Gold Avenue Activité Master",
+      "tag": "Activité Master",
+      "price": 600000,
       "dailyReturn": 380000,
-      "totalReturn": 1140000,
       "durationDays": 3,
-      "lastModified": 1788507183082,
+      "totalReturn": 1140000,
+      "category": "activity",
+      "isBlocked": false,
+      "isCyclic": true,
       "generatedProductIds": []
     },
     {
       "id": "act-7",
-      "tag": "Activité Elite",
-      "name": "Gold Avenue Activité Elite",
-      "price": 1500000,
-      "category": "activity",
-      "isCyclic": true,
       "vipLevel": 7,
-      "isBlocked": false,
+      "name": "Gold Avenue Activité Elite",
+      "tag": "Activité Elite",
+      "price": 1500000,
       "dailyReturn": 1000000,
-      "totalReturn": 3000000,
       "durationDays": 3,
-      "lastModified": 1788507183178,
+      "totalReturn": 3000000,
+      "category": "activity",
+      "isBlocked": false,
+      "isCyclic": true,
       "generatedProductIds": []
     }
   ],
@@ -714,7 +858,7 @@
       "createdAt": "2026-09-03T06:15:38.682Z",
       "authorName": "Administrateur Principal 🇨🇲",
       "avatarLetter": "A",
-      "lastModified": 1788416152447
+      "lastModified": 1788507312343
     }
   ],
   "gi_deleted_forum_posts": [],
@@ -735,7 +879,8 @@
     "inv-1788167614229",
     "inv-1787961524122",
     "inv-1788167761146",
-    "inv-1788167723740"
+    "inv-1788167723740",
+    "inv-1788416477773"
   ],
   "gi_category_schedules": {
     "activity": {

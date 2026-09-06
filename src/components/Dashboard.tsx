@@ -71,6 +71,7 @@ import { DataStore, syncWithBackend, getApiUrl, apiFetch } from '../dataStore';
 import AdminPanel from './AdminPanel';
 import CountdownTimer from './CountdownTimer';
 import { InvestmentItem } from './InvestmentItem';
+import { getMaskedAnonymousId, deduplicateForumPosts } from '../lib/forumUtils';
 
 
 const compressImage = (file: File, maxWidth: number = 500, quality: number = 0.45): Promise<string> => {
@@ -323,34 +324,6 @@ const ProductImage = ({
 
       {/* Dark overlay gradient for contrast and premium look */}
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-slate-950/20 pointer-events-none" />
-
-      {/* Luxury Brand Seal / Togolese Gold Coin Badge */}
-      <div className="absolute bottom-2 right-2 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-500 select-none z-10">
-        {/* Shiny Gold Coin */}
-        <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[#ffe875] via-[#d4af37] via-[#aa820a] to-[#d4af37] p-[1px] shadow-[0_4px_10px_rgba(0,0,0,0.35)] border border-[#ffec94]/40 flex items-center justify-center">
-          {/* Inner Coin Ring */}
-          <div className="w-full h-full rounded-full border border-dashed border-amber-950/20 bg-gradient-to-br from-[#f9e264] via-[#cfa928] to-[#9c7504] flex flex-col items-center justify-center relative overflow-hidden">
-            
-            {/* Tiny stars & shine reflections inside */}
-            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:4px_4px]" />
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/10" />
-
-            {/* Togo Gold Engravings */}
-            <span className="text-[5.5px] font-black text-amber-950/85 tracking-[0.02em] font-sans scale-85 uppercase mt-0.5">
-              REP. TOGOLAISE
-            </span>
-            
-            {/* Center Symbol (Coins) */}
-            <div className="w-4 h-4 my-0.5 rounded-full bg-amber-950/10 flex items-center justify-center border border-amber-950/15">
-              <Coins className="w-2.5 h-2.5 text-amber-950/90" />
-            </div>
-
-            <span className="text-[5px] font-extrabold text-amber-950/70 tracking-widest font-mono scale-90 mb-0.5">
-              999.9 FINE GOLD
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* Product Category & VIP Level Tag */}
       <div className="absolute top-2.5 left-2.5 bg-slate-950/65 backdrop-blur-md border border-yellow-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5 z-10 pointer-events-none">
@@ -1497,6 +1470,11 @@ export default function Dashboard({
     setManualDepositNumbers(DataStore.getManualDepositNumbers());
 
     setForumPosts(DataStore.getForumPosts());
+    DataStore.fetchForumPostsFromServer().then((posts) => {
+      if (posts && Array.isArray(posts)) {
+        setForumPosts(posts);
+      }
+    }).catch(() => {});
 
     try {
       const checkKey = `gi_last_daily_${currentUser.id}`;
@@ -1797,10 +1775,13 @@ export default function Dashboard({
       return;
     }
 
+    const maskedId = getMaskedAnonymousId(userState.id || userState.phone || userState.name);
     const newPost = {
-      id: 'f-user-' + Date.now(),
-      authorName: (userState.name || 'Membre') + ' ' + (userState.country === 'Cameroun' ? '🇨🇲' : userState.country === 'Togo' ? '🇹🇬' : userState.country === 'Bénin' ? '🇧🇯' : userState.country === 'Côte d’Ivoire' ? '🇨🇮' : userState.country === 'Burkina Faso' ? '🇧🇫' : userState.country === 'Sénégal' ? '🇸🇳' : userState.country === 'Mali' ? '🇲🇱' : userState.country === 'Niger' ? '🇳🇪' : '🌍'),
-      avatarLetter: (userState.name || 'M').charAt(0).toUpperCase(),
+      id: 'f-user-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      authorId: userState.id || ('u-' + Date.now()),
+      authorPhone: userState.phone || '',
+      authorName: maskedId,
+      avatarLetter: '★',
       text: forumMessageInput.trim() || "📸 Capture d'écran partagée sur le forum.",
       image1: forumImage1 || undefined,
       image2: forumImage2 || undefined,
@@ -1812,7 +1793,7 @@ export default function Dashboard({
       comments: []
     };
 
-    const updated = [newPost, ...forumPosts];
+    const updated = deduplicateForumPosts([newPost, ...forumPosts]);
     setForumPosts(updated);
     setForumMessageInput('');
     setForumImage1(null);
@@ -2260,14 +2241,6 @@ export default function Dashboard({
     setWithdrawError('');
     setWithdrawSuccess('');
 
-    // Check Plage horaire : 09h00 à 17h00
-    const now = new Date();
-    const curHour = now.getHours();
-    if (curHour < 9 || curHour >= 17) {
-      setWithdrawError("Les retraits sont ouverts uniquement chaque jour de 09h00 à 17h00 (Heure locale). Il est actuellement en dehors de cette plage.");
-      return;
-    }
-
     if (DataStore.areWithdrawalsBlocked()) {
       setWithdrawError("Les retraits sont suspendus temporairement par l'administrateur système.");
       return;
@@ -2611,7 +2584,7 @@ export default function Dashboard({
   };
 
   return (
-    <div className="min-h-screen pb-12 bg-transparent text-white flex flex-col font-sans w-full max-w-full relative overflow-x-hidden">
+    <div className="min-h-screen bg-transparent text-white flex flex-col font-sans w-full max-w-full relative overflow-x-hidden">
       
 
       {showAnnouncementDismissible && (
@@ -3407,7 +3380,7 @@ export default function Dashboard({
               };
 
               return (
-                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-16 text-white text-left animate-fadeIn">
+                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-6 text-white text-left animate-fadeIn">
                   {/* Rose Header */}
                   <div className="bg-gradient-to-b from-[#881337] to-[#4c0519] text-white pt-6 pb-12 px-4 rounded-b-[2.5rem] relative shadow-md overflow-hidden border-b border-rose-700/40">
                     <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 mb-5">
@@ -3701,7 +3674,7 @@ export default function Dashboard({
               };
 
               return (
-                <div className="bg-transparent -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-16 text-slate-900 text-left animate-fadeIn">
+                <div className="bg-transparent -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-6 text-slate-900 text-left animate-fadeIn">
                   {/* Clean Slate & Amber Header */}
                   <div className="bg-slate-900 text-white pt-6 pb-14 px-4 rounded-b-[2.5rem] relative shadow-md overflow-hidden border-b border-slate-800">
                     <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 mb-6">
@@ -3962,7 +3935,7 @@ export default function Dashboard({
               }, 0);
 
               return (
-                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                   <div className="max-w-md mx-auto w-full space-y-3.5">
                     {/* Header with Back button */}
                     <div className="flex items-center justify-between pt-1 pb-1">
@@ -4268,7 +4241,7 @@ export default function Dashboard({
             // 1. CARTE BANCAIRE (DEDICATED FULL PAGE)
             if (profileSubPage === 'bank') {
               return (
-                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                   <div className="max-w-md mx-auto w-full space-y-3.5">
                     {/* Header with Back button */}
                     <div className="flex items-center justify-between pt-1 pb-1">
@@ -4412,7 +4385,7 @@ export default function Dashboard({
               });
 
               return (
-                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                   <div className="max-w-md mx-auto w-full space-y-3.5">
                     {/* Header */}
                     <div className="flex items-center justify-between pt-1 pb-1">
@@ -4556,7 +4529,7 @@ export default function Dashboard({
               });
 
               return (
-                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                   <div className="max-w-md mx-auto w-full space-y-3.5">
                     {/* Header */}
                     <div className="flex items-center justify-between pt-1 pb-1">
@@ -4567,7 +4540,7 @@ export default function Dashboard({
                         <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
                         <span>Retour</span>
                       </button>
-                      <h2 className="font-bold text-base sm:text-lg text-slate-900 tracking-tight">Enregistrement des retraits</h2>
+                      <h2 className="font-bold text-base sm:text-lg text-slate-900 tracking-tight">Relevé des renseignements</h2>
                       <div className="w-16" />
                     </div>
 
@@ -4737,7 +4710,7 @@ export default function Dashboard({
               };
 
               return (
-                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                   <div className="max-w-md mx-auto w-full space-y-3.5">
                     {/* Header */}
                     <div className="flex items-center justify-between pt-1 pb-1">
@@ -4860,7 +4833,7 @@ export default function Dashboard({
             // 5. À PROPOS (DEDICATED FULL PAGE)
             if (profileSubPage === 'about') {
               return (
-                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                   <div className="max-w-md mx-auto w-full space-y-3.5">
                     {/* Header */}
                     <div className="flex items-center justify-between pt-1 pb-1">
@@ -4966,7 +4939,7 @@ export default function Dashboard({
               ];
 
               return (
-                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                   <div className="max-w-md mx-auto w-full space-y-3.5">
                     {/* Header */}
                     <div className="flex items-center justify-between pt-1 pb-1">
@@ -5047,7 +5020,7 @@ export default function Dashboard({
 
             if (profileSubPage === 'settings') {
               return (
-                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 px-4 sm:px-6 md:px-12 xl:px-20 pt-6 pb-12 text-white text-left animate-fadeIn">
+                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 px-4 sm:px-6 md:px-12 xl:px-20 pt-6 pb-6 text-white text-left animate-fadeIn">
                   <div className="max-w-xl mx-auto w-full space-y-4">
                     <div className="flex items-center space-x-3 mb-2 pt-2">
                       <button 
@@ -5142,7 +5115,7 @@ export default function Dashboard({
 
             if (profileSubPage === 'wheel') {
               return (
-                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 px-4 sm:px-6 md:px-12 xl:px-20 pt-6 pb-12 text-white text-left animate-fadeIn relative">
+                <div className="bg-gradient-to-b from-[#9f1239] via-[#881337] to-[#4c0519] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 px-4 sm:px-6 md:px-12 xl:px-20 pt-6 pb-6 text-white text-left animate-fadeIn relative">
                   <div className="max-w-xl mx-auto w-full space-y-6">
                     <div className="flex items-center space-x-3 mb-2 pt-2">
                       <button 
@@ -6093,11 +6066,11 @@ export default function Dashboard({
           {/* WITHDRAW FORM TAB */}
           {!profileSubPage && activeTab === 'withdraw' && (
             <div className="max-w-xl mx-auto bg-gradient-to-br from-[#0c1629] via-[#0f1d38] to-[#080d19] border border-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl text-white">
-              <div className="flex flex-row gap-3 justify-between items-center mb-5 pb-4 border-b border-slate-800">
-                <div className="text-left flex-1 min-w-0">
-                  <span className="text-xs md:text-sm font-black text-amber-400 tracking-widest uppercase block mb-1">CASH OUT DÉTECTÉ</span>
-                  <h3 className="text-xl md:text-2xl font-display font-black text-white uppercase tracking-tight leading-none truncate">Demande de Retrait</h3>
-                  <p className="text-xs md:text-sm text-slate-400 font-bold mt-1 hidden xs:block">Saisissez vos paramètres de transfert de solde.</p>
+              <div className="flex items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-800">
+                <div className="text-left flex-1 min-w-0 pr-1">
+                  <span className="text-[10px] sm:text-xs font-black text-amber-400 tracking-widest uppercase block mb-0.5">CASH OUT DÉTECTÉ</span>
+                  <h3 className="text-lg sm:text-2xl font-display font-black text-white uppercase tracking-tight leading-tight truncate">Demande de Retrait</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-0.5 hidden xs:block truncate">Saisissez vos paramètres de transfert de solde.</p>
                 </div>
                 <button
                   type="button"
@@ -6106,32 +6079,13 @@ export default function Dashboard({
                       onNavigate('/historique#retrait');
                     }
                   }}
-                  className="bg-slate-900/80 hover:bg-slate-800 text-amber-400 border border-slate-700 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                  className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-400/30 text-[11px] sm:text-xs font-bold uppercase tracking-wide shadow-sm transition-all active:scale-95 cursor-pointer ml-auto"
+                  title="Relevé des renseignements"
                 >
-                  <History className="w-4 h-4 text-amber-400" />
-                  <span>Relevé des renseignements</span>
+                  <History className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="whitespace-nowrap">Relevé des renseignements</span>
                 </button>
               </div>
-
-              {/* INSTRUCTION CARD */}
-              <div className="mb-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-left space-y-2 shadow-md">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">ℹ️</span>
-                  <h4 className="font-bold text-xs sm:text-sm uppercase tracking-wide text-amber-300">
-                    Comment fonctionne le retrait ?
-                  </h4>
-                </div>
-                <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                  Saisissez le montant que vous souhaitez retirer, sélectionnez votre moyen de paiement et vérifiez attentivement vos informations avant de confirmer. Votre demande sera ensuite envoyée pour traitement. Vous pouvez suivre son statut dans votre historique des retraits.
-                </p>
-              </div>
-
-              {(new Date().getHours() < 9 || new Date().getHours() >= 17) && (
-                <div className="mb-4 p-4 rounded-xl bg-slate-900/90 border border-amber-400/40 text-xs md:text-sm text-amber-300 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
-                  <span>⚠️ SYSTÈME HORS PLAGE HORAIRE</span>
-                  <span>Les retraits sont ouverts uniquement de 09h00 à 17h00 chaque jour.</span>
-                </div>
-              )}
 
               {(DataStore.areWithdrawalsBlocked() || userState.withdrawBlocked) && (
                 <div className="mb-4 p-4 rounded-xl bg-slate-900/90 border border-amber-500/50 text-xs md:text-sm text-amber-200 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
@@ -6312,10 +6266,6 @@ export default function Dashboard({
                   </li>
                   <li className="flex items-start gap-2.5">
                     <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Plage horaire stricte :</strong> Le service de caisse est ouvert uniquement de <strong className="text-white">09h00 à 17h00</strong>.</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
                     <span><strong className="text-white">Montant minimum autorisé :</strong> Le seuil minimal par transaction est fixé à <strong className="text-white">1 000 {getCurrency()}</strong>.</span>
                   </li>
                   <li className="flex items-start gap-2.5">
@@ -6376,7 +6326,12 @@ export default function Dashboard({
                       className="w-full bg-rose-900/40 border border-rose-700/60 rounded-xl p-3 text-xs font-normal text-white placeholder-rose-400/60 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:border-rose-400 transition-all resize-none shadow-xs"
                     />
                     <div className="flex justify-between items-center text-[10px] text-rose-300 font-medium px-1 select-none">
-                      <span>Auteur : {maskUserPhone(userState.name || 'Moi')} ({userState.country || 'Cameroun'})</span>
+                      <span className="flex items-center gap-1">
+                        <span>Auteur anonyme :</span>
+                        <span className="font-mono font-bold text-amber-300 bg-rose-900/60 px-1.5 py-0.5 rounded border border-rose-700/40">
+                          {getMaskedAnonymousId(userState.id || userState.phone || userState.name)}
+                        </span>
+                      </span>
                       <span>{forumMessageInput.length}/500</span>
                     </div>
                   </div>
@@ -6522,8 +6477,9 @@ export default function Dashboard({
                     </p>
                   </div>
                 ) : (
-                  forumPosts.map((post) => {
+                  deduplicateForumPosts(forumPosts).map((post) => {
                     const hasLiked = post.likedBy ? post.likedBy.includes(userState.id) : post.hasLiked;
+                    const anonId = getMaskedAnonymousId(post);
 
                     const imagesList: string[] = [];
                     if (post.image1) imagesList.push(post.image1);
@@ -6537,17 +6493,20 @@ export default function Dashboard({
                         key={post.id}
                         className="bg-rose-950/70 border border-rose-700/50 hover:border-rose-500/70 transition-all rounded-2xl p-3.5 sm:p-4 text-left shadow-sm space-y-2.5"
                       >
-                        {/* Author row */}
+                        {/* Author row - Anonymous 3-digit masked format (e.g. 1★7) */}
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#e11d48] to-[#be123c] text-white font-sans font-black flex items-center justify-center text-xs shadow-xs border border-rose-400/30">
-                              {post.avatarLetter || (post.authorName ? post.authorName.charAt(0).toUpperCase() : 'M')}
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#e11d48] to-[#be123c] text-amber-300 font-sans font-black flex items-center justify-center text-xs shadow-xs border border-rose-400/30 shrink-0">
+                              ★
                             </div>
                             <div className="leading-tight">
-                              <span className="font-sans font-bold text-white text-xs sm:text-sm block">
-                                {maskUserPhone(post.authorName || 'Membre')}
+                              <span className="font-sans font-bold text-white text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-black text-amber-300 tracking-wider">{anonId}</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-rose-300/80 bg-rose-900/50 px-1.5 py-0.5 rounded border border-rose-700/30">
+                                  Membre
+                                </span>
                               </span>
-                              <span className="text-rose-300 text-[9px] font-medium opacity-85 block">
+                              <span className="text-rose-300 text-[9px] font-medium opacity-85 block mt-0.5">
                                 {new Date(post.createdAt || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
@@ -7076,7 +7035,7 @@ export default function Dashboard({
               .reduce((acc, i) => acc + (i.dailyReturn || 0), 0);
 
             return (
-              <div className="bg-transparent -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-24 text-slate-900 text-left animate-fadeIn min-h-[calc(100vh-80px)]">
+              <div className="bg-transparent -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                 <div className="max-w-md mx-auto w-full space-y-3">
                   
                   {/* TOP WALLET / PROFILE STATS CARD */}
@@ -7227,17 +7186,17 @@ export default function Dashboard({
                       <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
-                    {/* 3. Enregistrement des retraits */}
+                    {/* 3. Relevé des renseignements */}
                     <button 
                       onClick={() => setProfileSubPage('withdraw-history')}
                       className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
-                      id="card-enregistrement-retraits"
+                      id="card-releve-des-renseignements"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
                         <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                           <ArrowDownLeft className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Enregistrement des retraits</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Relevé des renseignements</span>
                       </div>
                       <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
                     </button>

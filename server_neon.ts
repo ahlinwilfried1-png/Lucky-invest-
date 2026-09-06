@@ -492,29 +492,46 @@ export async function fetchNeonStoreData(): Promise<Record<string, any> | null> 
         });
       }
 
-      // 7. Forum Posts
+      // 7. Forum Posts - merge relational table and store table to ensure no posts are ever dropped
       const fRes = await client.query(`SELECT * FROM public.forum_posts ORDER BY created_at DESC;`);
-      if (fRes.rows && fRes.rows.length > 0) {
-        result['gi_forum_posts'] = fRes.rows.map(r => {
-          const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
-          return {
-            ...raw,
-            id: r.id,
-            authorId: r.author_id || raw.authorId,
-            authorName: r.author_name || raw.authorName,
-            authorPhone: r.author_phone || raw.authorPhone,
-            avatarLetter: r.avatar_letter || raw.avatarLetter,
-            text: r.text || raw.text,
-            image1: r.image1 || raw.image1,
-            image2: r.image2 || raw.image2,
-            likes: Number(r.likes || raw.likes || 0),
-            likedBy: r.liked_by || raw.likedBy || [],
-            comments: r.comments || raw.comments || [],
-            createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
-            lastModified: Number(r.last_modified || raw.lastModified || Date.now())
-          };
-        });
+      const storePosts = Array.isArray(result['gi_forum_posts']) ? result['gi_forum_posts'] : [];
+      const relPosts = (fRes.rows && fRes.rows.length > 0) ? fRes.rows.map(r => {
+        const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+        return {
+          ...raw,
+          id: r.id,
+          authorId: r.author_id || raw.authorId,
+          authorName: r.author_name || raw.authorName,
+          authorPhone: r.author_phone || raw.authorPhone,
+          avatarLetter: r.avatar_letter || raw.avatarLetter,
+          text: r.text || raw.text,
+          image1: r.image1 || raw.image1,
+          image2: r.image2 || raw.image2,
+          likes: Number(r.likes || raw.likes || 0),
+          likedBy: r.liked_by || raw.likedBy || [],
+          comments: r.comments || raw.comments || [],
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+          lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+        };
+      }) : [];
+
+      const postMap = new Map<string, any>();
+      for (const p of storePosts) {
+        if (p && p.id) postMap.set(String(p.id), p);
       }
+      for (const p of relPosts) {
+        if (p && p.id) {
+          if (!postMap.has(String(p.id))) {
+            postMap.set(String(p.id), p);
+          } else {
+            const existing = postMap.get(String(p.id));
+            if ((p.lastModified || 0) >= (existing.lastModified || 0)) {
+              postMap.set(String(p.id), { ...existing, ...p });
+            }
+          }
+        }
+      }
+      result['gi_forum_posts'] = Array.from(postMap.values());
 
       // 8. Support Messages
       const sRes = await client.query(`SELECT * FROM public.support_messages ORDER BY created_at ASC;`);
@@ -983,3 +1000,78 @@ export async function fetchLiveNeonCounts(): Promise<Record<string, number> | nu
     }
   }
 }
+
+/**
+ * Inserts or updates a forum post directly in Neon's relational table
+ */
+export async function insertNeonForumPost(post: any): Promise<boolean> {
+  const p = getNeonPool();
+  if (!p || !post || !post.id) return false;
+
+  let client: PoolClient | null = null;
+  try {
+    client = await p.connect();
+    await client.query(
+      `INSERT INTO public.forum_posts (
+        id, author_id, author_name, author_phone, avatar_letter, text,
+        image1, image2, likes, liked_by, comments, created_at, last_modified, raw_data
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ON CONFLICT (id) DO UPDATE SET
+        text = EXCLUDED.text,
+        image1 = EXCLUDED.image1,
+        image2 = EXCLUDED.image2,
+        likes = EXCLUDED.likes,
+        liked_by = EXCLUDED.liked_by,
+        comments = EXCLUDED.comments,
+        last_modified = EXCLUDED.last_modified,
+        raw_data = EXCLUDED.raw_data;`,
+      [
+        String(post.id),
+        String(post.authorId || 'anonymous'),
+        post.authorName || null,
+        post.authorPhone || null,
+        post.avatarLetter || '★',
+        post.text || null,
+        post.image1 || null,
+        post.image2 || null,
+        Number(post.likes || 0),
+        JSON.stringify(post.likedBy || []),
+        JSON.stringify(post.comments || []),
+        post.createdAt ? new Date(post.createdAt) : new Date(),
+        Number(post.lastModified || Date.now()),
+        JSON.stringify(post)
+      ]
+    );
+    return true;
+  } catch (err: any) {
+    console.warn('[NEON FORUM INSERT WARN]', err.message);
+    return false;
+  } finally {
+    if (client) {
+      try { client.release(); } catch {}
+    }
+  }
+}
+
+/**
+ * Deletes a forum post from Neon's relational table
+ */
+export async function deleteNeonForumPost(postId: string): Promise<boolean> {
+  const p = getNeonPool();
+  if (!p || !postId) return false;
+
+  let client: PoolClient | null = null;
+  try {
+    client = await p.connect();
+    await client.query(`DELETE FROM public.forum_posts WHERE id = $1;`, [String(postId)]);
+    return true;
+  } catch (err: any) {
+    console.warn('[NEON FORUM DELETE WARN]', err.message);
+    return false;
+  } finally {
+    if (client) {
+      try { client.release(); } catch {}
+    }
+  }
+}
+

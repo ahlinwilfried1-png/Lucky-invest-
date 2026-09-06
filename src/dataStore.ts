@@ -13,6 +13,16 @@ import {
   CategorySchedule,
   CategorySchedules
 } from './types';
+import { deduplicateForumPosts } from './lib/forumUtils';
+import { 
+  saveUserToFirestore, 
+  saveDepositToFirestore, 
+  saveWithdrawalToFirestore, 
+  saveInvestmentToFirestore, 
+  saveCommissionToFirestore, 
+  updateFirestoreDoc, 
+  syncArrayToFirestoreCollection 
+} from './firebase';
 
 export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
   wellbeing: {
@@ -40,9 +50,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
     name: "Gold Avenue Option Bronze",
     tag: "Option Bronze",
     price: 2000,
-    dailyReturn: 100,
+    dailyReturn: 180,
     durationDays: 40,
-    totalReturn: 4000,
+    totalReturn: 7200,
     category: "stability",
     isBlocked: false,
     isCyclic: true,
@@ -54,9 +64,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
     name: "Gold Avenue Option Argent",
     tag: "Option Argent",
     price: 5000,
-    dailyReturn: 300,
+    dailyReturn: 500,
     durationDays: 40,
-    totalReturn: 12000,
+    totalReturn: 20000,
     category: "stability",
     isBlocked: false,
     isCyclic: true,
@@ -68,9 +78,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
     name: "Gold Avenue Option Or",
     tag: "Option Or",
     price: 10000,
-    dailyReturn: 700,
+    dailyReturn: 1200,
     durationDays: 40,
-    totalReturn: 28000,
+    totalReturn: 48000,
     category: "stability",
     isBlocked: false,
     isCyclic: true,
@@ -82,9 +92,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
     name: "Gold Avenue Option Platine",
     tag: "Option Platine",
     price: 25000,
-    dailyReturn: 2000,
+    dailyReturn: 3500,
     durationDays: 40,
-    totalReturn: 80000,
+    totalReturn: 140000,
     category: "stability",
     isBlocked: false,
     isCyclic: true,
@@ -96,9 +106,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
     name: "Gold Avenue Option Diamant",
     tag: "Option Diamant",
     price: 50000,
-    dailyReturn: 4500,
+    dailyReturn: 8000,
     durationDays: 40,
-    totalReturn: 180000,
+    totalReturn: 320000,
     category: "stability",
     isBlocked: false,
     isCyclic: true,
@@ -110,9 +120,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
     name: "Gold Avenue Option Saphir",
     tag: "Option Saphir",
     price: 100000,
-    dailyReturn: 10000,
+    dailyReturn: 18000,
     durationDays: 40,
-    totalReturn: 400000,
+    totalReturn: 720000,
     category: "stability",
     isBlocked: false,
     isCyclic: true,
@@ -124,9 +134,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
     name: "Gold Avenue Option Émeraude",
     tag: "Option Émeraude",
     price: 200000,
-    dailyReturn: 24000,
+    dailyReturn: 42000,
     durationDays: 40,
-    totalReturn: 960000,
+    totalReturn: 1680000,
     category: "stability",
     isBlocked: false,
     isCyclic: true,
@@ -873,6 +883,26 @@ export const setToStore = <T>(key: string, value: T): void => {
         gi_cleanup_timestamp: Number(cleanupTimestamp)
       })
     }).catch(err => console.error('Failed to sync to central DB server:', err));
+
+    // Synchronisation en arrière-plan vers Firebase Firestore
+    try {
+      const collectionMap: Record<string, string> = {
+        'gi_users': 'users',
+        'gi_deposits': 'deposits',
+        'gi_withdrawals': 'withdrawals',
+        'gi_investments': 'investments',
+        'gi_commissions': 'commissions',
+        'gi_withdrawal_proofs': 'withdrawal_proofs'
+      };
+      const firestoreCol = collectionMap[key];
+      if (firestoreCol && Array.isArray(newValue)) {
+        syncArrayToFirestoreCollection(firestoreCol, newValue).catch(err => {
+          console.warn(`[FIRESTORE] Sync collection ${firestoreCol} non bloquant:`, err);
+        });
+      }
+    } catch (fsErr) {
+      // Échec silencieux pour ne jamais bloquer l'expérience utilisateur
+    }
   } catch (error) {
     console.error(`Error writing to fallback store for key "${key}":`, error);
   }
@@ -1443,6 +1473,24 @@ export class DataStore {
 
       // Allow custom imageUrl to be saved and displayed if set, otherwise the frontend will fall back to curated gold images.
 
+      // Synchronize / upgrade stability products to new revenue rates if outdated
+      if (item.category === 'stability' || (!item.category && item.id?.startsWith('stab-'))) {
+        const stabDefaults: Record<string, { dailyReturn: number; totalReturn: number }> = {
+          'stab-1': { dailyReturn: 180, totalReturn: 7200 },
+          'stab-2': { dailyReturn: 500, totalReturn: 20000 },
+          'stab-3': { dailyReturn: 1200, totalReturn: 48000 },
+          'stab-4': { dailyReturn: 3500, totalReturn: 140000 },
+          'stab-5': { dailyReturn: 8000, totalReturn: 320000 },
+          'stab-6': { dailyReturn: 18000, totalReturn: 720000 },
+          'stab-7': { dailyReturn: 42000, totalReturn: 1680000 }
+        };
+        if (stabDefaults[item.id] && item.dailyReturn < stabDefaults[item.id].dailyReturn) {
+          changed = true;
+          item.dailyReturn = stabDefaults[item.id].dailyReturn;
+          item.totalReturn = stabDefaults[item.id].totalReturn;
+        }
+      }
+
       if (item.isBlocked && item.reopenDateTime && now >= new Date(item.reopenDateTime)) {
         changed = true;
         item.isBlocked = false;
@@ -1494,7 +1542,38 @@ export class DataStore {
   static getInvestments(): Investment[] {
     let list = getFromStore<Investment[]>('gi_investments', INITIAL_INVESTMENTS);
     const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
-    return list.filter(i => i && i.id && !deletedInvestments.includes(i.id));
+    const filtered = list.filter(i => i && i.id && !deletedInvestments.includes(i.id));
+
+    const stabDefaults: Record<string, { dailyReturn: number; totalReturn: number }> = {
+      'stab-1': { dailyReturn: 180, totalReturn: 7200 },
+      'stab-2': { dailyReturn: 500, totalReturn: 20000 },
+      'stab-3': { dailyReturn: 1200, totalReturn: 48000 },
+      'stab-4': { dailyReturn: 3500, totalReturn: 140000 },
+      'stab-5': { dailyReturn: 8000, totalReturn: 320000 },
+      'stab-6': { dailyReturn: 18000, totalReturn: 720000 },
+      'stab-7': { dailyReturn: 42000, totalReturn: 1680000 }
+    };
+
+    let changed = false;
+    const updated = filtered.map(inv => {
+      if (inv.productId && stabDefaults[inv.productId] && (inv.dailyReturn || 0) < stabDefaults[inv.productId].dailyReturn) {
+        changed = true;
+        return {
+          ...inv,
+          dailyReturn: stabDefaults[inv.productId].dailyReturn,
+          totalReturn: stabDefaults[inv.productId].totalReturn
+        };
+      }
+      return inv;
+    });
+
+    if (changed) {
+      setTimeout(() => {
+        setToStore<Investment[]>('gi_investments', updated);
+      }, 0);
+    }
+
+    return updated;
   }
 
   static saveInvestments(investments: Investment[]): void {
@@ -1694,16 +1773,34 @@ export class DataStore {
     const val = getFromStore<any[]>('gi_forum_posts', []);
     const deletedList = getFromStore<string[]>('gi_deleted_forum_posts', []);
     const filtered = val.filter((p: any) => p && p.id && !deletedList.includes(String(p.id)));
-    return filtered.sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.lastModified || 0).getTime();
-      const timeB = new Date(b.createdAt || b.lastModified || 0).getTime();
-      return timeB - timeA;
-    });
+    return deduplicateForumPosts(filtered);
+  }
+
+  static async fetchForumPostsFromServer(): Promise<any[]> {
+    try {
+      const resp = await apiFetch(getApiUrl('/api/forum/posts?t=' + Date.now()));
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && Array.isArray(data.posts)) {
+          const localPosts = this.getForumPosts();
+          const combined = deduplicateForumPosts([...data.posts, ...localPosts]);
+          setToStore<any[]>('gi_forum_posts', combined);
+          try {
+            localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(combined));
+          } catch (e) {}
+          dispatchStoreUpdated();
+          return combined;
+        }
+      }
+    } catch (err) {
+      console.warn("Error fetching /api/forum/posts:", err);
+    }
+    return this.getForumPosts();
   }
 
   static async createForumPost(post: any): Promise<any> {
     const current = this.getForumPosts();
-    const updated = [post, ...current.filter((p: any) => p && p.id !== post.id)];
+    const updated = deduplicateForumPosts([post, ...current]);
     setToStore<any[]>('gi_forum_posts', updated);
     try {
       localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(updated));
@@ -1719,6 +1816,8 @@ export class DataStore {
       if (resp.ok) {
         const data = await resp.json();
         if (data.success && data.post) {
+          // Re-sync with server to ensure authoritative cross-user state
+          await this.fetchForumPostsFromServer();
           return data.post;
         }
       }
@@ -2017,6 +2116,7 @@ export class DataStore {
         console.log(`[CLIENT REGISTER] Backend response received:`, res);
         if (res.success && res.user) {
           this.saveCurrentUser(res.user);
+          saveUserToFirestore(res.user).catch(() => {});
           syncWithBackend().catch((e) => console.warn('[REGISTER SYNC WARN]', e));
           serverSuccess = true;
           serverResponse = res;
@@ -2152,6 +2252,7 @@ export class DataStore {
 
     users.push(newUser);
     this.saveUsers(users);
+    saveUserToFirestore(newUser).catch(() => {});
 
     // Standard welcome notification
     let notifications = this.getNotifications();

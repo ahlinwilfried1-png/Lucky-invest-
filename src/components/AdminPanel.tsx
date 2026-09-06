@@ -32,6 +32,13 @@ import {
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules } from '../types';
 import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore } from '../dataStore';
+import { 
+  subscribeToAllFirestore, 
+  fetchAllFromFirestore, 
+  pushLocalDataToFirestore, 
+  isFirebaseConfigValid, 
+  updateFirestoreDoc 
+} from '../firebase';
 
 const maskUserPhone = (str: string): string => {
   if (!str) return str;
@@ -120,6 +127,11 @@ export default function AdminPanel({
   const [neonTestResult, setNeonTestResult] = useState<any>(null);
   const [neonSyncLoading, setNeonSyncLoading] = useState(false);
   const [neonSyncResult, setNeonSyncResult] = useState<string | null>(null);
+
+  // Firebase Firestore State (nutrien-d5378)
+  const [firestoreLoading, setFirestoreLoading] = useState(false);
+  const [firestoreSyncResult, setFirestoreSyncResult] = useState<string | null>(null);
+  const [firestoreConnected, setFirestoreConnected] = useState<boolean>(() => isFirebaseConfigValid());
 
   // Navigation tab
   const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'deposits' | 'withdrawals' | 'products' | 'platform' | 'transactions' | 'support' | 'proofs' | 'investments'>('deposits');
@@ -665,9 +677,113 @@ export default function AdminPanel({
     }
   };
 
+  const handlePushToFirestore = async () => {
+    try {
+      setFirestoreLoading(true);
+      setFirestoreSyncResult(null);
+      const res = await pushLocalDataToFirestore({
+        users,
+        deposits,
+        withdrawals,
+        investments,
+        products
+      });
+      if (res.success) {
+        setFirestoreSyncResult(`✅ ${res.count} documents enregistrés dans Firestore (nutrien-d5378) !`);
+        setFirestoreConnected(true);
+      } else {
+        setFirestoreSyncResult(`❌ Erreur Firestore: ${res.error || 'Vérifiez les autorisations'}`);
+      }
+    } catch (e: any) {
+      setFirestoreSyncResult(`❌ Erreur: ${e.message}`);
+    } finally {
+      setFirestoreLoading(false);
+    }
+  };
+
+  const handleLivePullFirestore = async () => {
+    try {
+      setFirestoreLoading(true);
+      setFirestoreSyncResult(null);
+      const data = await fetchAllFromFirestore();
+      if (data) {
+        let count = 0;
+        if (data.users && data.users.length > 0) {
+          setUsers(data.users);
+          DataStore.saveUsers(data.users);
+          count += data.users.length;
+        }
+        if (data.deposits && data.deposits.length > 0) {
+          setDeposits(data.deposits);
+          DataStore.saveDeposits(data.deposits);
+          count += data.deposits.length;
+        }
+        if (data.withdrawals && data.withdrawals.length > 0) {
+          setWithdrawals(data.withdrawals);
+          DataStore.saveWithdrawals(data.withdrawals);
+          count += data.withdrawals.length;
+        }
+        if (data.investments && data.investments.length > 0) {
+          setInvestments(data.investments);
+          DataStore.saveInvestments(data.investments);
+          count += data.investments.length;
+        }
+        if (data.commissions && data.commissions.length > 0) {
+          setCommissions(data.commissions);
+          DataStore.saveCommissions(data.commissions);
+          count += data.commissions.length;
+        }
+        if (data.withdrawalProofs && data.withdrawalProofs.length > 0) {
+          setWithdrawalProofs(data.withdrawalProofs);
+          DataStore.saveWithdrawalProofs(data.withdrawalProofs);
+          count += data.withdrawalProofs.length;
+        }
+        onRefreshData();
+        setFirestoreConnected(true);
+        setFirestoreSyncResult(`✅ ${count} documents réels récupérés depuis Firestore avec succès !`);
+      } else {
+        setFirestoreSyncResult(`⚠️ Aucune donnée reçue ou Firestore non joignable.`);
+      }
+    } catch (e: any) {
+      setFirestoreSyncResult(`❌ Erreur: ${e.message}`);
+    } finally {
+      setFirestoreLoading(false);
+    }
+  };
+
   React.useEffect(() => {
     // Fast initial database load on mounts
     executeDirectCentralSync();
+
+    // Active Firestore onSnapshot listener for instant live updates across terminals
+    const unsubFirestore = subscribeToAllFirestore((data) => {
+      if (data.users && data.users.length > 0) {
+        setUsers(data.users);
+        DataStore.saveUsers(data.users);
+      }
+      if (data.deposits && data.deposits.length > 0) {
+        setDeposits(data.deposits);
+        DataStore.saveDeposits(data.deposits);
+      }
+      if (data.withdrawals && data.withdrawals.length > 0) {
+        setWithdrawals(data.withdrawals);
+        DataStore.saveWithdrawals(data.withdrawals);
+      }
+      if (data.investments && data.investments.length > 0) {
+        setInvestments(data.investments);
+        DataStore.saveInvestments(data.investments);
+      }
+      if (data.commissions && data.commissions.length > 0) {
+        setCommissions(data.commissions);
+        DataStore.saveCommissions(data.commissions);
+      }
+      if (data.withdrawalProofs && data.withdrawalProofs.length > 0) {
+        setWithdrawalProofs(data.withdrawalProofs);
+        DataStore.saveWithdrawalProofs(data.withdrawalProofs);
+      }
+      setFirestoreConnected(true);
+      onRefreshData();
+    });
 
     // Constant real-time active synchronization (poll every 1 second for instant updates across terminals!)
     const interval = setInterval(executeDirectCentralSync, 1000);
@@ -678,6 +794,7 @@ export default function AdminPanel({
     window.addEventListener('gi_store_updated', handleStoreUpdated);
 
     return () => {
+      unsubFirestore();
       clearInterval(interval);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
     };
@@ -1162,6 +1279,7 @@ export default function AdminPanel({
 
   // Finance events
   const handleApproveDeposit = async (id: string) => {
+    updateFirestoreDoc('deposits', id, { status: 'approved' }).catch(() => {});
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
@@ -1182,6 +1300,7 @@ export default function AdminPanel({
   };
 
   const handleRejectDeposit = async (id: string) => {
+    updateFirestoreDoc('deposits', id, { status: 'rejected' }).catch(() => {});
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
@@ -1202,6 +1321,7 @@ export default function AdminPanel({
   };
 
   const handleApproveWithdrawal = async (id: string) => {
+    updateFirestoreDoc('withdrawals', id, { status: 'approved' }).catch(() => {});
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/withdrawal-action'), {
         method: 'POST',
@@ -1222,6 +1342,7 @@ export default function AdminPanel({
   };
 
   const handleRejectWithdrawal = async (id: string) => {
+    updateFirestoreDoc('withdrawals', id, { status: 'rejected' }).catch(() => {});
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/withdrawal-action'), {
         method: 'POST',
@@ -1979,7 +2100,11 @@ export default function AdminPanel({
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Neon PostgreSQL : Connecté en Direct</span>
+              <span>Neon PostgreSQL : Connecté</span>
+            </span>
+            <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span>Firestore : nutrien-d5378 (Temps Réel 🔥)</span>
             </span>
             <span className="text-[10px] text-slate-400 font-mono">
               Données 100% réelles cloud (1s ⚡)
@@ -1987,6 +2112,16 @@ export default function AdminPanel({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleLivePullFirestore}
+            disabled={firestoreLoading}
+            title="Synchroniser directement avec Firebase Firestore (nutrien-d5378)"
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono tracking-wide transition-all border flex items-center space-x-1.5 bg-amber-950/40 hover:bg-amber-900/40 text-amber-300 border-amber-500/40 hover:border-amber-400 cursor-pointer disabled:opacity-50"
+          >
+            <Flame className="w-3 h-3 text-amber-400" />
+            <span>{firestoreLoading ? 'Synchro Firestore...' : 'Actualiser Firestore'}</span>
+          </button>
+
           <button
             onClick={handleLivePullNeon}
             disabled={neonSyncLoading}
@@ -3854,6 +3989,71 @@ export default function AdminPanel({
             {neonSyncResult && (
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono">
                 {neonSyncResult}
+              </div>
+            )}
+          </div>
+
+          {/* FIREBASE FIRESTORE REALTIME DATABASE MANAGEMENT */}
+          <div id="firestore-db-section" className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-5 col-span-1 lg:col-span-2 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                    <span>Base de Données Temps Réel (Firebase Firestore)</span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono border border-amber-500/30">
+                      nutrien-d5378
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Synchronisation NoSQL en direct (onSnapshot). Nouveaux inscrits, retraits, dépôts et investissements s'actualisent instantanément entre tous les téléphones et cet écran.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                {firestoreConnected ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    Connecté en Temps Réel 🔥
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                    Clé API : nutrien-d5378
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={handlePushToFirestore}
+                disabled={firestoreLoading}
+                className="py-2.5 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-slate-950 font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              >
+                <Save className="w-4 h-4 text-slate-950" />
+                <span>Pousser les données locales vers Firestore</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLivePullFirestore}
+                disabled={firestoreLoading}
+                className="py-2.5 px-3.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/60 border border-amber-500/50 text-amber-300 hover:text-amber-200 font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <RefreshCw className={`w-4 h-4 text-amber-400 ${firestoreLoading ? 'animate-spin' : ''}`} />
+                <span>Récupérer Réel de Firestore (onSnapshot)</span>
+              </button>
+            </div>
+
+            {/* Sync feedback */}
+            {firestoreSyncResult && (
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono mb-2">
+                {firestoreSyncResult}
               </div>
             )}
           </div>
