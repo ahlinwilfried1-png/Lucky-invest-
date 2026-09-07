@@ -15,14 +15,10 @@ import {
 } from './types';
 import { deduplicateForumPosts } from './lib/forumUtils';
 import { 
-  saveUserToFirestore, 
-  saveDepositToFirestore, 
-  saveWithdrawalToFirestore, 
-  saveInvestmentToFirestore, 
-  saveCommissionToFirestore, 
-  updateFirestoreDoc, 
-  syncArrayToFirestoreCollection 
-} from './firebase';
+  SUPABASE_URL, 
+  SUPABASE_ANON_KEY, 
+  supabaseRegisterUser 
+} from './supabase';
 
 export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
   wellbeing: {
@@ -448,9 +444,6 @@ export function getApiUrl(endpoint: string): string {
   return endpoint;
 }
 
-export const SUPABASE_URL: string = "";
-export const SUPABASE_SERVICE_ROLE_KEY: string = "";
-
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   let activeUrl = url;
   if (url.startsWith('/') && typeof window !== 'undefined' && window.location) {
@@ -600,8 +593,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
       try {
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/store?select=*`, {
           headers: {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Accept': 'application/json'
           }
         });
@@ -665,8 +658,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
               try {
                 const fetchResp = await fetch(`${SUPABASE_URL}/rest/v1/store?key=eq.${key}&select=value`, {
                   headers: {
-                    'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                     'Accept': 'application/json'
                   }
                 });
@@ -740,8 +733,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
             await fetch(`${SUPABASE_URL}/rest/v1/store`, {
               method: 'POST',
               headers: {
-                'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json',
                 'Prefer': 'resolution=merge-duplicates'
               },
@@ -884,24 +877,22 @@ export const setToStore = <T>(key: string, value: T): void => {
       })
     }).catch(err => console.error('Failed to sync to central DB server:', err));
 
-    // Synchronisation en arrière-plan vers Firebase Firestore
+    // Synchronisation directe en arrière-plan vers Supabase public.store
     try {
-      const collectionMap: Record<string, string> = {
-        'gi_users': 'users',
-        'gi_deposits': 'deposits',
-        'gi_withdrawals': 'withdrawals',
-        'gi_investments': 'investments',
-        'gi_commissions': 'commissions',
-        'gi_withdrawal_proofs': 'withdrawal_proofs'
-      };
-      const firestoreCol = collectionMap[key];
-      if (firestoreCol && Array.isArray(newValue)) {
-        syncArrayToFirestoreCollection(firestoreCol, newValue).catch(err => {
-          console.warn(`[FIRESTORE] Sync collection ${firestoreCol} non bloquant:`, err);
-        });
+      if (SUPABASE_URL && SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY) {
+        fetch(`${SUPABASE_URL}/rest/v1/store`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify([{ key, value: newValue, updated_at: new Date().toISOString() }])
+        }).catch(() => {});
       }
-    } catch (fsErr) {
-      // Échec silencieux pour ne jamais bloquer l'expérience utilisateur
+    } catch {
+      // Non bloquant
     }
   } catch (error) {
     console.error(`Error writing to fallback store for key "${key}":`, error);
@@ -2116,7 +2107,7 @@ export class DataStore {
         console.log(`[CLIENT REGISTER] Backend response received:`, res);
         if (res.success && res.user) {
           this.saveCurrentUser(res.user);
-          saveUserToFirestore(res.user).catch(() => {});
+          supabaseRegisterUser(res.user).catch(() => {});
           syncWithBackend().catch((e) => console.warn('[REGISTER SYNC WARN]', e));
           serverSuccess = true;
           serverResponse = res;
@@ -2252,7 +2243,7 @@ export class DataStore {
 
     users.push(newUser);
     this.saveUsers(users);
-    saveUserToFirestore(newUser).catch(() => {});
+    supabaseRegisterUser(newUser).catch(() => {});
 
     // Standard welcome notification
     let notifications = this.getNotifications();

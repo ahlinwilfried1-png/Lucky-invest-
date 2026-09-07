@@ -7,6 +7,9 @@ export interface User {
   balance: number;
   dailyEarnings: number;
   totalEarnings: number;
+  totalRecharged?: number;
+  totalWithdrawn?: number;
+  referralEarnings?: number;
   bonus: number;
   referralCode: string;
   referredBy?: string;

@@ -32,13 +32,7 @@ import {
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules } from '../types';
 import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore } from '../dataStore';
-import { 
-  subscribeToAllFirestore, 
-  fetchAllFromFirestore, 
-  pushLocalDataToFirestore, 
-  isFirebaseConfigValid, 
-  updateFirestoreDoc 
-} from '../firebase';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, subscribeToSupabaseRealtime } from '../supabase';
 
 const maskUserPhone = (str: string): string => {
   if (!str) return str;
@@ -119,19 +113,11 @@ export default function AdminPanel({
     storeTableAccessible?: boolean;
     storeTableError?: string | null;
     databaseType?: string;
-    neonConfigured?: boolean;
   } | null>(null);
 
-  // Neon PostgreSQL State
-  const [neonTesting, setNeonTesting] = useState(false);
-  const [neonTestResult, setNeonTestResult] = useState<any>(null);
-  const [neonSyncLoading, setNeonSyncLoading] = useState(false);
-  const [neonSyncResult, setNeonSyncResult] = useState<string | null>(null);
-
-  // Firebase Firestore State (nutrien-d5378)
-  const [firestoreLoading, setFirestoreLoading] = useState(false);
-  const [firestoreSyncResult, setFirestoreSyncResult] = useState<string | null>(null);
-  const [firestoreConnected, setFirestoreConnected] = useState<boolean>(() => isFirebaseConfigValid());
+  // Supabase PostgreSQL State
+  const [supabaseTesting, setSupabaseTesting] = useState(false);
+  const [supabaseTestResult, setSupabaseTestResult] = useState<any>(null);
 
   // Navigation tab
   const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'deposits' | 'withdrawals' | 'products' | 'platform' | 'transactions' | 'support' | 'proofs' | 'investments'>('deposits');
@@ -602,152 +588,59 @@ export default function AdminPanel({
     }
   };
 
-  const handleTestNeon = async () => {
+  const handleTestSupabase = async () => {
     try {
-      setNeonTesting(true);
-      setNeonTestResult(null);
-      const resp = await apiFetch(getApiUrl('/api/neon/test'));
+      setSupabaseTesting(true);
+      setSupabaseTestResult(null);
+      const resp = await apiFetch(getApiUrl('/api/supabase/test'));
       const data = await resp.json();
-      setNeonTestResult(data);
+      setSupabaseTestResult(data);
     } catch (e: any) {
-      setNeonTestResult({ ok: false, message: e.message });
+      setSupabaseTestResult({ ok: false, message: e.message });
     } finally {
-      setNeonTesting(false);
+      setSupabaseTesting(false);
     }
   };
 
-  const handleInitNeonTables = async () => {
+  const handlePushToSupabase = async () => {
     try {
-      setNeonSyncLoading(true);
-      setNeonSyncResult(null);
-      const resp = await apiFetch(getApiUrl('/api/neon/init-tables'), { method: 'POST' });
-      const data = await resp.json();
-      if (data.success) {
-        setNeonSyncResult(`✅ ${data.message}`);
-        handleTestNeon();
-      } else {
-        setNeonSyncResult(`❌ ${data.message}`);
-      }
-    } catch (e: any) {
-      setNeonSyncResult(`❌ Erreur: ${e.message}`);
-    } finally {
-      setNeonSyncLoading(false);
-    }
-  };
-
-  const handlePushToNeon = async () => {
-    try {
-      setNeonSyncLoading(true);
-      setNeonSyncResult(null);
-      const resp = await apiFetch(getApiUrl('/api/neon/sync'), {
+      setSupabaseSyncLoading(true);
+      setSupabaseSyncResult(null);
+      const resp = await apiFetch(getApiUrl('/api/supabase/sync'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ direction: 'push' })
       });
       const data = await resp.json();
       if (data.success) {
-        setNeonSyncResult(`✅ ${data.message}`);
+        setSupabaseSyncResult(`✅ ${data.message}`);
         executeDirectCentralSync();
       } else {
-        setNeonSyncResult(`❌ ${data.message}`);
+        setSupabaseSyncResult(`❌ ${data.message}`);
       }
     } catch (e: any) {
-      setNeonSyncResult(`❌ Erreur: ${e.message}`);
+      setSupabaseSyncResult(`❌ Erreur: ${e.message}`);
     } finally {
-      setNeonSyncLoading(false);
+      setSupabaseSyncLoading(false);
     }
   };
 
-  const handleLivePullNeon = async () => {
+  const handleLivePullSupabase = async () => {
     try {
-      setNeonSyncLoading(true);
-      setNeonSyncResult(null);
-      const resp = await apiFetch(getApiUrl('/api/neon/live-sync'));
+      setSupabaseSyncLoading(true);
+      setSupabaseSyncResult(null);
+      const resp = await apiFetch(getApiUrl('/api/supabase/live-sync'));
       const data = await resp.json();
       if (data.success) {
-        setNeonSyncResult(`✅ ${data.message} (${data.usersCount} utilisateurs, ${data.depositsCount} dépôts, ${data.withdrawalsCount} retraits, ${data.productsCount} produits)`);
+        setSupabaseSyncResult(`✅ ${data.message} (${data.usersCount} utilisateurs, ${data.depositsCount} dépôts, ${data.withdrawalsCount} retraits, ${data.productsCount} produits)`);
         await executeDirectCentralSync();
       } else {
-        setNeonSyncResult(`❌ ${data.message}`);
+        setSupabaseSyncResult(`❌ ${data.message}`);
       }
     } catch (e: any) {
-      setNeonSyncResult(`❌ Erreur: ${e.message}`);
+      setSupabaseSyncResult(`❌ Erreur: ${e.message}`);
     } finally {
-      setNeonSyncLoading(false);
-    }
-  };
-
-  const handlePushToFirestore = async () => {
-    try {
-      setFirestoreLoading(true);
-      setFirestoreSyncResult(null);
-      const res = await pushLocalDataToFirestore({
-        users,
-        deposits,
-        withdrawals,
-        investments,
-        products
-      });
-      if (res.success) {
-        setFirestoreSyncResult(`✅ ${res.count} documents enregistrés dans Firestore (nutrien-d5378) !`);
-        setFirestoreConnected(true);
-      } else {
-        setFirestoreSyncResult(`❌ Erreur Firestore: ${res.error || 'Vérifiez les autorisations'}`);
-      }
-    } catch (e: any) {
-      setFirestoreSyncResult(`❌ Erreur: ${e.message}`);
-    } finally {
-      setFirestoreLoading(false);
-    }
-  };
-
-  const handleLivePullFirestore = async () => {
-    try {
-      setFirestoreLoading(true);
-      setFirestoreSyncResult(null);
-      const data = await fetchAllFromFirestore();
-      if (data) {
-        let count = 0;
-        if (data.users && data.users.length > 0) {
-          setUsers(data.users);
-          DataStore.saveUsers(data.users);
-          count += data.users.length;
-        }
-        if (data.deposits && data.deposits.length > 0) {
-          setDeposits(data.deposits);
-          DataStore.saveDeposits(data.deposits);
-          count += data.deposits.length;
-        }
-        if (data.withdrawals && data.withdrawals.length > 0) {
-          setWithdrawals(data.withdrawals);
-          DataStore.saveWithdrawals(data.withdrawals);
-          count += data.withdrawals.length;
-        }
-        if (data.investments && data.investments.length > 0) {
-          setInvestments(data.investments);
-          DataStore.saveInvestments(data.investments);
-          count += data.investments.length;
-        }
-        if (data.commissions && data.commissions.length > 0) {
-          setCommissions(data.commissions);
-          DataStore.saveCommissions(data.commissions);
-          count += data.commissions.length;
-        }
-        if (data.withdrawalProofs && data.withdrawalProofs.length > 0) {
-          setWithdrawalProofs(data.withdrawalProofs);
-          DataStore.saveWithdrawalProofs(data.withdrawalProofs);
-          count += data.withdrawalProofs.length;
-        }
-        onRefreshData();
-        setFirestoreConnected(true);
-        setFirestoreSyncResult(`✅ ${count} documents réels récupérés depuis Firestore avec succès !`);
-      } else {
-        setFirestoreSyncResult(`⚠️ Aucune donnée reçue ou Firestore non joignable.`);
-      }
-    } catch (e: any) {
-      setFirestoreSyncResult(`❌ Erreur: ${e.message}`);
-    } finally {
-      setFirestoreLoading(false);
+      setSupabaseSyncLoading(false);
     }
   };
 
@@ -755,38 +648,15 @@ export default function AdminPanel({
     // Fast initial database load on mounts
     executeDirectCentralSync();
 
-    // Active Firestore onSnapshot listener for instant live updates across terminals
-    const unsubFirestore = subscribeToAllFirestore((data) => {
-      if (data.users && data.users.length > 0) {
-        setUsers(data.users);
-        DataStore.saveUsers(data.users);
-      }
-      if (data.deposits && data.deposits.length > 0) {
-        setDeposits(data.deposits);
-        DataStore.saveDeposits(data.deposits);
-      }
-      if (data.withdrawals && data.withdrawals.length > 0) {
-        setWithdrawals(data.withdrawals);
-        DataStore.saveWithdrawals(data.withdrawals);
-      }
-      if (data.investments && data.investments.length > 0) {
-        setInvestments(data.investments);
-        DataStore.saveInvestments(data.investments);
-      }
-      if (data.commissions && data.commissions.length > 0) {
-        setCommissions(data.commissions);
-        DataStore.saveCommissions(data.commissions);
-      }
-      if (data.withdrawalProofs && data.withdrawalProofs.length > 0) {
-        setWithdrawalProofs(data.withdrawalProofs);
-        DataStore.saveWithdrawalProofs(data.withdrawalProofs);
-      }
-      setFirestoreConnected(true);
+    // Active Supabase Realtime listener for instant live updates across terminals
+    const unsubSupabase = subscribeToSupabaseRealtime((table) => {
+      console.log(`[SUPABASE REALTIME] Detected update on table ${table}`);
+      executeDirectCentralSync();
       onRefreshData();
     });
 
-    // Constant real-time active synchronization (poll every 1 second for instant updates across terminals!)
-    const interval = setInterval(executeDirectCentralSync, 1000);
+    // Constant real-time active synchronization (poll every 2 seconds for guaranteed freshness)
+    const interval = setInterval(executeDirectCentralSync, 2000);
     
     const handleStoreUpdated = () => {
       executeDirectCentralSync();
@@ -794,7 +664,7 @@ export default function AdminPanel({
     window.addEventListener('gi_store_updated', handleStoreUpdated);
 
     return () => {
-      unsubFirestore();
+      unsubSupabase();
       clearInterval(interval);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
     };
@@ -1279,7 +1149,6 @@ export default function AdminPanel({
 
   // Finance events
   const handleApproveDeposit = async (id: string) => {
-    updateFirestoreDoc('deposits', id, { status: 'approved' }).catch(() => {});
     DataStore.approveDeposit(id);
     syncLocalStates();
     try {
@@ -1297,7 +1166,6 @@ export default function AdminPanel({
   };
 
   const handleRejectDeposit = async (id: string) => {
-    updateFirestoreDoc('deposits', id, { status: 'rejected' }).catch(() => {});
     DataStore.rejectDeposit(id);
     syncLocalStates();
     try {
@@ -1315,7 +1183,6 @@ export default function AdminPanel({
   };
 
   const handleApproveWithdrawal = async (id: string) => {
-    updateFirestoreDoc('withdrawals', id, { status: 'approved' }).catch(() => {});
     DataStore.approveWithdrawal(id);
     syncLocalStates();
     try {
@@ -1333,7 +1200,6 @@ export default function AdminPanel({
   };
 
   const handleRejectWithdrawal = async (id: string) => {
-    updateFirestoreDoc('withdrawals', id, { status: 'rejected' }).catch(() => {});
     DataStore.rejectWithdrawal(id);
     syncLocalStates();
     try {
@@ -2088,36 +1954,36 @@ export default function AdminPanel({
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Neon PostgreSQL : Connecté</span>
+              <span>Supabase Cloud : sjvyhnxklgsgprgkihrr (Connecté)</span>
             </span>
-            <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span>Firestore : nutrien-d5378 (Temps Réel 🔥)</span>
+            <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span>Temps Réel ⚡ (Anon + Service Role)</span>
             </span>
             <span className="text-[10px] text-slate-400 font-mono">
-              Données 100% réelles cloud (1s ⚡)
+              Données 100% synchronisées cloud
             </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
-            onClick={handleLivePullFirestore}
-            disabled={firestoreLoading}
-            title="Synchroniser directement avec Firebase Firestore (nutrien-d5378)"
-            className="px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono tracking-wide transition-all border flex items-center space-x-1.5 bg-amber-950/40 hover:bg-amber-900/40 text-amber-300 border-amber-500/40 hover:border-amber-400 cursor-pointer disabled:opacity-50"
+            onClick={handleTestSupabase}
+            disabled={supabaseTesting}
+            title="Tester la connexion à la base Supabase"
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono tracking-wide transition-all border flex items-center space-x-1.5 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40 hover:border-emerald-400 cursor-pointer disabled:opacity-50"
           >
-            <Flame className="w-3 h-3 text-amber-400" />
-            <span>{firestoreLoading ? 'Synchro Firestore...' : 'Actualiser Firestore'}</span>
+            <Zap className="w-3 h-3 text-emerald-400" />
+            <span>{supabaseTesting ? 'Test Supabase...' : 'Tester Supabase'}</span>
           </button>
 
           <button
-            onClick={handleLivePullNeon}
-            disabled={neonSyncLoading}
-            title="Forcer la synchronisation directe depuis la base Neon PostgreSQL"
-            className="px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono tracking-wide transition-all border flex items-center space-x-1.5 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40 hover:border-emerald-400 cursor-pointer disabled:opacity-50"
+            onClick={handleLivePullSupabase}
+            disabled={supabaseSyncLoading}
+            title="Forcer la synchronisation directe depuis la base Supabase"
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono tracking-wide transition-all border flex items-center space-x-1.5 bg-cyan-950/40 hover:bg-cyan-900/40 text-cyan-300 border-cyan-500/40 hover:border-cyan-400 cursor-pointer disabled:opacity-50"
           >
-            <Database className="w-3 h-3 text-emerald-400" />
-            <span>{neonSyncLoading ? 'Synchro Neon...' : 'Actualiser Neon'}</span>
+            <RefreshCw className={`w-3 h-3 text-cyan-400 ${supabaseSyncLoading ? 'animate-spin' : ''}`} />
+            <span>{supabaseSyncLoading ? 'Synchro Supabase...' : 'Actualiser Supabase'}</span>
           </button>
 
           <button
@@ -3856,8 +3722,8 @@ export default function AdminPanel({
             </form>
           </div>
 
-          {/* NEON POSTGRESQL DATABASE MANAGEMENT */}
-          <div id="neon-db-section" className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-5 col-span-1 lg:col-span-2 shadow-xl">
+          {/* SUPABASE CLOUD DATABASE MANAGEMENT */}
+          <div id="supabase-db-section" className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-5 col-span-1 lg:col-span-2 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
               <div className="flex items-center space-x-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -3865,40 +3731,33 @@ export default function AdminPanel({
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
-                    <span>Base de Données Principale (Neon PostgreSQL)</span>
+                    <span>Base de Données Cloud (Supabase PostgreSQL)</span>
                     <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono border border-emerald-500/30">
-                      neondb
+                      sjvyhnxklgsgprgkihrr
                     </span>
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Connexion serveur sécurisée via Connection Pooling SSL. Les identifiants ne sont jamais exposés au client.
+                    Synchronisation temps réel complète entre le site, les comptes utilisateurs et l'administration.
                   </p>
                 </div>
               </div>
 
               <div>
-                {serverDiag?.neonConfigured ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    DATABASE_URL Configurée
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                    En attente de DATABASE_URL
-                  </span>
-                )}
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Supabase Connecté
+                </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
               <button
                 type="button"
-                onClick={handleTestNeon}
-                disabled={neonTesting || neonSyncLoading}
+                onClick={handleTestSupabase}
+                disabled={supabaseTesting || supabaseSyncLoading}
                 className="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
               >
-                {neonTesting ? (
+                {supabaseTesting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     <span>Test en cours...</span>
@@ -3906,144 +3765,90 @@ export default function AdminPanel({
                 ) : (
                   <>
                     <Zap className="w-4 h-4 text-emerald-200" />
-                    <span>Tester Connexion</span>
+                    <span>Tester Connexion Supabase</span>
                   </>
                 )}
               </button>
 
               <button
                 type="button"
-                onClick={handleInitNeonTables}
-                disabled={neonTesting || neonSyncLoading}
-                className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 text-slate-200 hover:text-white font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-slate-700 cursor-pointer"
-              >
-                {neonSyncLoading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Traitement SQL...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    <span>Créer / Vérifier Tables</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handlePushToNeon}
-                disabled={neonTesting || neonSyncLoading}
+                onClick={handlePushToSupabase}
+                disabled={supabaseTesting || supabaseSyncLoading}
                 className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 text-slate-200 hover:text-white font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-slate-700 cursor-pointer"
               >
                 <Save className="w-4 h-4 text-yellow-400" />
-                <span>Pousser vers Neon</span>
+                <span>Pousser Données vers Supabase</span>
               </button>
 
               <button
                 type="button"
-                onClick={handleLivePullNeon}
-                disabled={neonTesting || neonSyncLoading}
-                className="py-2.5 px-3.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/50 text-emerald-300 hover:text-emerald-200 font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                onClick={handleLivePullSupabase}
+                disabled={supabaseTesting || supabaseSyncLoading}
+                className="py-2.5 px-3.5 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/50 text-cyan-300 hover:text-cyan-200 font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
               >
-                <RefreshCw className={`w-4 h-4 text-emerald-400 ${neonSyncLoading ? 'animate-spin' : ''}`} />
-                <span>Récupérer Réel de Neon</span>
+                <RefreshCw className={`w-4 h-4 text-cyan-400 ${supabaseSyncLoading ? 'animate-spin' : ''}`} />
+                <span>Récupérer Réel de Supabase</span>
               </button>
             </div>
 
             {/* Test result display */}
-            {neonTestResult && (
+            {supabaseTestResult && (
               <div className={`p-3.5 rounded-xl border text-xs mb-3 font-mono leading-relaxed ${
-                neonTestResult.ok 
+                supabaseTestResult.ok 
                   ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200' 
-                  : 'bg-red-950/40 border-red-500/40 text-red-200'
+                  : 'bg-amber-950/40 border-amber-500/40 text-amber-200'
               }`}>
                 <div className="font-bold mb-1 flex items-center gap-2">
-                  <span>{neonTestResult.ok ? '✅ SUCCÈS :' : '❌ ERREUR :'}</span>
-                  <span>{neonTestResult.message}</span>
+                  <span>{supabaseTestResult.ok ? '✅ SUCCÈS :' : '⚠️ INFORMATION :'}</span>
+                  <span>{supabaseTestResult.message}</span>
                 </div>
-                {neonTestResult.ok && (
+                {supabaseTestResult.database && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-emerald-800/40 text-[11px]">
-                    <div><span className="text-slate-400">Base:</span> <span className="text-white font-bold">{neonTestResult.database}</span></div>
-                    <div><span className="text-slate-400">Hôte:</span> <span className="text-white font-bold">{neonTestResult.host}</span></div>
-                    <div><span className="text-slate-400">Utilisateur:</span> <span className="text-white font-bold">{neonTestResult.user}</span></div>
-                    <div><span className="text-slate-400">Tables trouvées:</span> <span className="text-white font-bold">{neonTestResult.tablesCount}</span></div>
+                    <div><span className="text-slate-400">Projet:</span> <span className="text-white font-bold">{supabaseTestResult.project || 'sjvyhnxklgsgprgkihrr'}</span></div>
+                    <div><span className="text-slate-400">Tables trouvées:</span> <span className="text-white font-bold">{supabaseTestResult.tablesCount}</span></div>
+                    <div><span className="text-slate-400">Table Store:</span> <span className="text-white font-bold">{supabaseTestResult.storeTableExists ? 'Oui' : 'Non'}</span></div>
+                    <div><span className="text-slate-400">Table Users:</span> <span className="text-white font-bold">{supabaseTestResult.usersTableExists ? 'Oui' : 'Non'}</span></div>
                   </div>
                 )}
               </div>
             )}
 
             {/* Sync feedback */}
-            {neonSyncResult && (
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono">
-                {neonSyncResult}
+            {supabaseSyncResult && (
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono mb-3">
+                {supabaseSyncResult}
               </div>
             )}
-          </div>
 
-          {/* FIREBASE FIRESTORE REALTIME DATABASE MANAGEMENT */}
-          <div id="firestore-db-section" className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-5 col-span-1 lg:col-span-2 shadow-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                  <Flame className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
-                    <span>Base de Données Temps Réel (Firebase Firestore)</span>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono border border-amber-500/30">
-                      nutrien-d5378
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Synchronisation NoSQL en direct (onSnapshot). Nouveaux inscrits, retraits, dépôts et investissements s'actualisent instantanément entre tous les téléphones et cet écran.
-                  </p>
-                </div>
+            {/* Schema execution info */}
+            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-slate-200 flex items-center gap-2">
+                  <span>📄</span>
+                  <span>Structure SQL Complète (supabase_schema.sql)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetch('/supabase_schema.sql')
+                      .then(r => r.text())
+                      .then(sql => {
+                        navigator.clipboard.writeText(sql);
+                        alert("✅ Script SQL copié dans le presse-papiers ! Collez-le dans le SQL Editor de Supabase.");
+                      })
+                      .catch(() => {
+                        alert("Le script SQL se trouve dans le fichier supabase_schema.sql à la racine du projet.");
+                      });
+                  }}
+                  className="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded text-[11px] font-mono cursor-pointer"
+                >
+                  📋 Copier le Script SQL
+                </button>
               </div>
-
-              <div>
-                {firestoreConnected ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                    Connecté en Temps Réel 🔥
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                    <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                    Clé API : nutrien-d5378
-                  </span>
-                )}
-              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Le fichier <code className="text-emerald-300 font-mono">supabase_schema.sql</code> contient toutes les tables relationnelles (<code className="text-slate-300">store, users, deposits, withdrawals, investments, products, commissions, notifications</code>) ainsi que les politiques RLS et la publication temps réel.
+              </p>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-              <button
-                type="button"
-                onClick={handlePushToFirestore}
-                disabled={firestoreLoading}
-                className="py-2.5 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-slate-950 font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-              >
-                <Save className="w-4 h-4 text-slate-950" />
-                <span>Pousser les données locales vers Firestore</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLivePullFirestore}
-                disabled={firestoreLoading}
-                className="py-2.5 px-3.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/60 border border-amber-500/50 text-amber-300 hover:text-amber-200 font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-              >
-                <RefreshCw className={`w-4 h-4 text-amber-400 ${firestoreLoading ? 'animate-spin' : ''}`} />
-                <span>Récupérer Réel de Firestore (onSnapshot)</span>
-              </button>
-            </div>
-
-            {/* Sync feedback */}
-            {firestoreSyncResult && (
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono mb-2">
-                {firestoreSyncResult}
-              </div>
-            )}
           </div>
 
           {/* BASE DE DONNÉES & MAINTENANCE */}

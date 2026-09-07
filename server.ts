@@ -5,18 +5,24 @@ import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import {
-  getNeonPool,
-  testNeonConnection,
-  initAllNeonTables,
-  fetchNeonStoreData,
-  saveNeonStoreBatch,
-  syncRelationalTables,
-  fetchLiveNeonCounts,
-  sanitizeDatabaseUrl,
-  insertNeonForumPost,
-  deleteNeonForumPost,
-  deleteNeonUser
-} from "./server_neon";
+  getSupabaseAdminClient,
+  getSupabaseUrl,
+  getSupabaseServiceKey,
+  testSupabaseConnection,
+  fetchSupabaseStoreData,
+  saveSupabaseStoreBatch,
+  syncSupabaseRelationalTables,
+  fetchLiveSupabaseCounts,
+  sanitizeSupabaseUrl,
+  insertSupabaseForumPost,
+  deleteSupabaseForumPost,
+  deleteSupabaseUser,
+  deleteSupabaseInvestment,
+  upsertSupabaseUser,
+  upsertSupabaseDeposit,
+  upsertSupabaseWithdrawal,
+  upsertSupabaseInvestment
+} from "./server_supabase";
 
 dotenv.config();
 
@@ -24,14 +30,12 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  const rawUrl = (process.env.SUPABASE_URL || "").trim();
-  const rawKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  const hasValidSupabaseEnv = Boolean(rawUrl && rawKey && !rawUrl.includes("ajluqalpxchoshqieuyj") && rawUrl.startsWith("http"));
-  const supabaseUrl = hasValidSupabaseEnv ? rawUrl : "";
-  const supabaseKey = hasValidSupabaseEnv ? rawKey : "";
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = getSupabaseServiceKey();
+  const hasValidSupabaseEnv = Boolean(supabaseUrl && supabaseKey && supabaseUrl.startsWith("http"));
   
-  let supabase: any = null;
-  let supabaseEnabled = hasValidSupabaseEnv;
+  let supabase: any = getSupabaseAdminClient();
+  let supabaseEnabled = Boolean(supabase);
   let supabaseLastRetry = 0;
   let lastSupabaseErrorLog = 0;
   const SUPABASE_RETRY_INTERVAL = 180000; // 3 minutes backoff on failure
@@ -134,15 +138,8 @@ CREATE POLICY "Allow anon full access" ON public.store FOR ALL TO anon USING (tr
     supabaseLastRetry = now + SUPABASE_RETRY_INTERVAL;
   };
 
-  if (hasValidSupabaseEnv && supabaseUrl && supabaseKey) {
-    try {
-      supabase = createClient(supabaseUrl, supabaseKey);
-      console.log("[SUPABASE] Connected successfully to direct cloud database.");
-    } catch (e) {
-      console.error("[SUPABASE ERROR] Connection initialization failed:", e);
-      supabase = null;
-      supabaseEnabled = false;
-    }
+  if (supabase) {
+    console.log("[SUPABASE] Connected successfully to direct cloud database:", sanitizeSupabaseUrl(supabaseUrl));
   } else {
     console.log("[STORAGE] Operating in local database mode (db.json).");
   }
@@ -1024,68 +1021,26 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
     }
 
-    // Run active cloud sync relay in background (Neon PostgreSQL first, Supabase fallback)
+    // Run active cloud sync relay in background (Supabase Cloud PostgreSQL)
     Promise.resolve().then(async () => {
-      // 1. Neon PostgreSQL Priority Check
-      const neonPool = getNeonPool();
-      if (neonPool) {
-        try {
-          console.log("[SERVER STARTUP] Neon PostgreSQL détecté. Vérification de la connexion...");
-          const neonTest = await testNeonConnection();
-          if (neonTest.ok) {
-            console.log(`[SERVER STARTUP] ✅ Connecté avec succès à Neon PostgreSQL (BD: ${neonTest.database}) !`);
-            await initAllNeonTables();
-            const neonData = await fetchNeonStoreData();
-            if (neonData && Object.keys(neonData).length > 0) {
-              console.log(`[SERVER STARTUP] ${Object.keys(neonData).length} clés récupérées depuis Neon PostgreSQL.`);
-              mergeData(neonData);
-            } else {
-              console.log("[SERVER STARTUP] La table Neon 'store' est vide. Synchronisation initiale de db.json vers Neon...");
-              await saveStore();
-            }
-            syncRelationalTables(storeData).catch((err) => console.warn('[NEON RELATIONAL SYNC]', err.message));
-            console.log("[SERVER STARTUP] Neon PostgreSQL est configuré et actif comme base de données principale !");
-            return;
-          } else {
-            console.warn("[SERVER STARTUP] Échec du test de connexion Neon PostgreSQL:", neonTest.message);
-          }
-        } catch (e: any) {
-          console.error("[SERVER STARTUP] Exception lors de l'initialisation Neon:", e.message);
-        }
-      }
-
-      // 2. Supabase Fallback
-      if (!isSupabaseReady()) {
-        console.log("[SERVER STARTUP] Ni Neon ni Supabase actif. Fonctionnement sécurisé sur la base de données locale db.json.");
-        return;
-      }
       try {
-        console.log("[SERVER STARTUP] Fetching state from Supabase 'store' table...");
-        const { data, error } = await withTimeout(supabase.from('store').select('*'), 3000);
-        if (error) {
-          if (error.message && (error.message.includes('relation "store" does not exist') || error.message.includes('Could not find the table') || error.message.includes('schema cache'))) {
-            console.warn("\n======================================================================");
-            console.warn("[SUPABASE NOTICE] La table 'store' n'existe pas encore dans votre base de données Supabase !");
-            console.warn("Veuillez vous rendre dans le Dashboard Supabase (onglet SQL Editor) et exécuter le script SQL suivant :");
-            console.warn("\nCREATE TABLE store (\n  key TEXT PRIMARY KEY,\n  value JSONB NOT NULL,\n  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL\n);\n");
-            console.warn("L'application utilise actuellement la copie de sauvegarde locale db.json tant que la table n'est pas configurée.");
-            console.warn("======================================================================\n");
+        console.log("[SERVER STARTUP] Supabase Cloud détecté. Vérification de la connexion...");
+        const sbTest = await testSupabaseConnection();
+        if (sbTest.ok) {
+          console.log(`[SERVER STARTUP] ✅ Connecté avec succès à Supabase Cloud (${sbTest.tablesCount} tables disponibles) !`);
+          const sbData = await fetchSupabaseStoreData();
+          if (sbData && Object.keys(sbData).length > 0) {
+            console.log(`[SERVER STARTUP] ${Object.keys(sbData).length} clés récupérées depuis Supabase Cloud.`);
+            mergeData(sbData);
           } else {
-            handleSupabaseError(error, "[SERVER STARTUP] initial pull");
-          }
-        } else if (data && Array.isArray(data)) {
-          console.log(`[SERVER STARTUP] Successfully fetched ${data.length} keys from Supabase.`);
-          const kvData: Record<string, any> = {};
-          for (const item of data) {
-            kvData[item.key] = item.value;
-          }
-          if (Object.keys(kvData).length > 0) {
-            console.log("[SERVER STARTUP] Merging Supabase cloud database keys into local runtime...");
-            mergeData(kvData);
-          } else {
-            console.log("[SERVER STARTUP] Supabase 'store' table is empty. Initializing Supabase with local db.json backup data...");
+            console.log("[SERVER STARTUP] La base Supabase est vide ou en cours d'initialisation. Envoi de l'état initial local vers Supabase...");
             await saveStore();
           }
+          syncSupabaseRelationalTables(storeData).catch((err) => console.warn('[SUPABASE RELATIONAL SYNC WARN]', err?.message || err));
+          console.log("[SERVER STARTUP] Supabase Cloud est configuré et actif comme base de données principale !");
+        } else {
+          console.warn("[SERVER STARTUP] Information connexion Supabase:", sbTest.message);
+          console.log("[SERVER STARTUP] Fonctionnement résilient sur db.json en attendant la configuration des tables Supabase.");
         }
 
         // Force correct WhatsApp links even after merging Supabase keys
@@ -1110,8 +1065,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
 
         console.log("[SERVER STARTUP] Database successfully loaded without running automatic account purges.");
-      } catch (e) {
-        console.error("[SERVER STARTUP] Supabase initial pull failed:", e);
+      } catch (e: any) {
+        console.error("[SERVER STARTUP] Supabase initial pull failed:", e?.message || e);
       }
     });
   }
@@ -1176,9 +1131,9 @@ const SERVER_DEFAULT_PRODUCTS = [
   }
 
   async function saveStoreRemote(specificKeys?: string[]): Promise<void> {
-    // 1. Neon PostgreSQL Priority (Direct pooled PostgreSQL connection)
-    const neonPool = getNeonPool();
-    if (neonPool) {
+    // 1. Direct Supabase Service Role Key batch save
+    const sbClient = getSupabaseAdminClient();
+    if (sbClient) {
       try {
         const keys = specificKeys || Object.keys(storeData);
         const validKeys = keys.filter(k => storeData[k] !== undefined);
@@ -1187,20 +1142,20 @@ const SERVER_DEFAULT_PRODUCTS = [
             key,
             value: storeData[key]
           }));
-          const savedOk = await saveNeonStoreBatch(rowsToUpsert);
+          const savedOk = await saveSupabaseStoreBatch(rowsToUpsert);
           if (savedOk) {
             saveStoreLocal();
-            // Background sync to relational tables
-            syncRelationalTables(storeData).catch(() => {});
+            // Background sync to relational tables (users, deposits, withdrawals, etc.)
+            syncSupabaseRelationalTables(storeData).catch(() => {});
             return;
           }
         }
       } catch (e: any) {
-        console.warn('[NEON SAVE ERROR]', e.message);
+        console.warn('[SUPABASE BATCH SAVE ERROR]', e?.message || e);
       }
     }
 
-    // 2. Supabase Fallback (if Neon not configured)
+    // 2. Secondary client fallback
     if (!isSupabaseReady()) return;
     
     try {
@@ -1583,6 +1538,15 @@ const SERVER_DEFAULT_PRODUCTS = [
 
   // Load store on startup
   loadStore();
+
+  // Synchronize initial authoritative data from Supabase Cloud on startup
+  syncFromSupabaseIfAvailable(true).then((synced) => {
+    if (synced) {
+      console.log("[STARTUP] Authoritative data synchronized from Supabase Cloud.");
+    }
+  }).catch((err: any) => {
+    console.warn("[STARTUP] Supabase initial pull notice:", err?.message || err);
+  });
 
   // Automated 24/7 background processing of investment earnings and cycle payouts every 60 seconds
   setInterval(async () => {
@@ -2172,7 +2136,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
       }
 
-      const hasNeon = Boolean(process.env.DATABASE_URL?.trim());
+      const sbClient = getSupabaseAdminClient();
       res.json({
         success: true,
         totalUsersInMem: usersInMem.length,
@@ -2180,10 +2144,10 @@ const SERVER_DEFAULT_PRODUCTS = [
         timestamp: Date.now(),
         dbPath,
         dbExists: exists,
-        databaseType: hasNeon ? "neon_postgresql" : (supabase ? "supabase" : "local_db_json"),
-        neonConfigured: hasNeon,
+        databaseType: "supabase",
+        supabaseConfigured: !!sbClient,
         supabaseStatus,
-        supabaseUrl: supabaseUrl ? supabaseUrl.replace(/([^/]*\/\/)[^.]*(.*)/, '$1***$2') : "aucun",
+        supabaseUrl: sanitizeSupabaseUrl(),
         storeTableAccessible,
         storeTableError
       });
@@ -2192,37 +2156,61 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
   });
 
-  // Neon PostgreSQL Diagnostics and Test Route
-  app.get("/api/neon/test", async (req, res) => {
+  // Endpoint to serve the Supabase SQL schema script
+  app.get("/api/supabase/schema", (req, res) => {
+    const schemaPath = path.join(process.cwd(), "supabase_schema.sql");
+    if (fs.existsSync(schemaPath)) {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.sendFile(schemaPath);
+    }
+    return res.status(404).send("-- Schema file not found");
+  });
+
+  app.get("/supabase_schema.sql", (req, res) => {
+    const schemaPath = path.join(process.cwd(), "supabase_schema.sql");
+    if (fs.existsSync(schemaPath)) {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.sendFile(schemaPath);
+    }
+    return res.status(404).send("-- Schema file not found");
+  });
+
+  // Supabase Cloud PostgreSQL Diagnostics and Test Route
+  app.get("/api/supabase/test", async (req, res) => {
     try {
-      const result = await testNeonConnection();
+      const result = await testSupabaseConnection();
       res.json(result);
     } catch (e: any) {
-      res.status(500).json({ ok: false, message: e.message });
+      res.status(500).json({ ok: false, message: e?.message || String(e) });
+    }
+  });
+
+  // Neon compatibility alias redirecting to Supabase
+  app.get("/api/neon/test", async (req, res) => {
+    try {
+      const result = await testSupabaseConnection();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ ok: false, message: e?.message || String(e) });
     }
   });
 
   // General Database Status Route
   app.get("/api/db-status", async (req, res) => {
     try {
-      const hasNeon = Boolean(process.env.DATABASE_URL?.trim());
-      let neonTest: any = null;
-      if (hasNeon) {
-        neonTest = await testNeonConnection();
+      const sbClient = getSupabaseAdminClient();
+      let sbTest: any = null;
+      if (sbClient) {
+        sbTest = await testSupabaseConnection();
       }
 
       res.json({
-        primaryDatabase: hasNeon ? "Neon PostgreSQL" : (hasValidSupabaseEnv ? "Supabase" : "Local db.json"),
-        neon: {
-          configured: hasNeon,
-          sanitizedUrl: sanitizeDatabaseUrl(process.env.DATABASE_URL),
-          connected: neonTest ? neonTest.ok : false,
-          details: neonTest
-        },
+        primaryDatabase: "Supabase Cloud PostgreSQL",
         supabase: {
-          configured: hasValidSupabaseEnv,
-          enabled: supabaseEnabled,
-          url: supabaseUrl ? supabaseUrl.replace(/([^/]*\/\/)[^.]*(.*)/, '$1***$2') : "aucun"
+          configured: !!sbClient,
+          url: sanitizeSupabaseUrl(),
+          connected: sbTest ? sbTest.ok : false,
+          details: sbTest
         },
         localStorage: {
           path: dbPath,
@@ -2234,81 +2222,79 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
       });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: e?.message || String(e) });
     }
   });
 
-  // Neon Table Creation and Initialization
-  app.post("/api/neon/init-tables", async (req, res) => {
+  // Supabase Full Sync Trigger (Push/Pull)
+  app.post("/api/supabase/sync", async (req, res) => {
     try {
-      const initRes = await initAllNeonTables();
-      if (initRes.success) {
-        await syncRelationalTables(storeData);
-      }
-      res.json(initRes);
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
-    }
-  });
-
-  // Neon Full Sync Trigger
-  app.post("/api/neon/sync", async (req, res) => {
-    try {
-      const p = getNeonPool();
-      if (!p) {
-        return res.status(400).json({ success: false, message: "DATABASE_URL n'est pas configurée." });
+      const client = getSupabaseAdminClient();
+      if (!client) {
+        return res.status(400).json({ success: false, message: "Supabase n'est pas initialisé (vérifiez SUPABASE_SERVICE_ROLE_KEY)." });
       }
       const direction = req.body?.direction || 'push';
       if (direction === 'pull') {
-        const data = await fetchNeonStoreData();
+        const data = await fetchSupabaseStoreData();
         if (data && Object.keys(data).length > 0) {
           mergeData(data);
           saveStoreLocal();
-          return res.json({ success: true, message: `Synchronisé depuis Neon (${Object.keys(data).length} clés).` });
+          return res.json({ success: true, message: `Synchronisé depuis Supabase (${Object.keys(data).length} clés).` });
         }
-        return res.json({ success: false, message: "Aucune donnée trouvée dans Neon." });
+        return res.json({ success: false, message: "Aucune donnée trouvée dans Supabase." });
       } else {
         await saveStore();
-        await syncRelationalTables(storeData);
-        return res.json({ success: true, message: "Données locales synchronisées avec succès vers Neon PostgreSQL." });
+        await syncSupabaseRelationalTables(storeData);
+        return res.json({ success: true, message: "Données locales synchronisées avec succès vers Supabase Cloud." });
       }
     } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+      res.status(500).json({ success: false, message: e?.message || String(e) });
     }
   });
 
-  let lastNeonSyncTime = 0;
-  const NEON_MIN_PULL_INTERVAL = 600; // ms
+  // Neon sync alias for backwards compatibility
+  app.post("/api/neon/sync", async (req, res) => {
+    try {
+      await saveStore();
+      await syncSupabaseRelationalTables(storeData);
+      return res.json({ success: true, message: "Données synchronisées avec succès vers Supabase." });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e?.message || String(e) });
+    }
+  });
 
-  async function syncFromNeonIfAvailable(force: boolean = false): Promise<boolean> {
-    const neonPool = getNeonPool();
-    if (!neonPool) return false;
+  let lastSupabasePullTime = 0;
+  const SUPABASE_MIN_PULL_INTERVAL = 800; // ms
+
+  async function syncFromSupabaseIfAvailable(force: boolean = false): Promise<boolean> {
+    const client = getSupabaseAdminClient();
+    if (!client) return false;
     const now = Date.now();
-    if (!force && (now - lastNeonSyncTime < NEON_MIN_PULL_INTERVAL)) {
+    if (!force && (now - lastSupabasePullTime < SUPABASE_MIN_PULL_INTERVAL)) {
       return true;
     }
     try {
-      const neonData = await fetchNeonStoreData();
-      if (neonData && Object.keys(neonData).length > 0) {
-        for (const key of Object.keys(neonData)) {
-          if (neonData[key] !== undefined && neonData[key] !== null) {
-            storeData[key] = neonData[key];
+      const sbData = await fetchSupabaseStoreData();
+      if (sbData && Object.keys(sbData).length > 0) {
+        for (const key of Object.keys(sbData)) {
+          if (sbData[key] !== undefined && sbData[key] !== null) {
+            storeData[key] = sbData[key];
           }
         }
         saveStoreLocal();
-        lastNeonSyncTime = Date.now();
+        lastSupabaseSyncTime = Date.now();
         return true;
       }
     } catch (err: any) {
-      console.warn("[NEON LIVE PULL WARN]", err.message);
+      console.warn("[SUPABASE LIVE PULL WARN]", err?.message || err);
     }
     return false;
   }
 
   app.get("/api/get-store", async (req, res) => {
-    // 1. Authoritative real-time sync with Neon PostgreSQL
+    // 1. Authoritative real-time sync with Supabase Cloud
     const forceFresh = req.query.fresh === 'true';
-    await syncFromNeonIfAvailable(forceFresh);
+    await syncFromSupabaseIfAvailable(forceFresh);
 
     // Process automatic daily earnings on the server to stay fully up-to-date
     try {
@@ -2360,22 +2346,22 @@ const SERVER_DEFAULT_PRODUCTS = [
     res.json(storeData);
   });
 
-  app.get("/api/neon/live-sync", async (req, res) => {
+  app.get("/api/supabase/live-sync", async (req, res) => {
     try {
-      const neonPool = getNeonPool();
-      if (!neonPool) {
+      const client = getSupabaseAdminClient();
+      if (!client) {
         return res.json({
           success: false,
           configured: false,
-          message: "Neon PostgreSQL non configuré (variable DATABASE_URL manquante)."
+          message: "Supabase non configuré (client indisponible)."
         });
       }
-      await syncFromNeonIfAvailable(true);
-      const counts = await fetchLiveNeonCounts();
+      await syncFromSupabaseIfAvailable(true);
+      const counts = await fetchLiveSupabaseCounts();
       return res.json({
         success: true,
         configured: true,
-        message: "Synchronisation directe avec Neon PostgreSQL réussie.",
+        message: "Synchronisation directe avec Supabase réussie.",
         counts,
         usersCount: Array.isArray(storeData["gi_users"]) ? storeData["gi_users"].length : 0,
         depositsCount: Array.isArray(storeData["gi_deposits"]) ? storeData["gi_deposits"].length : 0,
@@ -2384,7 +2370,28 @@ const SERVER_DEFAULT_PRODUCTS = [
         investmentsCount: Array.isArray(storeData["gi_investments"]) ? storeData["gi_investments"].length : 0
       });
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err.message });
+      return res.status(500).json({ success: false, message: err?.message || String(err) });
+    }
+  });
+
+  // Neon compatibility alias
+  app.get("/api/neon/live-sync", async (req, res) => {
+    try {
+      await syncFromSupabaseIfAvailable(true);
+      const counts = await fetchLiveSupabaseCounts();
+      return res.json({
+        success: true,
+        configured: true,
+        message: "Synchronisation directe avec Supabase réussie.",
+        counts,
+        usersCount: Array.isArray(storeData["gi_users"]) ? storeData["gi_users"].length : 0,
+        depositsCount: Array.isArray(storeData["gi_deposits"]) ? storeData["gi_deposits"].length : 0,
+        withdrawalsCount: Array.isArray(storeData["gi_withdrawals"]) ? storeData["gi_withdrawals"].length : 0,
+        productsCount: Array.isArray(storeData["gi_products"]) ? storeData["gi_products"].length : 0,
+        investmentsCount: Array.isArray(storeData["gi_investments"]) ? storeData["gi_investments"].length : 0
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err?.message || String(err) });
     }
   });
 
@@ -2855,6 +2862,7 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
       storeData["gi_notifications"] = notifications;
 
+      upsertSupabaseUser(newUser).catch(() => {});
       await saveStore(["gi_users", "gi_notifications"]);
       res.json({ success: true, user: newUser, message: 'Inscription réussie.' });
     } catch (error: any) {
@@ -2866,7 +2874,7 @@ const SERVER_DEFAULT_PRODUCTS = [
   // Centralized Login API
   app.post("/api/login", async (req, res) => {
     const { whatsapp, password } = req.body;
-    triggerBackgroundSupabaseSync();
+    await syncFromSupabaseIfAvailable(false);
     let users = storeData["gi_users"] || [];
     
     const user = users.find((u: any) => {
@@ -5015,7 +5023,7 @@ const SERVER_DEFAULT_PRODUCTS = [
   // Dedicated Forum endpoints for immediate cross-user synchronization
   app.get("/api/forum/posts", async (req, res) => {
     try {
-      await syncFromNeonIfAvailable(false);
+      await syncFromSupabaseIfAvailable(false);
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
       const rawPosts = storeData["gi_forum_posts"] || [];
@@ -5087,9 +5095,9 @@ const SERVER_DEFAULT_PRODUCTS = [
 
       storeData["gi_forum_posts"] = deduped;
 
-      // Direct synchronous insert into Neon's relational table
-      await insertNeonForumPost(enrichedPost).catch((e) => {
-        console.warn("[NEON FORUM INSERT BG WARN]", e);
+      // Direct synchronous insert into Supabase
+      await insertSupabaseForumPost(enrichedPost).catch((e) => {
+        console.warn("[SUPABASE FORUM INSERT BG WARN]", e);
       });
 
       // Save to store and local JSON
@@ -5120,9 +5128,9 @@ const SERVER_DEFAULT_PRODUCTS = [
 
       storeData["gi_forum_posts"] = forumPosts.filter((p: any) => p && String(p.id) !== String(postId));
 
-      // Direct delete from Neon relational table
-      await deleteNeonForumPost(String(postId)).catch((e) => {
-        console.warn("[NEON FORUM DELETE BG WARN]", e);
+      // Direct delete from Supabase
+      await deleteSupabaseForumPost(String(postId)).catch((e) => {
+        console.warn("[SUPABASE FORUM DELETE BG WARN]", e);
       });
 
       await saveStore(["gi_forum_posts", "gi_deleted_forum_posts"]);
@@ -5265,21 +5273,12 @@ const SERVER_DEFAULT_PRODUCTS = [
         users[uIdx].totalRecharged = (Number(users[uIdx].totalRecharged) || 0) + deposits[idx].amount;
         users[uIdx].lastModified = Date.now();
 
-        // Direct update to Neon
+        // Direct update to Supabase Cloud
         try {
-          const p = getNeonPool();
-          if (p) {
-            await p.query(
-              `UPDATE public.deposits SET status = 'approved', approved_at = $1, last_modified = $2 WHERE id = $3;`,
-              [deposits[idx].approvedAt, deposits[idx].lastModified, depositId]
-            );
-            await p.query(
-              `UPDATE public.users SET balance = $1, total_recharged = $2, last_modified = $3 WHERE id = $4;`,
-              [users[uIdx].balance, users[uIdx].totalRecharged, users[uIdx].lastModified, deposits[idx].userId]
-            );
-          }
+          upsertSupabaseDeposit(deposits[idx]).catch((e) => console.warn('[SUPABASE DEPOSIT APPROVE WARN]', e));
+          upsertSupabaseUser(users[uIdx]).catch((e) => console.warn('[SUPABASE USER UPDATE WARN]', e));
         } catch (e: any) {
-          console.warn('[NEON DEPOSIT APPROVE WARN]', e.message);
+          console.warn('[SUPABASE DEPOSIT APPROVE WARN]', e?.message || e);
         }
       }
       notifications.unshift({
@@ -5302,15 +5301,9 @@ const SERVER_DEFAULT_PRODUCTS = [
       deposits[idx].lastModified = Date.now();
 
       try {
-        const p = getNeonPool();
-        if (p) {
-          await p.query(
-            `UPDATE public.deposits SET status = 'rejected', last_modified = $1 WHERE id = $2;`,
-            [deposits[idx].lastModified, depositId]
-          );
-        }
+        upsertSupabaseDeposit(deposits[idx]).catch((e) => console.warn('[SUPABASE DEPOSIT REJECT WARN]', e));
       } catch (e: any) {
-        console.warn('[NEON DEPOSIT REJECT WARN]', e.message);
+        console.warn('[SUPABASE DEPOSIT REJECT WARN]', e?.message || e);
       }
 
       notifications.unshift({
@@ -5358,20 +5351,12 @@ const SERVER_DEFAULT_PRODUCTS = [
         users[uIdx].totalWithdrawn = (Number(users[uIdx].totalWithdrawn) || 0) + withdrawal.amount;
         users[uIdx].lastModified = Date.now();
 
+        // Direct update to Supabase Cloud
         try {
-          const p = getNeonPool();
-          if (p) {
-            await p.query(
-              `UPDATE public.withdrawals SET status = 'approved', processed_at = $1, last_modified = $2 WHERE id = $3;`,
-              [withdrawals[idx].processedAt, withdrawals[idx].lastModified, withdrawalId]
-            );
-            await p.query(
-              `UPDATE public.users SET total_withdrawn = $1, last_modified = $2 WHERE id = $3;`,
-              [users[uIdx].totalWithdrawn, users[uIdx].lastModified, withdrawal.userId]
-            );
-          }
+          upsertSupabaseWithdrawal(withdrawals[idx]).catch((e) => console.warn('[SUPABASE WITHDRAW APPROVE WARN]', e));
+          upsertSupabaseUser(users[uIdx]).catch((e) => console.warn('[SUPABASE USER UPDATE WARN]', e));
         } catch (e: any) {
-          console.warn('[NEON WITHDRAW APPROVE WARN]', e.message);
+          console.warn('[SUPABASE WITHDRAW APPROVE WARN]', e?.message || e);
         }
       }
 
@@ -5394,19 +5379,10 @@ const SERVER_DEFAULT_PRODUCTS = [
         users[uIdx].lastModified = Date.now();
 
         try {
-          const p = getNeonPool();
-          if (p) {
-            await p.query(
-              `UPDATE public.withdrawals SET status = 'rejected', last_modified = $1 WHERE id = $2;`,
-              [withdrawals[idx].lastModified, withdrawalId]
-            );
-            await p.query(
-              `UPDATE public.users SET balance = $1, last_modified = $2 WHERE id = $3;`,
-              [users[uIdx].balance, users[uIdx].lastModified, withdrawals[idx].userId]
-            );
-          }
+          upsertSupabaseWithdrawal(withdrawals[idx]).catch((e) => console.warn('[SUPABASE WITHDRAW REJECT WARN]', e));
+          upsertSupabaseUser(users[uIdx]).catch((e) => console.warn('[SUPABASE USER RESTORE WARN]', e));
         } catch (e: any) {
-          console.warn('[NEON WITHDRAW REJECT WARN]', e.message);
+          console.warn('[SUPABASE WITHDRAW REJECT WARN]', e?.message || e);
         }
       }
       notifications.unshift({
@@ -5466,26 +5442,11 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
       users[idx].lastModified = Date.now();
 
-      // Immediate update to Neon PostgreSQL
+      // Immediate update to Supabase Cloud
       try {
-        const p = getNeonPool();
-        if (p) {
-          await p.query(
-            `UPDATE public.users 
-             SET balance = $1, is_blocked = $2, role = $3, referred_by = $4, last_modified = $5
-             WHERE id = $6;`,
-            [
-              users[idx].balance || 0,
-              Boolean(users[idx].isBlocked),
-              users[idx].role || 'user',
-              users[idx].referredBy || null,
-              users[idx].lastModified,
-              userId
-            ]
-          );
-        }
+        upsertSupabaseUser(users[idx]).catch((e) => console.warn('[SUPABASE USER UPDATE WARN]', e));
       } catch (e: any) {
-        console.warn('[NEON UPDATE USER WARN]', e.message);
+        console.warn('[SUPABASE UPDATE USER WARN]', e?.message || e);
       }
 
       await saveStore();
@@ -5532,17 +5493,11 @@ const SERVER_DEFAULT_PRODUCTS = [
     storeData["gi_users"] = users;
     storeData["gi_notifications"] = notifications;
 
-    // Direct update to Neon
+    // Direct update to Supabase Cloud
     try {
-      const p = getNeonPool();
-      if (p) {
-        await p.query(
-          `UPDATE public.users SET balance = $1, total_earnings = $2, last_modified = $3 WHERE id = $4;`,
-          [users[idx].balance, users[idx].totalEarnings || 0, users[idx].lastModified, userId]
-        );
-      }
+      upsertSupabaseUser(users[idx]).catch((e) => console.warn('[SUPABASE CREDIT USER WARN]', e));
     } catch (e: any) {
-      console.warn('[NEON CREDIT USER WARN]', e.message);
+      console.warn('[SUPABASE CREDIT USER WARN]', e?.message || e);
     }
 
     await saveStore();
@@ -5557,17 +5512,11 @@ const SERVER_DEFAULT_PRODUCTS = [
       users[idx].isBlocked = Boolean(isBlocked);
       users[idx].lastModified = Date.now();
 
-      // Direct update to Neon
+      // Direct update to Supabase Cloud
       try {
-        const p = getNeonPool();
-        if (p) {
-          await p.query(
-            `UPDATE public.users SET is_blocked = $1, last_modified = $2 WHERE id = $3;`,
-            [Boolean(isBlocked), users[idx].lastModified, userId]
-          );
-        }
+        upsertSupabaseUser(users[idx]).catch((e) => console.warn('[SUPABASE BLOCK USER WARN]', e));
       } catch (e: any) {
-        console.warn('[NEON BLOCK USER WARN]', e.message);
+        console.warn('[SUPABASE BLOCK USER WARN]', e?.message || e);
       }
 
       await saveStore();
@@ -5622,11 +5571,11 @@ const SERVER_DEFAULT_PRODUCTS = [
       storeData["gi_withdrawal_proofs"] = storeData["gi_withdrawal_proofs"].filter((p: any) => p.userId !== userId);
     }
 
-    // Purge completely from Neon PostgreSQL
+    // Purge completely from Supabase Cloud
     try {
-      await deleteNeonUser(userId);
+      await deleteSupabaseUser(userId);
     } catch (e: any) {
-      console.warn('[NEON DELETE USER ERROR]', e.message);
+      console.warn('[SUPABASE DELETE USER ERROR]', e?.message || e);
     }
 
     await saveStore();
@@ -5662,6 +5611,9 @@ const SERVER_DEFAULT_PRODUCTS = [
       users[uIdx].lastModified = Date.now();
       storeData["gi_users"] = users;
     }
+
+    // Direct delete from Supabase Cloud
+    deleteSupabaseInvestment(investmentId).catch((e) => console.warn('[SUPABASE DELETE INV WARN]', e));
 
     await saveStore();
     res.json({ success: true, investments, users });
