@@ -460,41 +460,54 @@ const DEFAULT_CATEGORY_SCHEDULES: Record<string, any> = {
     closeTime: "20:00",
     enabled: true,
     lastModified: Date.now()
+  },
+  withdrawals: {
+    mode: "auto",
+    openTime: "09:00",
+    closeTime: "17:00",
+    enabled: true,
+    lastModified: Date.now()
   }
 };
 
-function evaluateCategorySchedule(category: 'wellbeing' | 'activity', schedulesObj?: any, date: Date = new Date()): {
+function evaluateCategorySchedule(category: 'wellbeing' | 'activity' | 'withdrawals', schedulesObj?: any, date: Date = new Date()): {
   isOpen: boolean;
   statusLabel: 'OUVERT' | 'FERMÉ';
   reason: string;
 } {
-  const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Activité';
+  const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activité' : 'Retraits';
   const schedules = schedulesObj || DEFAULT_CATEGORY_SCHEDULES;
   const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
 
   if (!schedule) {
-    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts.` };
+    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les opérations pour ${catLabel} sont ouvertes.` };
   }
 
   if (schedule.mode === 'open') {
-    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts.` };
+    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les opérations pour ${catLabel} sont ouvertes.` };
   }
 
   if (schedule.mode === 'closed') {
-    return { isOpen: false, statusLabel: 'FERMÉ', reason: 'Ce produit est temporairement indisponible pour le moment.' };
+    return { 
+      isOpen: false, 
+      statusLabel: 'FERMÉ', 
+      reason: category === 'withdrawals' 
+        ? 'Les retraits sont actuellement fermés par l\'administration.' 
+        : 'Ce produit est temporairement indisponible pour le moment.' 
+    };
   }
 
   // mode === 'auto'
   if (!schedule.enabled) {
-    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts.` };
+    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les opérations pour ${catLabel} sont ouvertes.` };
   }
 
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const currentHM = `${hours}:${minutes}`;
 
-  const openTime = schedule.openTime || '08:00';
-  const closeTime = schedule.closeTime || '20:00';
+  const openTime = schedule.openTime || (category === 'withdrawals' ? '09:00' : '08:00');
+  const closeTime = schedule.closeTime || (category === 'withdrawals' ? '17:00' : '20:00');
 
   let open = false;
   if (openTime <= closeTime) {
@@ -504,9 +517,21 @@ function evaluateCategorySchedule(category: 'wellbeing' | 'activity', schedulesO
   }
 
   if (open) {
-    return { isOpen: true, statusLabel: 'OUVERT', reason: `Les achats pour les produits ${catLabel} sont ouverts (${openTime} - ${closeTime}).` };
+    return { 
+      isOpen: true, 
+      statusLabel: 'OUVERT', 
+      reason: category === 'withdrawals'
+        ? `Les retraits sont ouverts (${openTime} - ${closeTime}).`
+        : `Les achats pour les produits ${catLabel} sont ouverts (${openTime} - ${closeTime}).` 
+    };
   } else {
-    return { isOpen: false, statusLabel: 'FERMÉ', reason: 'Ce produit est temporairement indisponible pour le moment.' };
+    return { 
+      isOpen: false, 
+      statusLabel: 'FERMÉ', 
+      reason: category === 'withdrawals'
+        ? `Les retraits sont disponibles de ${openTime} à ${closeTime}. Actuellement fermés.`
+        : 'Ce produit est temporairement indisponible pour le moment.' 
+    };
   }
 }
 
@@ -2984,58 +3009,12 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
     }
 
-    // Condition d'achat: Bien-être et Activités
-    const isSpecialCategory = targetProduct.category === 'wellbeing' || targetProduct.category === 'activity';
-    if (isSpecialCategory) {
-      const userInvs = investments.filter((inv: any) => inv.userId === userId);
-      const categoryLabel = targetProduct.category === 'wellbeing' ? 'Bien-être' : 'Activités';
-
-      // 1. Empêcher toute nouvelle activation tant que le cycle précédent n’est pas terminé et réglé
-      const activeInCategory = userInvs.find((inv: any) => inv.category === targetProduct.category && inv.status === 'active');
-      if (activeInCategory) {
-        return res.json({
-          success: false,
-          message: `Vous avez déjà un cycle en cours pour la catégorie ${categoryLabel}. Veuillez attendre l'échéance de ce cycle pour pouvoir activer un nouveau produit.`
-        });
-      }
-
-      // 2. Condition de base : Avoir au moins un investissement Stabilité VIP
-      const stabilityInvs = userInvs.filter((inv: any) => inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')));
-      if (stabilityInvs.length === 0) {
-        return res.json({
-          success: false,
-          message: `Un investissement préalable dans un produit Stabilité VIP est requis avant de pouvoir souscrire à un produit ${categoryLabel}.`
-        });
-      }
-
-      // 3. Une fois le cycle terminé et le revenu total versé, l’utilisateur doit effectuer un nouvel investissement avant de pouvoir activer un nouveau produit Bien-être ou Activités
-      const completedInCategory = userInvs.filter((inv: any) => inv.category === targetProduct.category && inv.status === 'completed');
-      if (completedInCategory.length > 0) {
-        // Find the most recently completed cycle of this category
-        const latestCompleted = [...completedInCategory].sort((a: any, b: any) => {
-          const timeA = new Date(a.createdAt).getTime();
-          const timeB = new Date(b.createdAt).getTime();
-          return timeB - timeA;
-        })[0];
-
-        const latestCycleCreationTime = new Date(latestCompleted.createdAt).getTime();
-
-        // Check if a new stability investment was made after the latest cycle was started
-        const hasNewStabilityInvestment = stabilityInvs.some((inv: any) => new Date(inv.createdAt).getTime() > latestCycleCreationTime);
-        const totalCategoryAttempts = userInvs.filter((inv: any) => inv.category === targetProduct.category).length;
-        const hasUnusedStability = stabilityInvs.length > totalCategoryAttempts;
-
-        if (!hasNewStabilityInvestment && !hasUnusedStability) {
-          return res.json({
-            success: false,
-            message: `Un nouvel investissement dans la catégorie Stabilité VIP est requis avant de pouvoir activer un nouveau produit ${categoryLabel}.`
-          });
-        }
-      }
-    }
+    // Règle 5 : Un même utilisateur peut acheter plusieurs produits Activité, Bien-être et Stabilité.
+    // Les horaires d'ouverture et de fermeture définis par l'administration sont strictement respectés (Règle 6).
 
     const isCyclicProduct = true; // All investments are cyclic now
 
+    // Règle 1 : Lorsqu'un utilisateur paie un produit, le montant est immédiatement déduit de son solde.
     user.balance -= targetProduct.price;
     if (!isCyclicProduct) {
       user.dailyEarnings += targetProduct.dailyReturn;
@@ -3053,7 +3032,8 @@ const SERVER_DEFAULT_PRODUCTS = [
       durationDays: targetProduct.durationDays,
       totalReturnClaimed: 0,
       lastClaimDate: new Date().toISOString(),
-      status: 'active',
+      status: 'pending_activation', // Ne pas afficher ni compter un produit comme Actif simplement parce qu'il a été payé
+      activationConditionsMet: false,
       lastModified: Date.now(),
       createdAt: new Date().toISOString(),
       category: targetProduct.category || 'stability',
@@ -3072,8 +3052,8 @@ const SERVER_DEFAULT_PRODUCTS = [
     notifications.unshift({
       id: `not-plan-${Date.now()}`,
       userId,
-      title: 'Plan activé avec succès !',
-      message: `Votre investissement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a bien été pris en compte. Vous gagnerez ${targetProduct.dailyReturn.toLocaleString()} XOF chaque jour pendant ${targetProduct.durationDays} jours.`,
+      title: 'Plan souscrit (En attente d\'activation)',
+      message: `Votre paiement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.`,
       type: 'plan',
       lastModified: Date.now(),
       createdAt: new Date().toISOString(),
@@ -3086,20 +3066,77 @@ const SERVER_DEFAULT_PRODUCTS = [
     storeData["gi_notifications"] = notifications;
 
     await saveStore(["gi_users", "gi_investments", "gi_commissions", "gi_notifications"]);
-    res.json({ success: true, message: `Vous avez investi avec succès dans le plan ${targetProduct.name} !`, user });
+
+    // Synchronisation directe du statut avec Supabase (Règle 7)
+    try {
+      upsertSupabaseUser(user).catch(e => console.warn('[SUPABASE BUY USER SYNC WARN]', e));
+      upsertSupabaseInvestment(newInvestment).catch(e => console.warn('[SUPABASE BUY INV SYNC WARN]', e));
+    } catch (e: any) {
+      console.warn('[SUPABASE BUY SYNC WARN]', e);
+    }
+
+    res.json({ success: true, message: `Paiement validé pour le plan ${targetProduct.name} ! Le produit est en attente d'activation selon les conditions requises.`, user, investment: newInvestment });
   });
 
-  // Endpoints pour la gestion des horaires d'ouverture Bien-être et Activités
+  // Endpoint pour activer un produit payé lorsque les conditions sont remplies (synchronisé avec Supabase)
+  app.post("/api/activate-investment", async (req, res) => {
+    const { investmentId, adminOverride } = req.body || {};
+    let investments = storeData["gi_investments"] || [];
+    const invIdx = investments.findIndex((i: any) => i.id === investmentId);
+    if (invIdx === -1) {
+      return res.json({ success: false, message: "Produit souscrit introuvable." });
+    }
+    const inv = investments[invIdx];
+    if (inv.status === 'active') {
+      return res.json({ success: true, message: "Ce produit est déjà actif.", investment: inv });
+    }
+
+    inv.status = 'active';
+    inv.activationConditionsMet = true;
+    inv.activatedAt = new Date().toISOString();
+    inv.lastModified = Date.now();
+    investments[invIdx] = inv;
+    storeData["gi_investments"] = investments;
+    await saveStore(["gi_investments"]);
+
+    // Notification utilisateur
+    let notifications = storeData["gi_notifications"] || [];
+    notifications.unshift({
+      id: `not-act-${Date.now()}`,
+      userId: inv.userId,
+      title: 'Produit activé ! ⚡',
+      message: `Toutes les conditions d'activation pour le plan ${inv.productName} (${inv.price?.toLocaleString()} XOF) sont désormais remplies. Votre produit est maintenant actif et génère vos rendements !`,
+      type: 'plan',
+      lastModified: Date.now(),
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+    storeData["gi_notifications"] = notifications;
+    await saveStore(["gi_notifications"]);
+
+    // Synchronisation directe avec Supabase
+    try {
+      await upsertSupabaseInvestment(inv);
+    } catch (e) {
+      console.warn('[SUPABASE ACTIVATE INV SYNC WARN]', e);
+    }
+
+    return res.json({ success: true, message: `Le produit "${inv.productName}" est désormais ACTIF !`, investment: inv });
+  });
+
+  // Endpoints pour la gestion des horaires d'ouverture Bien-être, Activités et Retraits
   app.get("/api/category-schedules", (req, res) => {
     const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
     const wellbeingStatus = evaluateCategorySchedule('wellbeing', schedules);
     const activityStatus = evaluateCategorySchedule('activity', schedules);
+    const withdrawalsStatus = evaluateCategorySchedule('withdrawals', schedules);
     res.json({
       success: true,
       schedules,
       status: {
         wellbeing: wellbeingStatus,
-        activity: activityStatus
+        activity: activityStatus,
+        withdrawals: withdrawalsStatus
       },
       serverTime: new Date().toISOString()
     });
@@ -3114,7 +3151,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         ...currentSchedules,
         ...schedules
       };
-    } else if (category && (category === 'wellbeing' || category === 'activity') && schedule) {
+    } else if (category && (category === 'wellbeing' || category === 'activity' || category === 'withdrawals') && schedule) {
       currentSchedules[category] = {
         ...currentSchedules[category],
         ...schedule,
@@ -3127,13 +3164,15 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     const wellbeingStatus = evaluateCategorySchedule('wellbeing', currentSchedules);
     const activityStatus = evaluateCategorySchedule('activity', currentSchedules);
+    const withdrawalsStatus = evaluateCategorySchedule('withdrawals', currentSchedules);
 
     res.json({
       success: true,
       schedules: currentSchedules,
       status: {
         wellbeing: wellbeingStatus,
-        activity: activityStatus
+        activity: activityStatus,
+        withdrawals: withdrawalsStatus
       }
     });
   });
@@ -4831,22 +4870,26 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
 
     const user = users[uIdx];
+
+    // Règle 3 : Un retrait est impossible si l’utilisateur n’a pas encore lié son compte de retrait.
+    if (!user.bankCardNumber || !user.bankCardOperator || String(user.bankCardNumber).trim().length < 4) {
+      return res.json({ 
+        success: false, 
+        error: "Retrait impossible : Vous n'avez pas encore lié votre compte de retrait. Veuillez configurer et lier votre compte de retrait (Numéro et Opérateur) dans vos paramètres avant d'effectuer cette opération." 
+      });
+    }
+
+    // Règle 6 : Respect strict des horaires d'ouverture et de fermeture définis par l'administration
+    const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
+    const wthScheduleStatus = evaluateCategorySchedule('withdrawals', schedules);
+    if (!wthScheduleStatus.isOpen) {
+      return res.json({ success: false, error: wthScheduleStatus.reason });
+    }
     
     // Check if user has an active product
     const activeInvs = (storeData["gi_investments"] || []).filter((inv: any) => inv.userId === userId && inv.status === 'active');
     if (activeInvs.length === 0) {
       return res.json({ success: false, error: "Vous devez posséder au moins un produit d'investissement actif pour pouvoir effectuer un retrait." });
-    }
-    
-    // Validate withdrawal window (09h00 to 17h00)
-    // We can check server time, but client timezone can be passed or we check standard hour
-    const now = new Date();
-    // Convert to West Africa Time (WAT: UTC+1) / GMT which represents target audience
-    const utcHour = now.getUTCHours();
-    const watHour = (utcHour + 1) % 24; 
-    
-    if (watHour < 9 || watHour >= 17) {
-      return res.json({ success: false, error: 'Les retraits sont disponibles uniquement entre 09h00 et 17h00 (Heure Afrique de l\'Ouest / UTC+1).' });
     }
 
     if (amount < 1000) {
@@ -4897,6 +4940,15 @@ const SERVER_DEFAULT_PRODUCTS = [
     storeData["gi_notifications"] = notifications;
 
     await saveStore();
+
+    // Règle 7 : Synchronisation Supabase
+    try {
+      upsertSupabaseUser(user).catch(e => console.warn('[SUPABASE WTH USER SYNC WARN]', e));
+      upsertSupabaseWithdrawal(newWth).catch(e => console.warn('[SUPABASE WTH SYNC WARN]', e));
+    } catch (e: any) {
+      console.warn('[SUPABASE WTH SYNC EXCEPTION]', e);
+    }
+
     res.json({ success: true, withdrawal: newWth, user });
   });
 
@@ -4995,10 +5047,10 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     let updatedMsgs = [...msgs];
     if (sender === 'admin') {
-      // Mark preceding user messages as replied when the admin posts a response
+      // Lorsqu’un administrateur répond à un message, celui-ci est automatiquement marqué comme lu (Règle 2)
       updatedMsgs = msgs.map((m: any) => {
-        if (m.userId === userId && m.sender === 'user' && m.status !== 'replied') {
-          return { ...m, status: 'replied', lastModified: Date.now() };
+        if (m.userId === userId && m.sender === 'user') {
+          return { ...m, status: 'read', lastModified: Date.now() };
         }
         return m;
       });

@@ -27,20 +27,24 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
 
   const isActivity = investment.category === 'activity';
   const isWellbeing = investment.category === 'wellbeing';
+  const isPendingActivation = investment.status === 'pending_activation';
   const isCompleted = investment.status === 'completed' || investment.daysPassed >= investment.durationDays;
+  const isActive = investment.status === 'active' && !isCompleted;
 
   // Progression calculations
   const duration = Math.max(1, investment.durationDays || 1);
-  const daysPassed = Math.min(duration, Math.max(0, investment.daysPassed || 0));
+  const daysPassed = isPendingActivation ? 0 : Math.min(duration, Math.max(0, investment.daysPassed || 0));
   const daysRemaining = Math.max(0, duration - daysPassed);
-  const totalProgressPercent = isCompleted 
+  const totalProgressPercent = isPendingActivation 
+    ? 0 
+    : isCompleted 
     ? 100 
     : Math.min(100, Math.max(0, Math.round((daysPassed / duration) * 100)));
 
   // Financial return calculations
   const expectedProfit = (investment.dailyReturn || 0) * duration;
   const totalExpectedPayout = investment.totalReturn || ((investment.price || 0) + expectedProfit);
-  const earnedSoFar = (investment.dailyReturn || 0) * daysPassed;
+  const earnedSoFar = isPendingActivation ? 0 : (investment.dailyReturn || 0) * daysPassed;
 
   // Category badge metadata
   const categoryLabel = isWellbeing
@@ -102,15 +106,20 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
 
         {/* Statut Badge */}
         <div className="shrink-0">
-          {isCompleted ? (
+          {isPendingActivation ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-xs">
+              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>{t("En attente d'activation", "Pending Activation")}</span>
+            </div>
+          ) : isCompleted ? (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs">
               <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>{t('Terminé', 'Completed')}</span>
             </div>
           ) : (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase bg-amber-400/15 text-amber-300 border border-amber-400/30 shadow-xs">
-              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-spin-slow" />
-              <span>{t('En cours', 'In progress')}</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-xs">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>{t('Actif ⚡', 'Active ⚡')}</span>
             </div>
           )}
         </div>
@@ -122,15 +131,23 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
         <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider">
           <span className="text-slate-300 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>{t('Progression du plan', 'Plan progression')}</span>
+            <span>{isPendingActivation ? t("Vérification des conditions", "Checking conditions") : t('Progression du plan', 'Plan progression')}</span>
           </span>
           <div className="flex items-center gap-2 font-mono">
-            <span className="text-slate-400 font-semibold text-[11px]">
-              {daysPassed} / {duration} {t('jours', 'days')}
-            </span>
-            <span className="text-amber-300 font-black text-sm bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/25">
-              {totalProgressPercent}%
-            </span>
+            {isPendingActivation ? (
+              <span className="text-amber-300 font-bold text-[11px] bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/25">
+                {t("Conditions en attente", "Conditions pending")}
+              </span>
+            ) : (
+              <>
+                <span className="text-slate-400 font-semibold text-[11px]">
+                  {daysPassed} / {duration} {t('jours', 'days')}
+                </span>
+                <span className="text-amber-300 font-black text-sm bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/25">
+                  {totalProgressPercent}%
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -138,18 +155,24 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
         <div className="w-full bg-[#101b30] h-3 rounded-full overflow-hidden p-0.5 border border-[#192b4d] relative">
           <div
             className={`h-full rounded-full transition-all duration-700 ${
-              isCompleted
+              isPendingActivation
+                ? 'bg-gradient-to-r from-amber-600 to-yellow-500 w-full opacity-60'
+                : isCompleted
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
                 : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.4)]'
             }`}
-            style={{ width: `${totalProgressPercent}%` }}
+            style={{ width: isPendingActivation ? '100%' : `${totalProgressPercent}%` }}
           />
         </div>
 
         {/* Status note below progress bar */}
         <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
           <span>
-            {isCompleted ? (
+            {isPendingActivation ? (
+              <span className="text-amber-300/90 font-medium">
+                ⏳ {t("Produit payé : l'activation aura lieu lorsque les conditions prévues par le système seront remplies.", "Product paid: activation occurs when system conditions are met.")}
+              </span>
+            ) : isCompleted ? (
               <span className="text-emerald-400 font-bold flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" />
                 {t('Cycle de rendement atteint à 100%', 'Yield cycle 100% reached')}
@@ -161,7 +184,7 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
             )}
           </span>
           <span className="text-slate-400 font-medium">
-            {isCompleted ? t('Versement complet', 'Full payout') : t('Gain versé quotidiennement', 'Gain paid daily')}
+            {isPendingActivation ? t('Activation sous peu', 'Activation soon') : isCompleted ? t('Versement complet', 'Full payout') : t('Gain versé quotidiennement', 'Gain paid daily')}
           </span>
         </div>
       </div>

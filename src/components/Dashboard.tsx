@@ -64,7 +64,8 @@ import {
   CalendarCheck,
   Award,
   Flame,
-  UserCheck
+  UserCheck,
+  ExternalLink
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, Investment, Commission, SystemNotification, SupportMessage, WithdrawalProof } from '../types';
 import { DataStore, syncWithBackend, getApiUrl, apiFetch } from '../dataStore';
@@ -2051,10 +2052,18 @@ export default function Dashboard({
       return;
     }
 
+    const redirectUrl = DataStore.getOnlinePaymentLink();
+    // Ouvrir immédiatement la page de paiement dès le clic utilisateur pour garantir l'autorisation par le navigateur (évite le blocage popup après await)
+    try {
+      window.open(redirectUrl, '_blank');
+    } catch (popupErr) {
+      console.warn("Direct window.open notice:", popupErr);
+    }
+
     setIsSubmittingDeposit(true);
     try {
-      const reference = `WP-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
-      const formattedOperator = `WestPay (${depositCountry} ${depositCountryCode} ${depositPhone.trim()})`;
+      const reference = `SOC-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+      const formattedOperator = `SoccoPay (${depositCountry} ${depositCountryCode} ${depositPhone.trim()})`;
       let succeeded = false;
       try {
         const response = await apiFetch(getApiUrl('/api/create-deposit'), {
@@ -2067,7 +2076,7 @@ export default function Dashboard({
             amount: amt,
             operator: formattedOperator,
             reference: reference,
-            receiptImage: 'westpay_link'
+            receiptImage: 'soccopay_link'
           })
         });
         if (response && response.ok) {
@@ -2077,26 +2086,19 @@ export default function Dashboard({
           }
         }
       } catch (err) {
-        console.warn("[WestPay API failover] Server API failed, falling back to local/Supabase store:", err);
+        console.warn("[SoccoPay API failover] Server API failed, falling back to local/Supabase store:", err);
       }
 
-      const redirectUrl = "https://westpay.cfd/link/v0nzhwpvmrg3kto9";
-
       if (succeeded) {
-        setDepositRedirectUrl(redirectUrl);
-        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F en ligne a été enregistrée avec succès ! Veuillez cliquer sur le bouton ci-dessous pour effectuer le paiement de manière sécurisée.`);
-        try {
-          window.open(redirectUrl, '_blank');
-        } catch (popupErr) {
-          console.warn("Popup blocked, user needs to click button manually.", popupErr);
-        }
+        setDepositRedirectUrl('');
+        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! L'interface de paiement s'est ouverte automatiquement.`);
         syncDashboardData();
         if (typeof syncWithBackend === 'function') {
           syncWithBackend().catch(() => {});
         }
       } else {
         // --- CLIENT-SIDE FAILOVER STRATEGY ---
-        console.log("[WestPay Fallback] Executing robust direct-to-Supabase deposit register...");
+        console.log("[SoccoPay Fallback] Executing robust direct-to-Supabase deposit register...");
         
         const deposits = DataStore.getDeposits();
         const users = DataStore.getUsers();
@@ -2109,7 +2111,7 @@ export default function Dashboard({
           amount: amt,
           operator: formattedOperator,
           reference: reference,
-          receiptImage: 'westpay_link',
+          receiptImage: 'soccopay_link',
           status: 'pending' as const,
           lastModified: Date.now(),
           createdAt: new Date().toISOString()
@@ -2123,7 +2125,7 @@ export default function Dashboard({
           id: `not-dep-${Date.now()}`,
           userId: userState.id,
           title: 'Dépôt soumis',
-          message: `Votre demande de dépôt de ${amt.toLocaleString()} F en ligne (Réf: ${reference}) est en cours de vérification par l'administration.`,
+          message: `Votre demande de dépôt de ${amt.toLocaleString()} F en ligne via SoccoPay (Réf: ${reference}) est en cours de vérification par l'administration.`,
           type: 'deposit',
           lastModified: Date.now(),
           createdAt: new Date().toISOString(),
@@ -2131,17 +2133,12 @@ export default function Dashboard({
         });
         DataStore.saveNotifications(notifications);
 
-        setDepositRedirectUrl(redirectUrl);
-        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F en ligne a été enregistrée avec succès ! Veuillez cliquer sur le bouton ci-dessous pour effectuer le paiement de manière sécurisée.`);
-        try {
-          window.open(redirectUrl, '_blank');
-        } catch (popupErr) {
-          console.warn("Popup blocked, user needs to click button manually.", popupErr);
-        }
+        setDepositRedirectUrl('');
+        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! L'interface de paiement s'est ouverte automatiquement.`);
         syncDashboardData();
       }
     } catch (error: any) {
-      console.error("WestPay deposit error:", error);
+      console.error("SoccoPay deposit error:", error);
       setDepositError(`Erreur : ${error?.message || "Veuillez réessayer."}`);
     } finally {
       setIsSubmittingDeposit(false);
@@ -2241,6 +2238,21 @@ export default function Dashboard({
     setWithdrawError('');
     setWithdrawSuccess('');
 
+    // Règle : Un retrait est impossible si l’utilisateur n’a pas encore lié son compte de retrait.
+    const hasLinkedCard = !!(userState.bankCardNumber || localStorage.getItem('mdb_saved_number'));
+    if (!hasLinkedCard) {
+      setWithdrawError("Un retrait est impossible si vous n'avez pas encore lié votre compte de retrait. Veuillez lier votre compte de retrait avant d'effectuer cette opération.");
+      setIsBankCardModalOpen(true);
+      return;
+    }
+
+    // Règle : Respecter les horaires d'ouverture et de fermeture définis par l'administration
+    const wthSchedule = DataStore.isWithdrawalOpen();
+    if (!wthSchedule.isOpen) {
+      setWithdrawError(wthSchedule.reason || "Les retraits sont actuellement fermés par l'administration.");
+      return;
+    }
+
     if (DataStore.areWithdrawalsBlocked()) {
       setWithdrawError("Les retraits sont suspendus temporairement par l'administrateur système.");
       return;
@@ -2268,14 +2280,18 @@ export default function Dashboard({
       setWithdrawError(`Solde insuffisant. Vous disposez uniquement de ${userState.balance.toLocaleString()} ${getCurrency()}.`);
       return;
     }
-    if (!withdrawNumber.trim() || withdrawNumber.length < 8) {
-      setWithdrawError('Veuillez renseigner un numéro Mobile Money valide.');
+
+    const effectiveNumber = userState.bankCardNumber || localStorage.getItem('mdb_saved_number') || withdrawNumber;
+    const effectiveOperator = userState.bankCardOperator || localStorage.getItem('mdb_saved_operator') || withdrawOperator;
+
+    if (!effectiveNumber || effectiveNumber.trim().length < 6) {
+      setWithdrawError('Veuillez renseigner un numéro de réception valide sur votre compte lié.');
       return;
     }
 
     setIsSubmittingWithdrawal(true);
     try {
-      const res = await DataStore.createWithdrawal(userState.id, amt, withdrawOperator, withdrawNumber, withdrawProofBase64);
+      const res = await DataStore.createWithdrawal(userState.id, amt, effectiveOperator, effectiveNumber, withdrawProofBase64);
       if (res.success) {
         setWithdrawSuccess('Votre demande de retrait a été transmise ! Le solde a été mis à jour.');
         setWithdrawAmount('');
@@ -2403,14 +2419,14 @@ export default function Dashboard({
       }
     }
 
-    // 3. Solde suffisant et conditions validées : Confirmation d'activation
+    // 3. Solde suffisant et conditions validées : Confirmation de souscription
     openConfirm(
-      "Confirmer l'activation ?",
-      `Voulez-vous activer ce produit pour ${product.price.toLocaleString()} XOF ?`,
+      "Confirmer la souscription ?",
+      `Voulez-vous souscrire à ce produit pour ${product.price.toLocaleString()} XOF ?`,
       async () => {
         const res = await DataStore.buyProduct(userState.id, product.id);
         if (res.success) {
-          triggerToast('✅ Félicitations ! Votre produit a été activé avec succès.', 'success');
+          triggerToast('✅ Félicitations ! Votre paiement a été validé. Le produit est en attente d\'activation système.', 'success');
         } else {
           openAlert('Achat Échoué', res.message, 'error');
         }
@@ -5303,15 +5319,25 @@ export default function Dashboard({
                 <div className="absolute -bottom-12 -right-12 w-56 h-56 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none z-10" />
                 <div className="absolute -top-12 -left-12 w-56 h-56 bg-amber-600/20 rounded-full blur-3xl pointer-events-none z-10" />
                 
-                {/* Top content */}
-                <div className="relative z-20 flex justify-between items-start gap-2">
-                  <span className="bg-yellow-500/20 text-yellow-300 text-[9px] sm:text-[10px] font-sans font-black px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full uppercase tracking-wider select-none backdrop-blur-md">
-                    {t('OFFICIEL • MEMBRE VIP', 'OFFICIAL • VIP MEMBER')}
-                  </span>
-                  <div className="text-right bg-gradient-to-r from-[#ffe082] via-[#d4af37] to-[#aa7c11] px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-md select-all">
-                    <span className="text-[7.5px] sm:text-[9px] text-slate-950 font-sans font-black block leading-none uppercase tracking-widest text-right">{t('SOLDE ACTUEL', 'CURRENT BALANCE')}</span>
-                    <span className="text-xs sm:text-sm md:text-base font-sans font-black text-slate-950 block mt-0.5 font-mono leading-none">
-                      {userState.balance.toLocaleString()} F CFA
+                {/* Top content - Section Solde Actuel agrandie et visible */}
+                <div className="relative z-20 flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400"></span>
+                    </span>
+                    <span className="bg-slate-950/80 border border-yellow-500/30 text-yellow-300 text-[10px] sm:text-xs font-sans font-black px-3 py-1 rounded-full uppercase tracking-wider select-none backdrop-blur-md shadow-xs">
+                      {t('MEMBRE VIP', 'VIP MEMBER')}
+                    </span>
+                  </div>
+
+                  {/* Section Solde Actuel Agrandie, Pro & Responsive */}
+                  <div className="text-right bg-gradient-to-r from-[#ffe082] via-[#f59e0b] to-[#d97706] px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl shadow-xl border border-yellow-200/50 select-all backdrop-blur-sm transition-transform hover:scale-[1.02]">
+                    <span className="text-[9px] sm:text-[10px] text-slate-950 font-sans font-black block leading-none uppercase tracking-widest text-right">
+                      💰 {t('SOLDE ACTUEL', 'CURRENT BALANCE')}
+                    </span>
+                    <span className="text-base sm:text-xl md:text-2xl font-sans font-black text-slate-950 block mt-1 font-mono leading-none tracking-tight">
+                      {userState.balance.toLocaleString()} <span className="text-xs sm:text-sm font-sans font-extrabold">F CFA</span>
                     </span>
                   </div>
                 </div>
@@ -5490,8 +5516,9 @@ export default function Dashboard({
           {/* DEDICATED COMMANDE / ORDERS TRACKING TAB */}
           {!profileSubPage && activeTab === 'orders' && (() => {
             const activeInvs = activeInvestments.filter(i => i.status === 'active');
+            const pendingInvs = activeInvestments.filter(i => i.status === 'pending_activation');
             const totalInvested = activeInvestments.reduce((acc, i) => acc + (i.price || 0), 0);
-            const totalExpectedPayout = activeInvestments.reduce((acc, i) => {
+            const totalExpectedPayout = activeInvs.reduce((acc, i) => {
               const payout = (i as any).totalReturn || (i.price + ((i.dailyReturn || 0) * (i.durationDays || 0)));
               return acc + payout;
             }, 0);
@@ -5511,34 +5538,51 @@ export default function Dashboard({
                         </h2>
                       </div>
                       <p className="text-[11px] sm:text-xs text-rose-200/90 font-medium">
-                        {t('Suivi de vos produits activés : statut, progression et revenus.', 'Track your activated products: status, progression, and returns.')}
+                        {t('Suivi de vos produits : statut, progression et rendements.', 'Track your products: status, progression, and returns.')}
                       </p>
                     </div>
                   </div>
 
                   {/* Summary Metric Cards in Order Page */}
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-3 pt-2.5 border-t border-rose-700/40">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3 pt-2.5 border-t border-rose-700/40">
                     <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
-                      <span className="text-[10px] sm:text-[11px] text-rose-300 font-bold uppercase tracking-wider block">{t('Commandes Actives', 'Active Orders')}</span>
-                      <span className="text-xs sm:text-sm font-black text-white font-mono block mt-0.5">
+                      <span className="text-[10px] sm:text-[11px] text-emerald-300 font-bold uppercase tracking-wider block">{t('Produits Actifs ⚡', 'Active ⚡')}</span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono block mt-0.5">
                         {activeInvs.length}
                       </span>
                     </div>
                     <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
-                      <span className="text-[10px] sm:text-[11px] text-rose-300 font-bold uppercase tracking-wider block">{t('Revenu Total Prévu', 'Total Expected Return')}</span>
+                      <span className="text-[10px] sm:text-[11px] text-amber-300 font-bold uppercase tracking-wider block">{t('En Attente ⏳', 'Pending ⏳')}</span>
                       <span className="text-xs sm:text-sm font-black text-amber-300 font-mono block mt-0.5">
-                        {totalExpectedPayout.toLocaleString()} F CFA
+                        {pendingInvs.length}
+                      </span>
+                    </div>
+                    <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
+                      <span className="text-[10px] sm:text-[11px] text-rose-300 font-bold uppercase tracking-wider block">{t('Total Investi', 'Total Invested')}</span>
+                      <span className="text-xs sm:text-sm font-black text-white font-mono block mt-0.5">
+                        {totalInvested.toLocaleString()} F
                       </span>
                     </div>
                   </div>
                 </div>
+
+                {/* Notice if any pending activations */}
+                {pendingInvs.length > 0 && (
+                  <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-3 sm:p-3.5 flex items-start gap-2.5 text-amber-200 text-xs">
+                    <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-amber-300 block">{pendingInvs.length} produit(s) payé(s) en attente d'activation</span>
+                      <p className="text-[11px] text-slate-300 mt-0.5">Le paiement a été débité. Le produit passera actif dès validation des conditions d'activation prévues par le système.</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* List of Orders */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between px-1">
                     <h3 className="text-sm sm:text-base font-sans font-black text-white uppercase tracking-tight flex items-center gap-2">
                       <Clock className="w-4 h-4 text-amber-400" />
-                      {t('Produits Activés', 'Activated Products')} ({activeInvestments.length})
+                      {t('Tous les Produits Souscrits', 'All Subscribed Products')} ({activeInvestments.length})
                     </h3>
                   </div>
 
@@ -5908,10 +5952,10 @@ export default function Dashboard({
                 {/* DEPOSIT HEADER */}
                 <div className="text-center mb-6">
                   <span className="text-xs font-black text-amber-300 tracking-widest uppercase block mb-1">
-                    💸 CRÉDITER MON COMPTE
+                    💸 RECHARGE EN LIGNE SÉCURISÉE
                   </span>
                   <p className="text-xs text-rose-200 font-bold mt-1">
-                    Saisissez les détails de paiement pour effectuer votre recharge en ligne de manière sécurisée.
+                    Saisissez les détails de paiement pour effectuer votre recharge instantanée par Carte Bancaire ou Mobile Money.
                   </p>
                 </div>
 
@@ -5922,25 +5966,18 @@ export default function Dashboard({
                   </div>
                 )}
                 {depositSuccess && (
-                  <div className="mb-4 p-4 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-xs text-emerald-200 font-bold leading-normal space-y-2 animate-fade-in">
-                    <div className="flex items-center space-x-2">
+                  <div className="mb-4 p-4 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-xs text-emerald-200 font-bold leading-normal space-y-1.5 animate-fade-in text-center">
+                    <div className="flex items-center justify-center space-x-2 text-emerald-400">
                       <span className="text-base">✅</span>
-                      <span>{depositSuccess}</span>
+                      <span className="text-sm font-black uppercase tracking-wide">Demande enregistrée</span>
                     </div>
-                    {depositRedirectUrl && (
-                      <a
-                        href={depositRedirectUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 w-full py-3 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-sans text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 text-center block"
-                      >
-                        🔗 Ouvrir l'interface de paiement
-                      </a>
-                    )}
+                    <p className="text-xs text-emerald-100 font-medium">
+                      {depositSuccess}
+                    </p>
                   </div>
                 )}
 
-                  {/* ----------------- WESTPAY FORM ----------------- */}
+                  {/* ----------------- SOCCOPAY FORM ----------------- */}
                   <form onSubmit={submitDeposit} className="space-y-5 text-left animate-fade-in font-sans">
                     <div className="space-y-5">
                       {/* AMOUNT PRESETS */}
@@ -6053,7 +6090,7 @@ export default function Dashboard({
                               <span>Traitement en cours...</span>
                             </div>
                           ) : (
-                            <span>💳 Payer en ligne (Auto)</span>
+                            <span>💳 Payer maintenant</span>
                           )}
                         </button>
                       </div>
@@ -6086,6 +6123,27 @@ export default function Dashboard({
                   <span className="whitespace-nowrap">Relevé des renseignements</span>
                 </button>
               </div>
+
+              {/* WITHDRAWAL SCHEDULE & GLOBAL RESTRICTION ALERTS */}
+              {(() => {
+                const wthSched = DataStore.isWithdrawalOpen();
+                if (!wthSched.isOpen) {
+                  return (
+                    <div className="mb-4 p-4 rounded-xl bg-amber-950/90 border border-amber-500/60 text-xs md:text-sm text-amber-200 font-bold flex items-center gap-3 shadow-md">
+                      <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                      <div>
+                        <span className="font-black uppercase tracking-wider block text-amber-300">
+                          Horaires de Retrait Fermés
+                        </span>
+                        <span className="text-[11px] text-amber-200/90 font-medium block mt-0.5">
+                          {wthSched.reason || "Les retraits sont actuellement fermés par l'administration."}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {(DataStore.areWithdrawalsBlocked() || userState.withdrawBlocked) && (
                 <div className="mb-4 p-4 rounded-xl bg-slate-900/90 border border-amber-500/50 text-xs md:text-sm text-amber-200 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
@@ -6157,59 +6215,27 @@ export default function Dashboard({
                   }
 
                   return (
-                    <>
-                      {/* Operator select */}
-                      <div>
-                        <label className="block text-xs md:text-sm font-black text-rose-200 uppercase tracking-wider mb-2">Opérateur de réception</label>
-                        <select 
-                          value={withdrawOperator}
-                          onChange={(e) => setWithdrawOperator(e.target.value)}
-                          className="w-full bg-rose-950/70 border border-rose-700/60 hover:border-rose-500 focus:border-rose-400 rounded-xl py-3 px-4 text-sm text-white font-bold focus:outline-none cursor-pointer shadow-sm transition-colors"
-                        >
-                          <optgroup label="Togo 🇹🇬" className="bg-rose-950 text-white">
-                            <option value="T-Money (TG)">T-Money (TG)</option>
-                            <option value="Moov (TG)">Moov (TG)</option>
-                          </optgroup>
-                          <optgroup label="Cameroun 🇨🇲" className="bg-rose-950 text-white">
-                            <option value="MTN (CM)">MTN (CM)</option>
-                            <option value="Orange (CM)">Orange (CM)</option>
-                          </optgroup>
-                          <optgroup label="Côte d'Ivoire 🇨🇮" className="bg-rose-950 text-white">
-                            <option value="Wave (CI)">Wave (CI)</option>
-                            <option value="MTN (CI)">MTN (CI)</option>
-                            <option value="Orange (CI)">Orange (CI)</option>
-                            <option value="Moov (CI)">Moov (CI)</option>
-                          </optgroup>
-                          <optgroup label="Sénégal 🇸🇳" className="bg-rose-950 text-white">
-                            <option value="Wave (SN)">Wave (SN)</option>
-                            <option value="Orange (SN)">Orange (SN)</option>
-                            <option value="Free Money / Mixx (SN)">Free Money / Mixx (SN)</option>
-                          </optgroup>
-                          <optgroup label="Bénin 🇧🇯" className="bg-rose-950 text-white">
-                            <option value="MTN (BJ)">MTN (BJ)</option>
-                            <option value="Moov (BJ)">Moov (BJ)</option>
-                          </optgroup>
-                          <optgroup label="Burkina Faso 🇧🇫" className="bg-rose-950 text-white">
-                            <option value="Orange (BF)">Orange (BF)</option>
-                            <option value="Moov (BF)">Moov (BF)</option>
-                          </optgroup>
-                        </select>
+                    <div className="bg-amber-950/50 border-2 border-dashed border-amber-500/60 rounded-2xl p-5 text-center space-y-3">
+                      <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                        <CreditCard className="w-6 h-6" />
                       </div>
-
-                      {/* Target phone number with WhatsApp placeholder */}
                       <div>
-                        <label className="block text-xs md:text-sm font-black text-rose-200 uppercase tracking-wider mb-2">Numéro de téléphone de réception</label>
-                        <input
-                          type="tel"
-                          required
-                          placeholder="Ex: +228 90123456"
-                          value={withdrawNumber}
-                          onChange={(e) => setWithdrawNumber(e.target.value)}
-                          className="w-full bg-rose-950/70 border border-rose-700/60 hover:border-rose-500 focus:border-rose-400 rounded-xl py-3 px-4 text-sm text-white font-mono font-bold tracking-wider shadow-sm transition-colors placeholder:text-rose-400/50"
-                        />
-                        <span className="text-xs text-rose-300/75 block mt-1.5 font-bold">Assurez-vous que le numéro est actif et lié à un compte Mobile Money.</span>
+                        <h4 className="font-sans font-black text-white text-sm uppercase tracking-wider">
+                          Compte de Retrait Non Lié
+                        </h4>
+                        <p className="text-xs text-amber-200/90 font-medium mt-1 max-w-sm mx-auto">
+                          Un retrait est impossible si vous n'avez pas encore lié votre compte de retrait. Veuillez enregistrer vos coordonnées pour débloquer les retraits.
+                        </p>
                       </div>
-                    </>
+                      <button
+                        type="button"
+                        onClick={() => setIsBankCardModalOpen(true)}
+                        className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md hover:scale-105 transition-all cursor-pointer inline-flex items-center gap-2"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span>Lier mon compte de retrait maintenant</span>
+                      </button>
+                    </div>
                   );
                 })()}
 
@@ -6245,13 +6271,31 @@ export default function Dashboard({
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={isSubmittingWithdrawal}
-                  className="w-full py-4 text-white font-sans font-black text-sm uppercase tracking-widest bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] rounded-xl transition-all shadow-lg active:scale-95 text-center flex items-center justify-center border-none cursor-pointer disabled:opacity-50"
-                >
-                  {isSubmittingWithdrawal ? "Traitement en cours..." : "Envoyer la demande de Retrait"}
-                </button>
+                {(() => {
+                  const hasLinkedCard = !!(userState.bankCardNumber || localStorage.getItem('mdb_saved_number'));
+                  const wthSched = DataStore.isWithdrawalOpen();
+                  const isDisabled = isSubmittingWithdrawal || !hasLinkedCard || !wthSched.isOpen || DataStore.areWithdrawalsBlocked() || userState.withdrawBlocked;
+
+                  let buttonText = "Envoyer la demande de Retrait";
+                  if (isSubmittingWithdrawal) buttonText = "Traitement en cours...";
+                  else if (!hasLinkedCard) buttonText = "Lier un compte de retrait d'abord";
+                  else if (!wthSched.isOpen) buttonText = "Horaires de retraits fermés";
+
+                  return (
+                    <button
+                      type={hasLinkedCard ? "submit" : "button"}
+                      onClick={() => {
+                        if (!hasLinkedCard) {
+                          setIsBankCardModalOpen(true);
+                        }
+                      }}
+                      disabled={isDisabled && hasLinkedCard}
+                      className="w-full py-4 text-white font-sans font-black text-sm uppercase tracking-widest bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] rounded-xl transition-all shadow-lg active:scale-95 text-center flex items-center justify-center border-none cursor-pointer disabled:opacity-50"
+                    >
+                      {buttonText}
+                    </button>
+                  );
+                })()}
               </form>
 
               {/* RÈGLES ET CONDITIONS DE RETRAIT EN TIRÉ/BULLETS */}
@@ -6262,7 +6306,11 @@ export default function Dashboard({
                 <ul className="space-y-3 text-xs md:text-sm font-bold leading-relaxed text-rose-200">
                   <li className="flex items-start gap-2.5">
                     <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Disponibilité quotidienne :</strong> Les demandes de retrait peuvent être soumises tous les jours de la semaine sans exception.</span>
+                    <span><strong className="text-white">Compte de retrait obligatoire :</strong> Un retrait est strictement impossible si votre compte de retrait (Carte bancaire ou Mobile Money) n'est pas encore lié.</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
+                    <span><strong className="text-white">Horaires et créneaux autorisés :</strong> Les retraits respectent automatiquement les heures d'ouverture et de fermeture définies par l'administration.</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
@@ -7038,85 +7086,117 @@ export default function Dashboard({
               <div className="bg-transparent -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
                 <div className="max-w-md mx-auto w-full space-y-3">
                   
-                  {/* TOP WALLET / PROFILE STATS CARD */}
-                  <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm border border-slate-200 relative overflow-hidden text-slate-900" id="mon-compte-wallet-card">
+                  {/* TOP WALLET / PROFILE STATS CARD - ENLARGED & HIGH CONTRAST */}
+                  <div className="bg-gradient-to-br from-[#0c1629] via-[#0f1d38] to-[#1e293b] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-xl border-2 border-amber-500/40 relative overflow-hidden text-white" id="mon-compte-wallet-card">
+                    {/* Glowing background ambiance */}
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
+
                     {/* Header */}
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
-                        <Wallet className="w-4.5 h-4.5 stroke-[2.25]" />
+                    <div className="flex items-center justify-between gap-2.5 relative z-10">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center shadow-md font-black shrink-0">
+                          <Wallet className="w-5 h-5 stroke-[2.25]" />
+                        </div>
+                        <div>
+                          <h3 className="font-sans font-black text-sm sm:text-base text-white tracking-tight uppercase">
+                            Mon Portefeuille
+                          </h3>
+                          <span className="text-[10.5px] text-amber-300 font-bold uppercase tracking-wider block">
+                            Solde & Synthèse
+                          </span>
+                        </div>
                       </div>
-                      <h3 className="font-sans font-bold text-sm sm:text-base text-slate-900 tracking-tight">
-                        Mon portefeuille
-                      </h3>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setActiveTab('deposit')}
+                          className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                        >
+                          + Recharger
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('withdraw')}
+                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/40 font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer"
+                        >
+                          Retirer
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Balance */}
-                    <div className="mt-3 flex items-baseline">
-                      <span className="text-xs sm:text-sm font-medium text-slate-500">Équilibre:</span>
-                      <span className="ml-2 text-2xl sm:text-3xl font-black text-slate-950 font-sans tracking-tight">
-                        {userState.balance.toLocaleString()}
+                    {/* Balance - Enlarged */}
+                    <div className="mt-4 pt-3 pb-2 border-t border-slate-700/60 relative z-10">
+                      <span className="text-xs font-black text-amber-400 uppercase tracking-widest block">
+                        💰 SOLDE DISPONIBLE
                       </span>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className="text-3xl sm:text-4xl md:text-5xl font-black text-white font-mono tracking-tight drop-shadow-[0_2px_16px_rgba(245,158,11,0.25)]">
+                          {userState.balance.toLocaleString()}
+                        </span>
+                        <span className="text-base sm:text-xl font-black text-amber-300 font-sans">
+                          F CFA
+                        </span>
+                      </div>
                     </div>
 
                     {/* 6 Statistics in 3 Columns x 2 Rows Grid */}
-                    <div className="grid grid-cols-3 gap-x-2 gap-y-3.5 mt-4 pt-1 text-center border-t border-slate-100 pt-3">
+                    <div className="grid grid-cols-3 gap-x-2 gap-y-3 mt-3 pt-3 text-center border-t border-slate-700/60 relative z-10">
                       {/* 1. Daily Income */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-bold text-slate-950 font-sans block leading-tight">
-                          {todayEarned.toLocaleString()}
+                        <span className="text-sm sm:text-base font-black text-emerald-400 font-mono block leading-tight">
+                          +{todayEarned.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block leading-tight">
-                          Revenu aujourd'hui(XAF)
+                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                          Revenu aujourd'hui
                         </span>
                       </div>
 
                       {/* 2. Cumulative Income */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-bold text-slate-950 font-sans block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-amber-300 font-mono block leading-tight">
                           {totalProductRevenue.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block leading-tight">
-                          Revenu cumulé(XAF)
+                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                          Revenu cumulé
                         </span>
                       </div>
 
                       {/* 3. Daily Withdrawals */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-bold text-slate-950 font-sans block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-rose-300 font-mono block leading-tight">
                           {todayWithdrawals.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block leading-tight">
-                          Retirer aujourd'hui(XAF)
+                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                          Retirer aujourd'hui
                         </span>
                       </div>
 
                       {/* 4. Total Withdrawals */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-bold text-slate-950 font-sans block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-slate-200 font-mono block leading-tight">
                           {totalApprovedWithdrawals.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block leading-tight">
-                          Retraits totaux(XAF)
+                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                          Retraits totaux
                         </span>
                       </div>
 
                       {/* 5. Team Size */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-bold text-slate-950 font-sans block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-amber-200 font-mono block leading-tight">
                           {totalTeamSize}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block leading-tight">
+                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
                           Taille de l'équipe
                         </span>
                       </div>
 
                       {/* 6. Team Benefits */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-bold text-slate-950 font-sans block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-amber-400 font-mono block leading-tight">
                           {totalCommissions.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block leading-tight">
-                          Avantages pour l'équipe(XAF)
+                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                          Commissions d'équipe
                         </span>
                       </div>
                     </div>

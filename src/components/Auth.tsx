@@ -206,18 +206,16 @@ export default function Auth({
       setErrorMessage(t.whatsappRequired);
       return;
     }
-    setSendingOtp(true);
     setErrorMessage('');
     setSuccessMessage('');
     
-    setTimeout(() => {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      setSentOtpCode(code);
-      setOtpCode(code);
-      setSendingOtp(false);
-      setOtpCountdown(60);
-      setSuccessMessage(t.otpSentSuccess(code));
-    }, 1000);
+    // Immediate responsiveness without blocking or artificial delays
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setSentOtpCode(code);
+    setOtpCode(code);
+    setSendingOtp(false);
+    setOtpCountdown(60);
+    setSuccessMessage(t.otpSentSuccess(code));
   };
 
   // Form submission dispatcher

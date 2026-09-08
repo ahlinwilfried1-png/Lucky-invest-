@@ -135,10 +135,10 @@ export default function AdminPanel({
     setForumPosts(DataStore.getForumPosts());
   }, [proofsSubTab]);
 
-  // Category Schedules Management (Bien-être & Activités)
+  // Category & Operations Schedules Management (Bien-être, Activités & Retraits)
   const [categorySchedules, setCategorySchedules] = useState<CategorySchedules>(() => DataStore.getCategorySchedules());
   const [currentSystemTime, setCurrentSystemTime] = useState<Date>(new Date());
-  const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'activity' | null>(null);
+  const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'activity' | 'withdrawals' | null>(null);
   const [timeInputs, setTimeInputs] = useState({
     wellbeing: {
       openTime: categorySchedules.wellbeing?.openTime || '08:00',
@@ -149,6 +149,11 @@ export default function AdminPanel({
       openTime: categorySchedules.activity?.openTime || '08:00',
       closeTime: categorySchedules.activity?.closeTime || '20:00',
       enabled: categorySchedules.activity?.enabled ?? true
+    },
+    withdrawals: {
+      openTime: categorySchedules.withdrawals?.openTime || '09:00',
+      closeTime: categorySchedules.withdrawals?.closeTime || '17:00',
+      enabled: categorySchedules.withdrawals?.enabled ?? true
     }
   });
 
@@ -170,6 +175,11 @@ export default function AdminPanel({
           openTime: fresh.activity?.openTime || '08:00',
           closeTime: fresh.activity?.closeTime || '20:00',
           enabled: fresh.activity?.enabled ?? true
+        },
+        withdrawals: {
+          openTime: fresh.withdrawals?.openTime || '09:00',
+          closeTime: fresh.withdrawals?.closeTime || '17:00',
+          enabled: fresh.withdrawals?.enabled ?? true
         }
       });
     };
@@ -185,7 +195,7 @@ export default function AdminPanel({
   }, []);
 
   const handleUpdateCategorySchedule = async (
-    category: 'wellbeing' | 'activity',
+    category: 'wellbeing' | 'activity' | 'withdrawals',
     updates: Partial<CategorySchedule>
   ) => {
     setIsSavingSchedule(category);
@@ -204,7 +214,7 @@ export default function AdminPanel({
       setCategorySchedules(newSchedules);
       DataStore.saveCategorySchedules(newSchedules, true);
 
-      const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Activités';
+      const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activités' : 'Retraits';
       let actionLabel = 'mis à jour';
       if (updates.mode === 'open') actionLabel = 'ouverts immédiatement';
       else if (updates.mode === 'closed') actionLabel = 'fermés immédiatement';
@@ -212,7 +222,7 @@ export default function AdminPanel({
 
       setNotification({
         type: 'success',
-        message: `✨ Achats ${catLabel} ${actionLabel}. Synchronisé en direct avec tous les comptes utilisateurs.`
+        message: `✨ Opérations ${catLabel} ${actionLabel}. Enregistré et synchronisé avec Supabase.`
       });
       onRefreshData();
     } catch (e: any) {
@@ -263,6 +273,34 @@ export default function AdminPanel({
         }
       }
     });
+  };
+
+  const handleActivateInvestment = async (investmentId: string) => {
+    const inv = investments.find(i => i.id === investmentId);
+    if (!inv) return;
+
+    try {
+      const res = await DataStore.activateInvestment(investmentId);
+      if (res.success) {
+        setInvestments(prev => prev.map(i => i.id === investmentId ? { ...i, status: 'active', activationConditionsMet: true, activatedAt: new Date().toISOString() } : i));
+        onRefreshData();
+        setUsers(DataStore.getUsers());
+        setNotification({
+          message: `⚡ Le produit "${inv.productName}" a été activé avec succès et synchronisé avec Supabase !`,
+          type: "success"
+        });
+      } else {
+        setNotification({
+          message: res.message || "Erreur lors de l'activation du produit.",
+          type: "error"
+        });
+      }
+    } catch (err: any) {
+      setNotification({
+        message: "Erreur: " + err.message,
+        type: "error"
+      });
+    }
   };
 
   const handleDeleteProof = (proofId: string) => {
@@ -899,6 +937,7 @@ export default function AdminPanel({
   const [whatsappGroup, setWhatsappGroup] = useState<string>(() => DataStore.getWhatsAppGroup());
   const [whatsappChannel, setWhatsappChannel] = useState<string>(() => DataStore.getWhatsAppChannel());
   const [whatsappSupportNumber, setWhatsappSupportNumber] = useState<string>(() => DataStore.getWhatsAppSupportNumber());
+  const [onlinePaymentLink, setOnlinePaymentLink] = useState<string>(() => DataStore.getOnlinePaymentLink());
   const [manualDepositNumbers, setManualDepositNumbers] = useState<Record<string, string>>(() => DataStore.getManualDepositNumbers());
   const [canalsSuccess, setCanalsSuccess] = useState<string | null>(null);
 
@@ -916,12 +955,13 @@ export default function AdminPanel({
     DataStore.saveWhatsAppGroup(whatsappGroup);
     DataStore.saveWhatsAppChannel(whatsappChannel);
     DataStore.saveWhatsAppSupportNumber(whatsappSupportNumber);
+    DataStore.saveOnlinePaymentLink(onlinePaymentLink);
     DataStore.saveManualDepositNumbers(manualDepositNumbers);
     DataStore.saveOfficialBanners({
       image1: officialBanner1,
       image2: officialBanner2
     });
-    alert('Réglages système (MLM, domaine, WhatsApp, Support, Numéros Dépôt Manuel, Images Officielles) enregistrés avec succès !');
+    alert('Réglages système (MLM, domaine, WhatsApp, Support, Lien SoccoPay, Numéros Dépôt, Images) enregistrés avec succès !');
   };
 
   const handleSaveManualDepositNumbers = async (e: React.FormEvent) => {
@@ -2860,12 +2900,13 @@ export default function AdminPanel({
               </div>
             </div>
 
-            {/* Two Category Columns: Wellbeing and Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {(['wellbeing', 'activity'] as const).map((cat) => {
+            {/* Category & Operations Columns: Wellbeing, Activity and Withdrawals */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {(['wellbeing', 'activity', 'withdrawals'] as const).map((cat) => {
                 const sched = categorySchedules[cat] || DEFAULT_CATEGORY_SCHEDULES[cat];
-                const catLabel = cat === 'wellbeing' ? 'Bien-être' : 'Activité';
+                const catLabel = cat === 'wellbeing' ? 'Bien-être' : cat === 'activity' ? 'Activité' : 'Retraits';
                 const isWellbeing = cat === 'wellbeing';
+                const isActivity = cat === 'activity';
                 const status = DataStore.isCategoryOpen(cat, currentSystemTime);
                 const isSaving = isSavingSchedule === cat;
 
@@ -2885,17 +2926,21 @@ export default function AdminPanel({
                           <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
                             <Sparkles className="w-4 h-4" />
                           </div>
-                        ) : (
+                        ) : isActivity ? (
                           <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
                             <Flame className="w-4 h-4" />
+                          </div>
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                            <Clock className="w-4 h-4" />
                           </div>
                         )}
                         <div>
                           <h4 className="font-sans font-black text-white text-sm uppercase tracking-wide">
-                            Catégorie {catLabel}
+                            {cat === 'withdrawals' ? 'Horaires Retraits' : `Catégorie ${catLabel}`}
                           </h4>
                           <span className="text-[10px] text-slate-400 block">
-                            {isWellbeing ? 'Produits Cycles Bien-être' : 'Produits Cycles Courts Activité'}
+                            {isWellbeing ? 'Produits Cycles Bien-être' : isActivity ? 'Produits Cycles Courts Activité' : 'Demandes de retraits d\'argent'}
                           </span>
                         </div>
                       </div>
@@ -3053,7 +3098,9 @@ export default function AdminPanel({
                       <div className="text-[11px] text-slate-400 bg-slate-950/60 rounded-lg p-2 border border-slate-800/60">
                         <span className="text-slate-500 font-bold block uppercase text-[9px] tracking-wider mb-0.5">Message utilisateur si fermé :</span>
                         <span className="text-amber-300 font-medium italic">
-                          "Les achats pour les produits {catLabel} sont actuellement fermés."
+                          {cat === 'withdrawals' 
+                            ? "Les retraits sont actuellement fermés par l'administration." 
+                            : `Les achats pour les produits ${catLabel} sont actuellement fermés.`}
                         </span>
                       </div>
                     </div>
@@ -3585,6 +3632,23 @@ export default function AdminPanel({
                 />
                 <span className="text-[10px] text-slate-500 mt-1.5 block leading-relaxed">
                   Le numéro de téléphone WhatsApp direct auquel les clients seront redirigés pour une assistance personnalisée (lien d'ouverture de chat wa.me).
+                </span>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80">
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <span className="text-amber-400">💳</span>
+                  <span>Lien de Paiement en Ligne Officiel (SoccoPay)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://soccopay.com/pay_link.php?id=..."
+                  value={onlinePaymentLink}
+                  onChange={(e) => setOnlinePaymentLink(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-amber-300 font-mono focus:outline-none"
+                />
+                <span className="text-[10px] text-slate-500 mt-1.5 block leading-relaxed">
+                  Lien de paiement SoccoPay officiel utilisé pour toutes les recharges en ligne des membres (actuel : <code>https://soccopay.com/pay_link.php?id=1e60369611cde7bfcdd182951ca88fd1</code>).
                 </span>
               </div>
 
@@ -4998,9 +5062,10 @@ export default function AdminPanel({
                   onChange={(e) => setInvestStatusFilter(e.target.value as any)}
                   className="w-full bg-slate-950 border border-slate-850 focus:border-yellow-500 focus:outline-none rounded-xl text-xs text-white px-4 py-3 font-medium transition-colors cursor-pointer"
                 >
-                  <option value="all">Tous les statuts (Actifs & Terminés)</option>
-                  <option value="active">Actifs (Génération de revenus journaliers)</option>
-                  <option value="completed">Terminés (Durée de validité échue)</option>
+                  <option value="all">Tous les statuts ({investments.length})</option>
+                  <option value="pending_activation">⏳ En attente d'activation ({investments.filter(i => i.status === 'pending_activation').length})</option>
+                  <option value="active">⚡ Actifs ({investments.filter(i => i.status === 'active').length})</option>
+                  <option value="completed">🏁 Terminés ({investments.filter(i => i.status === 'completed').length})</option>
                 </select>
               </div>
             </div>
@@ -5012,7 +5077,7 @@ export default function AdminPanel({
               </div>
             ) : (
               <div className="overflow-x-auto overflow-y-hidden">
-                <table className="w-full text-left text-xs text-slate-200 min-w-[800px]">
+                <table className="w-full text-left text-xs text-slate-200 min-w-[850px]">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                       <th className="pb-3 pl-4">Acheteur / Titulaire</th>
@@ -5062,12 +5127,12 @@ export default function AdminPanel({
                           <td className="py-4 text-center">
                             <div className="inline-flex flex-col items-center">
                               <span className="font-mono font-bold text-slate-300">
-                                {inv.daysPassed} / {inv.durationDays} Jours
+                                {inv.status === 'pending_activation' ? '0' : inv.daysPassed} / {inv.durationDays} Jours
                               </span>
                               <div className="w-20 bg-slate-800 rounded-full h-1 mt-1 overflow-hidden">
                                 <div 
-                                  className="bg-yellow-500 h-full rounded-full" 
-                                  style={{ width: `${Math.min(100, Math.round((inv.daysPassed / inv.durationDays) * 100))}%` }}
+                                  className={inv.status === 'pending_activation' ? "bg-amber-500/60 h-full rounded-full" : "bg-yellow-500 h-full rounded-full"}
+                                  style={{ width: inv.status === 'pending_activation' ? '10%' : `${Math.min(100, Math.round((inv.daysPassed / inv.durationDays) * 100))}%` }}
                                 ></div>
                               </div>
                             </div>
@@ -5079,7 +5144,11 @@ export default function AdminPanel({
                             <span>{new Date(inv.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                           </td>
                           <td className="py-4 text-center font-sans">
-                            {inv.status === 'active' ? (
+                            {inv.status === 'pending_activation' ? (
+                              <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-1 rounded-full font-sans font-black uppercase text-[9px] inline-block">
+                                En Attente ⏳
+                              </span>
+                            ) : inv.status === 'active' ? (
                               <span className="bg-emerald-550/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded-full font-sans font-black uppercase text-[9px] inline-block animate-pulse">
                                 Actif ⚡
                               </span>
@@ -5090,14 +5159,26 @@ export default function AdminPanel({
                             )}
                           </td>
                           <td className="py-4 pr-4 text-center">
-                            <button
-                              onClick={() => handleDeleteInvestment(inv.id)}
-                              className="px-2.5 py-1.5 bg-red-600/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/20 hover:border-transparent rounded-lg font-bold transition-all flex items-center space-x-1"
-                              title="Annuler & Supprimer"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              <span>Supprimer</span>
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              {inv.status === 'pending_activation' && (
+                                <button
+                                  onClick={() => handleActivateInvestment(inv.id)}
+                                  className="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-transparent rounded-lg font-bold transition-all flex items-center space-x-1 cursor-pointer"
+                                  title="Valider les conditions & Activer ce produit"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  <span>Activer</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteInvestment(inv.id)}
+                                className="px-2.5 py-1.5 bg-red-600/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/20 hover:border-transparent rounded-lg font-bold transition-all flex items-center space-x-1 cursor-pointer"
+                                title="Annuler & Supprimer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Supprimer</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

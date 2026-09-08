@@ -39,6 +39,7 @@ export interface Deposit {
   receiptImage: string; // Base64 or standard asset url
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+  approvedAt?: string;
   lastModified?: number;
 }
 
@@ -86,9 +87,11 @@ export interface Investment {
   durationDays: number;
   totalReturnClaimed: number;
   lastClaimDate: string; // ISO string or short date
-  status: 'active' | 'completed';
+  status: 'active' | 'completed' | 'pending_activation';
   category?: 'stability' | 'wellbeing' | 'activity' | string;
   createdAt: string;
+  activatedAt?: string;
+  activationConditionsMet?: boolean;
   lastModified?: number;
   autoRenew?: boolean;
   totalReturn?: number;
@@ -167,5 +170,6 @@ export interface CategorySchedule {
 export interface CategorySchedules {
   wellbeing: CategorySchedule;
   activity: CategorySchedule;
+  withdrawals?: CategorySchedule;
 }
 

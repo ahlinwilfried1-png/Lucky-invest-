@@ -34,6 +34,13 @@ export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
     closeTime: '20:00',
     enabled: true,
     lastModified: Date.now()
+  },
+  withdrawals: {
+    mode: 'auto',
+    openTime: '09:00',
+    closeTime: '17:00',
+    enabled: true,
+    lastModified: Date.now()
   }
 };
 
@@ -1370,6 +1377,27 @@ export class DataStore {
     }).catch(err => console.error("Error saving official banners to server", err));
   }
 
+  static getOnlinePaymentLink(): string {
+    const DEFAULT_LINK = 'https://soccopay.com/pay_link.php?id=1e60369611cde7bfcdd182951ca88fd1';
+    const stored = getFromStore<string>('gi_online_payment_link', DEFAULT_LINK);
+    return stored && typeof stored === 'string' && stored.trim().length > 0 ? stored.trim() : DEFAULT_LINK;
+  }
+
+  static async saveOnlinePaymentLink(url: string): Promise<any> {
+    const cleanUrl = url.trim();
+    setToStore<string>('gi_online_payment_link', cleanUrl);
+    return apiFetch(getApiUrl('/api/save-store'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gi_online_payment_link: cleanUrl
+      })
+    }).catch(err => {
+      console.error("Error saving online payment link to server", err);
+      throw err;
+    });
+  }
+
   static getManualDepositNumbers(): Record<string, string> {
     const defaults: Record<string, string> = {
       'TG_37': '*145*1*montant*70903319*code#',
@@ -1581,7 +1609,7 @@ export class DataStore {
     setToStore<Commission[]>('gi_commissions', commissions);
   }
 
-  // --- GESTION DES HORAIRES BIEN-ÊTRE ET ACTIVITÉS ---
+  // --- GESTION DES HORAIRES BIEN-ÊTRE, ACTIVITÉS ET RETRAITS ---
   static getCategorySchedules(): CategorySchedules {
     const data = getFromStore<CategorySchedules>('gi_category_schedules', DEFAULT_CATEGORY_SCHEDULES);
     return {
@@ -1592,6 +1620,16 @@ export class DataStore {
       activity: {
         ...DEFAULT_CATEGORY_SCHEDULES.activity,
         ...(data && data.activity ? data.activity : {})
+      },
+      withdrawals: {
+        ...(DEFAULT_CATEGORY_SCHEDULES.withdrawals || {
+          mode: 'auto',
+          openTime: '09:00',
+          closeTime: '17:00',
+          enabled: true,
+          lastModified: Date.now()
+        }),
+        ...(data && data.withdrawals ? data.withdrawals : {})
       }
     };
   }
@@ -1613,26 +1651,30 @@ export class DataStore {
     }
   }
 
-  static isCategoryOpen(category: 'wellbeing' | 'activity', targetDate: Date = new Date()): {
+  static isWithdrawalOpen(targetDate: Date = new Date()): {
     isOpen: boolean;
-    statusLabel: 'OUVERT' | 'FERMÉ';
+    statusLabel: string;
     reason: string;
     mode: 'auto' | 'open' | 'closed';
     openTime: string;
     closeTime: string;
   } {
     const schedules = this.getCategorySchedules();
-    const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
-    const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Activité';
+    const schedule = schedules.withdrawals || {
+      mode: 'auto',
+      openTime: '09:00',
+      closeTime: '17:00',
+      enabled: true
+    };
 
-    const openTime = schedule.openTime || '08:00';
-    const closeTime = schedule.closeTime || '20:00';
+    const openTime = schedule.openTime || '09:00';
+    const closeTime = schedule.closeTime || '17:00';
 
     if (schedule.mode === 'open') {
       return {
         isOpen: true,
         statusLabel: 'OUVERT',
-        reason: `Les achats pour les produits ${catLabel} sont ouverts.`,
+        reason: 'Les retraits sont ouverts.',
         mode: 'open',
         openTime,
         closeTime
@@ -1643,19 +1685,18 @@ export class DataStore {
       return {
         isOpen: false,
         statusLabel: 'FERMÉ',
-        reason: 'Ce produit est temporairement indisponible pour le moment.',
+        reason: 'Les retraits sont temporairement suspendus par l\'administration.',
         mode: 'closed',
         openTime,
         closeTime
       };
     }
 
-    // mode === 'auto'
     if (!schedule.enabled) {
       return {
         isOpen: true,
         statusLabel: 'OUVERT',
-        reason: `Les achats pour les produits ${catLabel} sont ouverts (accès libre).`,
+        reason: 'Les retraits sont ouverts (accès continu).',
         mode: 'auto',
         openTime,
         closeTime
@@ -1677,7 +1718,7 @@ export class DataStore {
       return {
         isOpen: true,
         statusLabel: 'OUVERT',
-        reason: `Les achats pour les produits ${catLabel} sont ouverts (${openTime} - ${closeTime}).`,
+        reason: `Les retraits sont ouverts (${openTime} - ${closeTime}).`,
         mode: 'auto',
         openTime,
         closeTime
@@ -1686,7 +1727,98 @@ export class DataStore {
       return {
         isOpen: false,
         statusLabel: 'FERMÉ',
-        reason: 'Ce produit est temporairement indisponible pour le moment.',
+        reason: `Les retraits sont disponibles de ${openTime} à ${closeTime}. Actuellement fermés.`,
+        mode: 'auto',
+        openTime,
+        closeTime
+      };
+    }
+  }
+
+  static isCategoryOpen(category: 'wellbeing' | 'activity' | 'withdrawals', targetDate: Date = new Date()): {
+    isOpen: boolean;
+    statusLabel: 'OUVERT' | 'FERMÉ';
+    reason: string;
+    mode: 'auto' | 'open' | 'closed';
+    openTime: string;
+    closeTime: string;
+  } {
+    const schedules = this.getCategorySchedules();
+    const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
+    const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activité' : 'Retraits';
+
+    const openTime = schedule.openTime || '08:00';
+    const closeTime = schedule.closeTime || '20:00';
+
+    if (schedule.mode === 'open') {
+      return {
+        isOpen: true,
+        statusLabel: 'OUVERT',
+        reason: category === 'withdrawals' 
+          ? 'Les demandes de retrait sont ouvertes.' 
+          : `Les achats pour les produits ${catLabel} sont ouverts.`,
+        mode: 'open',
+        openTime,
+        closeTime
+      };
+    }
+
+    if (schedule.mode === 'closed') {
+      return {
+        isOpen: false,
+        statusLabel: 'FERMÉ',
+        reason: category === 'withdrawals'
+          ? 'Les retraits sont actuellement fermés par l\'administration.'
+          : 'Ce produit est temporairement indisponible pour le moment.',
+        mode: 'closed',
+        openTime,
+        closeTime
+      };
+    }
+
+    // mode === 'auto'
+    if (!schedule.enabled) {
+      return {
+        isOpen: true,
+        statusLabel: 'OUVERT',
+        reason: category === 'withdrawals'
+          ? 'Les demandes de retrait sont ouvertes (accès libre).'
+          : `Les achats pour les produits ${catLabel} sont ouverts (accès libre).`,
+        mode: 'auto',
+        openTime,
+        closeTime
+      };
+    }
+
+    const hours = String(targetDate.getHours()).padStart(2, '0');
+    const minutes = String(targetDate.getMinutes()).padStart(2, '0');
+    const currentHM = `${hours}:${minutes}`;
+
+    let open = false;
+    if (openTime <= closeTime) {
+      open = currentHM >= openTime && currentHM < closeTime;
+    } else {
+      open = currentHM >= openTime || currentHM < closeTime;
+    }
+
+    if (open) {
+      return {
+        isOpen: true,
+        statusLabel: 'OUVERT',
+        reason: category === 'withdrawals'
+          ? `Les demandes de retrait sont ouvertes (${openTime} - ${closeTime}).`
+          : `Les achats pour les produits ${catLabel} sont ouverts (${openTime} - ${closeTime}).`,
+        mode: 'auto',
+        openTime,
+        closeTime
+      };
+    } else {
+      return {
+        isOpen: false,
+        statusLabel: 'FERMÉ',
+        reason: category === 'withdrawals'
+          ? `Les retraits sont actuellement fermés. Heures autorisées : ${openTime} à ${closeTime}.`
+          : 'Ce produit est temporairement indisponible pour le moment.',
         mode: 'auto',
         openTime,
         closeTime
@@ -2544,6 +2676,25 @@ export class DataStore {
       return { success: false, error: 'Utilisateur non trouvé.' };
     }
 
+    const user = users[userIdx];
+
+    // Check if user has linked their withdrawal account (Rule 3)
+    if (!user.bankCardNumber || !user.bankCardOperator || String(user.bankCardNumber).trim().length < 4) {
+      return { 
+        success: false, 
+        error: "Retrait impossible : Vous n'avez pas encore lié votre compte de retrait. Veuillez vous rendre dans les paramètres de votre compte pour enregistrer votre numéro et opérateur de retrait avant de soumettre une demande." 
+      };
+    }
+
+    // Check withdrawal schedule defined by administration (Rule 6)
+    const wthSchedule = this.isWithdrawalOpen();
+    if (!wthSchedule.isOpen) {
+      return {
+        success: false,
+        error: wthSchedule.reason || "Les retraits sont actuellement fermés selon les horaires d'ouverture et de fermeture définis par l'administration."
+      };
+    }
+
     // Check if user has an active product
     const activeInvs = this.getInvestments().filter(inv => inv.userId === userId && inv.status === 'active');
     if (activeInvs.length === 0) {
@@ -2554,7 +2705,6 @@ export class DataStore {
       return { success: false, error: 'Le montant de retrait minimum est de 1 000 F.' };
     }
 
-    const user = users[userIdx];
     if (user.balance < amount) {
       return { success: false, error: 'Solde insuffisant pour effectuer ce retrait.' };
     }
@@ -2615,10 +2765,7 @@ export class DataStore {
     code?: 'ACTIVE_CYCLE' | 'STABILITY_REQUIRED' | 'NEW_INVESTMENT_REQUIRED' | 'SCHEDULE_CLOSED';
     activeProduct?: Investment;
   } {
-    const investments = this.getInvestments().filter(inv => inv.userId === userId);
-    const categoryLabel = category === 'wellbeing' ? 'Bien-être' : 'Activités';
-
-    // 0. Vérification des horaires d'ouverture / fermeture définis par l'administration
+    // 0. Vérification des horaires d'ouverture / fermeture définis par l'administration (Règle 6)
     const scheduleStatus = this.isCategoryOpen(category);
     if (!scheduleStatus.isOpen) {
       return {
@@ -2628,53 +2775,7 @@ export class DataStore {
       };
     }
 
-    // 1. Empêcher toute nouvelle activation tant que le cycle précédent n'est pas terminé et réglé
-    const activeInCategory = investments.find(inv => inv.category === category && inv.status === 'active');
-    if (activeInCategory) {
-      return {
-        canActivate: false,
-        code: 'ACTIVE_CYCLE',
-        activeProduct: activeInCategory,
-        reason: `Vous avez déjà un cycle en cours pour la catégorie ${categoryLabel}. Veuillez attendre l'échéance de ce cycle pour pouvoir activer un nouveau produit.`
-      };
-    }
-
-    // 2. Condition de base : Avoir au moins un investissement Stabilité VIP
-    const stabilityInvs = investments.filter(inv => inv.category === 'stability' || !inv.category || (inv.productId && inv.productId.startsWith('stab-')));
-    if (stabilityInvs.length === 0) {
-      return {
-        canActivate: false,
-        code: 'STABILITY_REQUIRED',
-        reason: `Un investissement préalable dans un produit Stabilité VIP est requis avant de pouvoir souscrire à un produit ${categoryLabel}.`
-      };
-    }
-
-    // 3. Une fois le cycle terminé et le revenu total versé, l’utilisateur doit effectuer un nouvel investissement avant de pouvoir activer un nouveau produit Bien-être ou Activités
-    const completedInCategory = investments.filter(inv => inv.category === category && inv.status === 'completed');
-    if (completedInCategory.length > 0) {
-      // Find the most recently completed cycle of this category
-      const latestCompleted = [...completedInCategory].sort((a, b) => {
-        const timeA = new Date(a.createdAt).getTime();
-        const timeB = new Date(b.createdAt).getTime();
-        return timeB - timeA;
-      })[0];
-
-      const latestCycleCreationTime = new Date(latestCompleted.createdAt).getTime();
-
-      // Check if a new stability investment was made after the latest cycle was started
-      const hasNewStabilityInvestment = stabilityInvs.some(inv => new Date(inv.createdAt).getTime() > latestCycleCreationTime);
-      const totalCategoryAttempts = investments.filter(inv => inv.category === category).length;
-      const hasUnusedStability = stabilityInvs.length > totalCategoryAttempts;
-
-      if (!hasNewStabilityInvestment && !hasUnusedStability) {
-        return {
-          canActivate: false,
-          code: 'NEW_INVESTMENT_REQUIRED',
-          reason: `Un nouvel investissement dans la catégorie Stabilité VIP est requis avant de pouvoir activer un nouveau produit ${categoryLabel}.`
-        };
-      }
-    }
-
+    // Règle 5 : Un même utilisateur peut acheter plusieurs produits Activité, Bien-être et Stabilité sans restriction
     return { canActivate: true };
   }
 
@@ -2690,6 +2791,15 @@ export class DataStore {
         const res = await response.json();
         if (res.success && res.user) {
           this.saveCurrentUser(res.user);
+          const allUsers = this.getUsers();
+          const uIdx = allUsers.findIndex(u => u.id === res.user.id);
+          if (uIdx !== -1) {
+            allUsers[uIdx] = { ...allUsers[uIdx], ...res.user };
+            this.saveUsers(allUsers);
+          }
+          try {
+            dispatchStoreUpdated();
+          } catch (e) {}
           await syncWithBackend();
           return res;
         } else if (res) {
@@ -2745,7 +2855,7 @@ export class DataStore {
       this.saveCurrentUser(activeUser);
     }
 
-    // Create active investment record
+    // Create investment record in pending_activation status
     const investments = this.getInvestments();
     const newInvestment = {
       id: `inv-${Date.now()}`,
@@ -2758,7 +2868,8 @@ export class DataStore {
       durationDays: targetProduct.durationDays,
       totalReturnClaimed: 0,
       lastClaimDate: new Date().toISOString(),
-      status: 'active' as const,
+      status: 'pending_activation' as const, // Non actif par défaut tant que les conditions d'activation ne sont pas remplies
+      activationConditionsMet: false,
       createdAt: new Date().toISOString(),
       lastModified: Date.now(),
       category: targetProduct.category || 'stability',
@@ -2917,8 +3028,8 @@ export class DataStore {
     notifications.unshift({
       id: `not-plan-${Date.now()}`,
       userId,
-      title: 'Plan activé avec succès !',
-      message: `Votre investissement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a bien été pris en compte. ${returnMsg}`,
+      title: 'Plan souscrit (En attente d\'activation)',
+      message: `Votre investissement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.`,
       type: 'plan',
       createdAt: new Date().toISOString(),
       read: false
@@ -2928,7 +3039,51 @@ export class DataStore {
     this.saveCommissions(commissions);
     this.saveNotifications(notifications);
 
-    return { success: true, message: `Vous avez investi avec succès dans le plan ${targetProduct.name} !` };
+    return { success: true, message: `Paiement validé pour le plan ${targetProduct.name} ! Le produit est en attente d'activation selon les conditions requises.` };
+  }
+
+  // Activer un produit payé lorsque les conditions d'activation sont remplies (synchronisé avec Supabase)
+  static async activateInvestment(investmentId: string): Promise<{ success: boolean, message: string }> {
+    try {
+      const response = await apiFetch(getApiUrl('/api/activate-investment'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ investmentId })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res.success) {
+          const investments = this.getInvestments();
+          const idx = investments.findIndex(i => i.id === investmentId);
+          if (idx !== -1) {
+            investments[idx].status = 'active';
+            investments[idx].activationConditionsMet = true;
+            investments[idx].activatedAt = new Date().toISOString();
+            investments[idx].lastModified = Date.now();
+            this.saveInvestments(investments);
+            try { dispatchStoreUpdated(); } catch (e) {}
+          }
+          return res;
+        }
+      }
+    } catch (err) {
+      console.warn('activateInvestment API call failed, falling back to local update:', err);
+    }
+
+    // Local fallback
+    const investments = this.getInvestments();
+    const idx = investments.findIndex(i => i.id === investmentId);
+    if (idx === -1) {
+      return { success: false, message: 'Produit souscrit introuvable.' };
+    }
+    investments[idx].status = 'active';
+    investments[idx].activationConditionsMet = true;
+    investments[idx].activatedAt = new Date().toISOString();
+    investments[idx].lastModified = Date.now();
+    this.saveInvestments(investments);
+    try { dispatchStoreUpdated(); } catch (e) {}
+    await syncWithBackend();
+    return { success: true, message: 'Le produit a été activé avec succès !' };
   }
 
   // Claim Daily Rewards Code
@@ -3340,9 +3495,10 @@ export class DataStore {
     // Save locally first for instant, latency-free UX feedback
     let updatedMsgs = [...messages];
     if (senderRole === 'admin') {
+      // Lorsqu'un administrateur répond à un message, celui-ci est automatiquement marqué comme lu (Règle 2)
       updatedMsgs = messages.map(m => {
-        if (m.userId === userId && m.sender === 'user' && m.status !== 'replied') {
-          return { ...m, status: 'replied' as const, lastModified: nowStamp };
+        if (m.userId === userId && m.sender === 'user') {
+          return { ...m, status: 'read' as const, lastModified: nowStamp };
         }
         return m;
       });
@@ -3994,22 +4150,28 @@ export class DataStore {
   static approveDeposit(depositId: string): boolean {
     const deposits = this.getDeposits();
     const idx = deposits.findIndex(d => d.id === depositId);
-    if (idx === -1 || deposits[idx].status !== 'pending') return false;
+    if (idx === -1) return false;
+    if (deposits[idx].status === 'approved') return true;
 
     deposits[idx].status = 'approved';
+    deposits[idx].approvedAt = new Date().toISOString();
+    deposits[idx].lastModified = Date.now();
     this.saveDeposits(deposits);
 
     // Credit user
     const users = this.getUsers();
     const user = users.find(u => u.id === deposits[idx].userId);
     if (user) {
-      user.balance += deposits[idx].amount;
+      user.balance = (Number(user.balance) || 0) + deposits[idx].amount;
+      user.totalRecharged = (Number(user.totalRecharged) || 0) + deposits[idx].amount;
+      user.lastModified = Date.now();
       this.saveUsers(users);
 
       // Sync active
       const current = this.getCurrentUser();
       if (current && current.id === user.id) {
         current.balance = user.balance;
+        current.totalRecharged = user.totalRecharged;
         this.saveCurrentUser(current);
       }
     }
@@ -4026,6 +4188,10 @@ export class DataStore {
       read: false
     });
     this.saveNotifications(notifications);
+
+    try {
+      dispatchStoreUpdated();
+    } catch (e) {}
 
     return true;
   }
