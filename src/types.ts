@@ -27,6 +27,7 @@ export interface User {
   totalCheckInEarnings?: number;
   claimedMissions?: string[];
   claimedTasks?: string[];
+  taskBaselines?: Record<string, number>;
 }
 
 export interface Deposit {
@@ -72,7 +73,7 @@ export interface Product {
   reopenDateTime?: string;
   isCyclic?: boolean;
   generatedProductIds?: string[];
-  category?: 'stability' | 'wellbeing' | 'activity';
+  category?: 'stability' | 'wellbeing';
   lastModified?: number;
 }
 
@@ -81,6 +82,7 @@ export interface Investment {
   userId: string;
   productId: string;
   productName: string;
+  vipLevel?: number;
   price: number;
   dailyReturn: number;
   daysPassed: number;
@@ -88,13 +90,30 @@ export interface Investment {
   totalReturnClaimed: number;
   lastClaimDate: string; // ISO string or short date
   status: 'active' | 'completed' | 'pending_activation';
-  category?: 'stability' | 'wellbeing' | 'activity' | string;
+  category?: 'stability' | 'wellbeing' | string;
   createdAt: string;
   activatedAt?: string;
   activationConditionsMet?: boolean;
   lastModified?: number;
   autoRenew?: boolean;
   totalReturn?: number;
+  payoutCredited?: boolean;
+  isCyclic?: boolean;
+}
+
+export interface RevenueRecord {
+  id: string;
+  userId: string;
+  investmentId: string;
+  productName: string;
+  category: 'stability' | 'wellbeing' | string;
+  vipLevel?: number;
+  price: number;
+  totalPayout: number;
+  netProfit: number;
+  durationDays: number;
+  claimedAt: string;
+  lastModified?: number;
 }
 
 export interface Commission {
@@ -169,7 +188,6 @@ export interface CategorySchedule {
 
 export interface CategorySchedules {
   wellbeing: CategorySchedule;
-  activity: CategorySchedule;
   withdrawals?: CategorySchedule;
 }
 

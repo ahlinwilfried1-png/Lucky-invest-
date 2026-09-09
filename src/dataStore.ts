@@ -11,7 +11,8 @@ import {
   ChatSession,
   WithdrawalProof,
   CategorySchedule,
-  CategorySchedules
+  CategorySchedules,
+  RevenueRecord
 } from './types';
 import { deduplicateForumPosts } from './lib/forumUtils';
 import { 
@@ -22,13 +23,6 @@ import {
 
 export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
   wellbeing: {
-    mode: 'auto',
-    openTime: '08:00',
-    closeTime: '20:00',
-    enabled: true,
-    lastModified: Date.now()
-  },
-  activity: {
     mode: 'auto',
     openTime: '08:00',
     closeTime: '20:00',
@@ -241,106 +235,6 @@ export const DEFAULT_PRODUCTS: Product[] = [
     durationDays: 10,
     totalReturn: 1900000,
     category: "wellbeing",
-    isBlocked: false,
-    isCyclic: true,
-    generatedProductIds: []
-  },
-
-  // ACTIVITÉ (7 products, starting at 5000 XOF minimum)
-  {
-    id: "act-1",
-    vipLevel: 1,
-    name: "Gold Avenue Activité Éclair",
-    tag: "Activité Éclair",
-    price: 5000,
-    dailyReturn: 2500,
-    durationDays: 3,
-    totalReturn: 7500,
-    category: "activity",
-    isBlocked: false,
-    isCyclic: true,
-    generatedProductIds: []
-  },
-  {
-    id: "act-2",
-    vipLevel: 2,
-    name: "Gold Avenue Activité Flash",
-    tag: "Activité Flash",
-    price: 15000,
-    dailyReturn: 8000,
-    durationDays: 3,
-    totalReturn: 24000,
-    category: "activity",
-    isBlocked: false,
-    isCyclic: true,
-    generatedProductIds: []
-  },
-  {
-    id: "act-3",
-    vipLevel: 3,
-    name: "Gold Avenue Activité Boost",
-    tag: "Activité Boost",
-    price: 40000,
-    dailyReturn: 22000,
-    durationDays: 3,
-    totalReturn: 66000,
-    category: "activity",
-    isBlocked: false,
-    isCyclic: true,
-    generatedProductIds: []
-  },
-  {
-    id: "act-4",
-    vipLevel: 4,
-    name: "Gold Avenue Activité Turbo",
-    tag: "Activité Turbo",
-    price: 100000,
-    dailyReturn: 58000,
-    durationDays: 3,
-    totalReturn: 174000,
-    category: "activity",
-    isBlocked: false,
-    isCyclic: true,
-    generatedProductIds: []
-  },
-  {
-    id: "act-5",
-    vipLevel: 5,
-    name: "Gold Avenue Activité Hyper",
-    tag: "Activité Hyper",
-    price: 250000,
-    dailyReturn: 150000,
-    durationDays: 3,
-    totalReturn: 450000,
-    category: "activity",
-    isBlocked: false,
-    isCyclic: true,
-    generatedProductIds: []
-  },
-  {
-    id: "act-6",
-    vipLevel: 6,
-    name: "Gold Avenue Activité Master",
-    tag: "Activité Master",
-    price: 600000,
-    dailyReturn: 380000,
-    durationDays: 3,
-    totalReturn: 1140000,
-    category: "activity",
-    isBlocked: false,
-    isCyclic: true,
-    generatedProductIds: []
-  },
-  {
-    id: "act-7",
-    vipLevel: 7,
-    name: "Gold Avenue Activité Elite",
-    tag: "Activité Elite",
-    price: 1500000,
-    dailyReturn: 1000000,
-    durationDays: 3,
-    totalReturn: 3000000,
-    category: "activity",
     isBlocked: false,
     isCyclic: true,
     generatedProductIds: []
@@ -1437,6 +1331,8 @@ export class DataStore {
 
   static getProducts(): Product[] {
     let list = getFromStore<Product[]>('gi_products', DEFAULT_PRODUCTS);
+    // Remove any activity products completely from the store
+    list = list.filter(p => p && p.id && (p as any).category !== 'activity' && !String(p.id).startsWith('act-'));
     const deletedList = getFromStore<string[]>('gi_deleted_products', []);
     if (deletedList.length > 0) {
       list = list.filter(p => p && p.id && !deletedList.includes(String(p.id)));
@@ -1609,17 +1505,37 @@ export class DataStore {
     setToStore<Commission[]>('gi_commissions', commissions);
   }
 
-  // --- GESTION DES HORAIRES BIEN-ÊTRE, ACTIVITÉS ET RETRAITS ---
+  // --- HISTORIQUE DES REVENUS DES CYCLES TERMINÉS ---
+  static getRevenueHistory(userId?: string): RevenueRecord[] {
+    let list = getFromStore<RevenueRecord[]>('gi_revenue_history', []);
+    if (userId) {
+      list = list.filter(r => r.userId === userId);
+    }
+    return list.sort((a, b) => new Date(b.claimedAt).getTime() - new Date(a.claimedAt).getTime());
+  }
+
+  static saveRevenueHistory(records: RevenueRecord[], pushToServer: boolean = true): void {
+    setToStore<RevenueRecord[]>('gi_revenue_history', records);
+    try {
+      window.dispatchEvent(new CustomEvent('gi_revenue_history_updated', { detail: records }));
+    } catch (e) {}
+
+    if (pushToServer) {
+      apiFetch(getApiUrl('/api/revenue-history'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revenueHistory: records })
+      }).catch(e => console.error('Failed to sync revenue history to server:', e));
+    }
+  }
+
+  // --- GESTION DES HORAIRES BIEN-ÊTRE ET RETRAITS ---
   static getCategorySchedules(): CategorySchedules {
     const data = getFromStore<CategorySchedules>('gi_category_schedules', DEFAULT_CATEGORY_SCHEDULES);
     return {
       wellbeing: {
         ...DEFAULT_CATEGORY_SCHEDULES.wellbeing,
         ...(data && data.wellbeing ? data.wellbeing : {})
-      },
-      activity: {
-        ...DEFAULT_CATEGORY_SCHEDULES.activity,
-        ...(data && data.activity ? data.activity : {})
       },
       withdrawals: {
         ...(DEFAULT_CATEGORY_SCHEDULES.withdrawals || {
@@ -1735,7 +1651,7 @@ export class DataStore {
     }
   }
 
-  static isCategoryOpen(category: 'wellbeing' | 'activity' | 'withdrawals', targetDate: Date = new Date()): {
+  static isCategoryOpen(category: 'wellbeing' | 'withdrawals', targetDate: Date = new Date()): {
     isOpen: boolean;
     statusLabel: 'OUVERT' | 'FERMÉ';
     reason: string;
@@ -1744,8 +1660,8 @@ export class DataStore {
     closeTime: string;
   } {
     const schedules = this.getCategorySchedules();
-    const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
-    const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activité' : 'Retraits';
+    const schedule = (schedules && schedules[category]) ? schedules[category] : (DEFAULT_CATEGORY_SCHEDULES as any)[category];
+    const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Retraits';
 
     const openTime = schedule.openTime || '08:00';
     const closeTime = schedule.closeTime || '20:00';
@@ -2758,8 +2674,31 @@ export class DataStore {
     return { success: true, withdrawal: newWth };
   }
 
-  // Vérifie les conditions d'activation pour les produits Bien-être et Activités
-  static checkSpecialProductActivation(userId: string, category: 'wellbeing' | 'activity'): {
+  // Vérifie si l'utilisateur a payé le niveau Stabilité correspondant avant d'accéder au Bien-être
+  static canUserAccessWellbeingProduct(userId: string, targetVipLevel: number): { allowed: boolean; reason?: string } {
+    const userInvs = this.getInvestments().filter(i => i.userId === userId);
+    const products = this.getProducts();
+
+    // Cherche un produit Stabilité payé correspondant au même niveau VIP
+    const hasPaidStabilityLevel = userInvs.some(inv => {
+      const prod = products.find(p => p.id === inv.productId);
+      const isStability = inv.category === 'stability' || prod?.category === 'stability' || (!inv.category && !inv.productName.toLowerCase().includes('bien-être'));
+      if (!isStability) return false;
+      const vip = prod?.vipLevel ?? inv.vipLevel ?? 1;
+      return Number(vip) === Number(targetVipLevel);
+    });
+
+    if (!hasPaidStabilityLevel) {
+      return {
+        allowed: false,
+        reason: `Accès refusé : Pour investir dans le produit Bien-être VIP ${targetVipLevel}, vous devez obligatoirement avoir payé le plan Stabilité VIP ${targetVipLevel} correspondant.`
+      };
+    }
+    return { allowed: true };
+  }
+
+  // Vérifie les conditions d'activation pour les produits Bien-être
+  static checkSpecialProductActivation(userId: string, category: 'wellbeing'): {
     canActivate: boolean;
     reason?: string;
     code?: 'ACTIVE_CYCLE' | 'STABILITY_REQUIRED' | 'NEW_INVESTMENT_REQUIRED' | 'SCHEDULE_CLOSED';
@@ -2775,7 +2714,6 @@ export class DataStore {
       };
     }
 
-    // Règle 5 : Un même utilisateur peut acheter plusieurs produits Activité, Bien-être et Stabilité sans restriction
     return { canActivate: true };
   }
 
@@ -2826,14 +2764,22 @@ export class DataStore {
       return { success: false, message: 'Votre solde est insuffisant. Veuillez effectuer un investissement/rechargement avant d’activer un produit.' };
     }
 
-    // Condition d'achat: Bien-être et Activités
-    const isSpecialCategory = targetProduct.category === 'wellbeing' || targetProduct.category === 'activity';
-    if (isSpecialCategory) {
-      const check = this.checkSpecialProductActivation(userId, targetProduct.category as 'wellbeing' | 'activity');
-      if (!check.canActivate) {
+    // Règle d'accès technique pour les produits Bien-être:
+    // Stabilité VIP N payée obligatoire pour accéder au Bien-être VIP N
+    if (targetProduct.category === 'wellbeing') {
+      const scheduleStatus = this.isCategoryOpen('wellbeing');
+      if (!scheduleStatus.isOpen) {
         return {
           success: false,
-          message: check.reason || 'Activation impossible pour ce produit.'
+          message: scheduleStatus.reason || 'Les achats pour les produits Bien-être sont actuellement fermés.'
+        };
+      }
+
+      const accessCheck = this.canUserAccessWellbeingProduct(userId, targetProduct.vipLevel || 1);
+      if (!accessCheck.allowed) {
+        return {
+          success: false,
+          message: accessCheck.reason || `Vous devez d'abord payer le plan Stabilité VIP ${targetProduct.vipLevel} correspondant.`
         };
       }
     }
@@ -2857,13 +2803,14 @@ export class DataStore {
 
     // Create investment record in pending_activation status
     const investments = this.getInvestments();
-    const newInvestment = {
+    const newInvestment: Investment = {
       id: `inv-${Date.now()}`,
       userId,
       productId: targetProduct.id,
       productName: targetProduct.name,
+      vipLevel: targetProduct.vipLevel,
       price: targetProduct.price,
-      dailyReturn: targetProduct.dailyReturn, // Preserve actual dailyReturn so the UI displays the return rate correctly (it won't be credited daily as they are excluded from dailyEarnings)
+      dailyReturn: targetProduct.dailyReturn,
       daysPassed: 0,
       durationDays: targetProduct.durationDays,
       totalReturnClaimed: 0,
@@ -2874,7 +2821,8 @@ export class DataStore {
       lastModified: Date.now(),
       category: targetProduct.category || 'stability',
       isCyclic: true,
-      totalReturn: targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays))
+      totalReturn: targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays)),
+      payoutCredited: false
     };
     investments.unshift(newInvestment);
     this.saveInvestments(investments);
@@ -3020,8 +2968,7 @@ export class DataStore {
 
     const isStability = targetProduct.category === 'stability' || !targetProduct.category;
     const isWellbeing = targetProduct.category === 'wellbeing';
-    const isActivity = targetProduct.category === 'activity';
-    const returnMsg = (isStability || isWellbeing || isActivity)
+    const returnMsg = (isStability || isWellbeing)
       ? `Le capital et vos bénéfices totaux de ${(targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays))).toLocaleString()} XOF vous seront automatiquement versés à la fin du cycle de ${targetProduct.durationDays} jours.`
       : `Vous gagnerez ${targetProduct.dailyReturn.toLocaleString()} XOF chaque jour.`;
 
@@ -3192,11 +3139,10 @@ export class DataStore {
       return { success: false, message: 'Cet investissement est déjà arrivé à terme.', amount: 0 };
     }
 
-    const isActivity = inv.category === 'activity' || (inv as any).isCyclic;
     const isStability = inv.category === 'stability';
     const isWellbeing = inv.category === 'wellbeing';
-    if (isActivity || isStability || isWellbeing) {
-      const planName = isWellbeing ? 'Bien-être' : isStability ? 'Stabilité VIP' : 'Activité de Cycle Court';
+    if (isStability || isWellbeing || (inv as any).isCyclic) {
+      const planName = isWellbeing ? 'Bien-être' : 'Stabilité VIP';
       return { 
         success: false, 
         message: `Les revenus de ce plan ${planName} (${inv.productName}) vous seront versés automatiquement et en intégralité à la fin de son cycle de ${inv.durationDays} jours.`, 
@@ -3807,43 +3753,64 @@ export class DataStore {
 
         if (isCyclicProduct) {
           if (expectedDays >= inv.durationDays) {
-            // End of complete cycle
+            // End of complete cycle: payout totalReturn (capital + profits)
             const totalPayout = (inv as any).totalReturn || (inv.price + (inv.dailyReturn * inv.durationDays));
             const netProfit = totalPayout - inv.price;
 
             const uIdx = users.findIndex(u => u.id === inv.userId);
             if (uIdx !== -1) {
-              users[uIdx].balance += totalPayout;
-              users[uIdx].totalEarnings += netProfit;
+              const revenueHistory = this.getRevenueHistory();
+              const alreadyCredited = inv.payoutCredited || revenueHistory.some(r => r.investmentId === inv.id);
 
-              const isWellbeing = inv.category === 'wellbeing';
-              const isStability = inv.category === 'stability';
-              const title = isWellbeing 
-                ? `🌸 Bien-être Terminé (${inv.productName})` 
-                : isStability
-                ? `📈 Stabilité Terminée (${inv.productName})`
-                : `⚡ Activité Terminée (${inv.productName})`;
-              const message = isWellbeing
-                ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`
-                : isStability
-                ? `Félicitations ! Votre cycle de stabilité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`
-                : `Félicitations ! Votre cycle d'activité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`;
+              // Créditer le revenu une seule et unique fois
+              if (!alreadyCredited) {
+                users[uIdx].balance += totalPayout;
+                users[uIdx].totalEarnings += netProfit;
+                users[uIdx].lastModified = Date.now();
 
-              notifications.unshift({
-                id: `not-cyclecomplete-${Date.now()}-${inv.id}`,
-                userId: inv.userId,
-                title,
-                message,
-                type: 'plan',
-                createdAt: new Date().toISOString(),
-                read: false
-              });
+                // Enregistrer dans « Historique des revenus » sur la page Portefeuille
+                const newRecord: RevenueRecord = {
+                  id: `rev-${Date.now()}-${inv.id}`,
+                  userId: inv.userId,
+                  investmentId: inv.id,
+                  productName: inv.productName,
+                  category: inv.category || 'stability',
+                  vipLevel: (inv as any).vipLevel,
+                  price: inv.price,
+                  totalPayout: totalPayout,
+                  netProfit: netProfit,
+                  durationDays: inv.durationDays,
+                  claimedAt: new Date().toISOString(),
+                  lastModified: Date.now()
+                };
+                revenueHistory.unshift(newRecord);
+                this.saveRevenueHistory(revenueHistory);
+
+                const isWellbeing = inv.category === 'wellbeing';
+                const title = isWellbeing 
+                  ? `🌸 Cycle Bien-être Terminé (${inv.productName})` 
+                  : `📈 Cycle Stabilité Terminé (${inv.productName})`;
+                const message = isWellbeing
+                  ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre solde (total: ${totalPayout.toLocaleString()} XOF).`
+                  : `Félicitations ! Votre cycle de stabilité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre solde (total: ${totalPayout.toLocaleString()} XOF).`;
+
+                notifications.unshift({
+                  id: `not-cyclecomplete-${Date.now()}-${inv.id}`,
+                  userId: inv.userId,
+                  title,
+                  message,
+                  type: 'plan',
+                  createdAt: new Date().toISOString(),
+                  read: false
+                });
+              }
             }
 
             inv.daysPassed = expectedDays;
             inv.totalReturnClaimed = totalPayout;
             inv.lastClaimDate = new Date().toISOString();
             inv.status = 'completed';
+            inv.payoutCredited = true;
             inv.lastModified = Date.now();
             changed = true;
           } else {
@@ -3890,7 +3857,7 @@ export class DataStore {
     if (changed) {
       // Recalculate dailyEarnings for all users to match active investments status correctly
       users = users.map(u => {
-        const userActiveInvs = investments.filter(inv => inv.userId === u.id && inv.status === 'active' && inv.category !== 'activity' && inv.category !== 'wellbeing' && inv.category !== 'stability' && !(inv as any).isCyclic);
+        const userActiveInvs = investments.filter(inv => inv.userId === u.id && inv.status === 'active' && inv.category !== 'wellbeing' && inv.category !== 'stability' && !(inv as any).isCyclic);
         const activeDailyEarnings = userActiveInvs.reduce((sum, inv) => sum + inv.dailyReturn, 0);
         return {
           ...u,
@@ -3975,7 +3942,7 @@ export class DataStore {
     const users = this.getUsers();
     const userIdx = users.findIndex(u => u.id === inv.userId);
     if (userIdx !== -1) {
-      const activeInvs = updatedInvestments.filter(i => i.userId === inv.userId && i.status === 'active' && i.category !== 'activity' && i.category !== 'wellbeing' && i.category !== 'stability' && !(i as any).isCyclic);
+      const activeInvs = updatedInvestments.filter(i => i.userId === inv.userId && i.status === 'active' && i.category !== 'wellbeing' && i.category !== 'stability' && !(i as any).isCyclic);
       users[userIdx].dailyEarnings = activeInvs.reduce((sum, i) => sum + i.dailyReturn, 0);
       users[userIdx].lastModified = Date.now();
       this.saveUsers(users);

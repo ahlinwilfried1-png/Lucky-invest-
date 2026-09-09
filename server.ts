@@ -454,13 +454,6 @@ const DEFAULT_CATEGORY_SCHEDULES: Record<string, any> = {
     enabled: true,
     lastModified: Date.now()
   },
-  activity: {
-    mode: "auto",
-    openTime: "08:00",
-    closeTime: "20:00",
-    enabled: true,
-    lastModified: Date.now()
-  },
   withdrawals: {
     mode: "auto",
     openTime: "09:00",
@@ -470,12 +463,12 @@ const DEFAULT_CATEGORY_SCHEDULES: Record<string, any> = {
   }
 };
 
-function evaluateCategorySchedule(category: 'wellbeing' | 'activity' | 'withdrawals', schedulesObj?: any, date: Date = new Date()): {
+function evaluateCategorySchedule(category: 'wellbeing' | 'withdrawals', schedulesObj?: any, date: Date = new Date()): {
   isOpen: boolean;
   statusLabel: 'OUVERT' | 'FERMÉ';
   reason: string;
 } {
-  const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activité' : 'Retraits';
+  const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Retraits';
   const schedules = schedulesObj || DEFAULT_CATEGORY_SCHEDULES;
   const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
 
@@ -552,16 +545,7 @@ const SERVER_DEFAULT_PRODUCTS = [
   { id: "well-4", vipLevel: 4, name: "Gold Avenue Bien-être Vitalité", tag: "Bien-être Vitalité", price: 75000, dailyReturn: 19000, durationDays: 10, totalReturn: 190000, category: "wellbeing", isBlocked: false, isCyclic: true, generatedProductIds: [] },
   { id: "well-5", vipLevel: 5, name: "Gold Avenue Bien-être Énergie", tag: "Bien-être Énergie", price: 150000, dailyReturn: 42500, durationDays: 10, totalReturn: 425000, category: "wellbeing", isBlocked: false, isCyclic: true, generatedProductIds: [] },
   { id: "well-6", vipLevel: 6, name: "Gold Avenue Bien-être Équilibre", tag: "Bien-être Équilibre", price: 300000, dailyReturn: 90000, durationDays: 10, totalReturn: 900000, category: "wellbeing", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "well-7", vipLevel: 7, name: "Gold Avenue Bien-être Plénitude", tag: "Bien-être Plénitude", price: 600000, dailyReturn: 190000, durationDays: 10, totalReturn: 1900000, category: "wellbeing", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-
-  // ACTIVITÉ (7 products)
-  { id: "act-1", vipLevel: 1, name: "Gold Avenue Activité Éclair", tag: "Activité Éclair", price: 5000, dailyReturn: 2500, durationDays: 3, totalReturn: 7500, category: "activity", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "act-2", vipLevel: 2, name: "Gold Avenue Activité Flash", tag: "Activité Flash", price: 15000, dailyReturn: 8000, durationDays: 3, totalReturn: 24000, category: "activity", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "act-3", vipLevel: 3, name: "Gold Avenue Activité Boost", tag: "Activité Boost", price: 40000, dailyReturn: 22000, durationDays: 3, totalReturn: 66000, category: "activity", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "act-4", vipLevel: 4, name: "Gold Avenue Activité Turbo", tag: "Activité Turbo", price: 100000, dailyReturn: 58000, durationDays: 3, totalReturn: 174000, category: "activity", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "act-5", vipLevel: 5, name: "Gold Avenue Activité Hyper", tag: "Activité Hyper", price: 250000, dailyReturn: 150000, durationDays: 3, totalReturn: 450000, category: "activity", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "act-6", vipLevel: 6, name: "Gold Avenue Activité Master", tag: "Activité Master", price: 600000, dailyReturn: 380000, durationDays: 3, totalReturn: 1140000, category: "activity", isBlocked: false, isCyclic: true, generatedProductIds: [] },
-  { id: "act-7", vipLevel: 7, name: "Gold Avenue Activité Elite", tag: "Activité Elite", price: 1500000, dailyReturn: 1000000, durationDays: 3, totalReturn: 3000000, category: "activity", isBlocked: false, isCyclic: true, generatedProductIds: [] }
+  { id: "well-7", vipLevel: 7, name: "Gold Avenue Bien-être Plénitude", tag: "Bien-être Plénitude", price: 600000, dailyReturn: 190000, durationDays: 10, totalReturn: 1900000, category: "wellbeing", isBlocked: false, isCyclic: true, generatedProductIds: [] }
 ];
 
   function loadStore() {
@@ -653,13 +637,18 @@ const SERVER_DEFAULT_PRODUCTS = [
       modified = true;
     }
 
+    if (storeData["gi_category_schedules"] && storeData["gi_category_schedules"].activity) {
+      delete storeData["gi_category_schedules"].activity;
+      modified = true;
+    }
+
     // Explicitly allow real cleanup timestamps to sync with clients' browsers
     if (!storeData["gi_cleanup_timestamp"]) {
       storeData["gi_cleanup_timestamp"] = 0;
     }
 
-    // CONFIGURE 21 PRODUCTS (7 STABILITY, 7 WELL-BEING, 7 ACTIVITY) WITH REQUESTED PRICE POINTS
-    const default21Products = [
+    // CONFIGURE 14 PRODUCTS (7 STABILITY, 7 WELL-BEING)
+    const default14Products = [
       // STABILITÉ (7 products, starting at 2000 XOF minimum)
       {
         id: "stab-1",
@@ -858,111 +847,15 @@ const SERVER_DEFAULT_PRODUCTS = [
         isBlocked: false,
         isCyclic: true,
         generatedProductIds: []
-      },
-
-      // ACTIVITÉ (7 products, starting at 5000 XOF minimum)
-      {
-        id: "act-1",
-        vipLevel: 1,
-        name: "Gold Avenue Activité Éclair",
-        tag: "Activité Éclair",
-        price: 5000,
-        dailyReturn: 2500,
-        durationDays: 3,
-        totalReturn: 7500,
-        category: "activity",
-        isBlocked: false,
-        isCyclic: true,
-        generatedProductIds: []
-      },
-      {
-        id: "act-2",
-        vipLevel: 2,
-        name: "Gold Avenue Activité Flash",
-        tag: "Activité Flash",
-        price: 15000,
-        dailyReturn: 8000,
-        durationDays: 3,
-        totalReturn: 24000,
-        category: "activity",
-        isBlocked: false,
-        isCyclic: true,
-        generatedProductIds: []
-      },
-      {
-        id: "act-3",
-        vipLevel: 3,
-        name: "Gold Avenue Activité Boost",
-        tag: "Activité Boost",
-        price: 40000,
-        dailyReturn: 22000,
-        durationDays: 3,
-        totalReturn: 66000,
-        category: "activity",
-        isBlocked: false,
-        isCyclic: true,
-        generatedProductIds: []
-      },
-      {
-        id: "act-4",
-        vipLevel: 4,
-        name: "Gold Avenue Activité Turbo",
-        tag: "Activité Turbo",
-        price: 100000,
-        dailyReturn: 58000,
-        durationDays: 3,
-        totalReturn: 174000,
-        category: "activity",
-        isBlocked: false,
-        isCyclic: true,
-        generatedProductIds: []
-      },
-      {
-        id: "act-5",
-        vipLevel: 5,
-        name: "Gold Avenue Activité Hyper",
-        tag: "Activité Hyper",
-        price: 250000,
-        dailyReturn: 150000,
-        durationDays: 3,
-        totalReturn: 450000,
-        category: "activity",
-        isBlocked: false,
-        isCyclic: true,
-        generatedProductIds: []
-      },
-      {
-        id: "act-6",
-        vipLevel: 6,
-        name: "Gold Avenue Activité Master",
-        tag: "Activité Master",
-        price: 600000,
-        dailyReturn: 380000,
-        durationDays: 3,
-        totalReturn: 1140000,
-        category: "activity",
-        isBlocked: false,
-        isCyclic: true,
-        generatedProductIds: []
-      },
-      {
-        id: "act-7",
-        vipLevel: 7,
-        name: "Gold Avenue Activité Elite",
-        tag: "Activité Elite",
-        price: 1500000,
-        dailyReturn: 1000000,
-        durationDays: 3,
-        totalReturn: 3000000,
-        category: "activity",
-        isBlocked: false,
-        isCyclic: true,
-        generatedProductIds: []
       }
     ];
 
-    // Force exact set of 21 products on startup
-    storeData["gi_products"] = default21Products;
+    // Force exact set of 14 products on startup (7 Stabilité + 7 Bien-être, no Activités)
+    storeData["gi_products"] = default14Products;
+    // Also purge any lingering activity products or investments
+    if (Array.isArray(storeData["gi_investments"])) {
+      storeData["gi_investments"] = storeData["gi_investments"].filter((inv: any) => inv.category !== 'activity' && !String(inv.productId || '').startsWith('act-'));
+    }
     modified = true;
     setTimeout(() => {
       saveStore(["gi_products"]).catch(err => {
@@ -1410,6 +1303,11 @@ const SERVER_DEFAULT_PRODUCTS = [
         if (isCyclicProduct) {
           // No daily payout during active cycle for short-cycle activity and wellbeing products
           if (expectedDays >= inv.durationDays) {
+            // Check if already completed and credited to prevent duplicate payouts
+            if (inv.status === 'completed' || inv.payoutCredited) {
+              return;
+            }
+
             // End of complete cycle: payout is capital + profit (i.e. totalReturn)
             const totalPayout = inv.totalReturn || (inv.price + (inv.dailyReturn * inv.durationDays));
             const netProfit = totalPayout - inv.price;
@@ -1424,14 +1322,10 @@ const SERVER_DEFAULT_PRODUCTS = [
               const isStability = inv.category === 'stability';
               const title = isWellbeing 
                 ? `🌸 Bien-être Terminé (${inv.productName})` 
-                : isStability
-                ? `📈 Stabilité Terminée (${inv.productName})`
-                : `⚡ Activité Terminée (${inv.productName})`;
+                : `📈 Stabilité Terminée (${inv.productName})`;
               const message = isWellbeing
                 ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`
-                : isStability
-                ? `Félicitations ! Votre cycle de stabilité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`
-                : `Félicitations ! Votre cycle d'activité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`;
+                : `Félicitations ! Votre cycle de stabilité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`;
 
               notifications.unshift({
                 id: `not-cyclecomplete-srv-${Date.now()}-${inv.id}`,
@@ -1443,12 +1337,33 @@ const SERVER_DEFAULT_PRODUCTS = [
                 createdAt: new Date().toISOString(),
                 read: false
               });
+
+              // Enregistrer ce revenu dans l'historique des revenus
+              const revHistory = storeData["gi_revenue_history"] || [];
+              const alreadyRecorded = revHistory.some((r: any) => r.investmentId === inv.id);
+              if (!alreadyRecorded) {
+                revHistory.unshift({
+                  id: `rev-${Date.now()}-${inv.id}`,
+                  investmentId: inv.id,
+                  userId: inv.userId,
+                  productName: inv.productName,
+                  category: inv.category,
+                  investedAmount: inv.price,
+                  totalPayout: totalPayout,
+                  netProfit: netProfit,
+                  durationDays: inv.durationDays,
+                  completedAt: new Date().toISOString(),
+                  createdAt: inv.createdAt || new Date().toISOString()
+                });
+                storeData["gi_revenue_history"] = revHistory;
+              }
             }
 
             inv.daysPassed = expectedDays;
             inv.totalReturnClaimed = totalPayout;
             inv.lastClaimDate = new Date().toISOString();
             inv.status = 'completed';
+            inv.payoutCredited = true;
             inv.lastModified = Date.now();
             changed = true;
           } else {
@@ -1545,7 +1460,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     if (changed) {
       // Recalculate dailyEarnings for all users to match active investments status correctly
       users = users.map((u: any) => {
-        const userActiveInvs = investments.filter((inv: any) => inv.userId === u.id && inv.status === 'active' && inv.category !== 'activity' && inv.category !== 'wellbeing' && inv.category !== 'stability' && !inv.isCyclic);
+        const userActiveInvs = investments.filter((inv: any) => inv.userId === u.id && inv.status === 'active' && inv.category !== 'wellbeing' && inv.category !== 'stability' && !inv.isCyclic);
         const activeDailyEarnings = userActiveInvs.reduce((sum: number, inv: any) => sum + inv.dailyReturn, 0);
         return {
           ...u,
@@ -2996,15 +2911,27 @@ const SERVER_DEFAULT_PRODUCTS = [
       return res.json({ success: false, message: 'Votre solde est insuffisant. Veuillez effectuer un investissement/rechargement avant d’activer un produit.' });
     }
 
-    // Horaires d'ouverture / fermeture pour Bien-être et Activités (sécurisé côté serveur)
-    if (targetProduct.category === 'wellbeing' || targetProduct.category === 'activity') {
-      const catKey = targetProduct.category as 'wellbeing' | 'activity';
+    // Horaires d'ouverture / fermeture et règles d'accès pour Bien-être (sécurisé côté serveur)
+    if (targetProduct.category === 'wellbeing') {
       const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
-      const scheduleStatus = evaluateCategorySchedule(catKey, schedules);
+      const scheduleStatus = evaluateCategorySchedule('wellbeing', schedules);
       if (!scheduleStatus.isOpen) {
         return res.json({
           success: false,
           message: scheduleStatus.reason
+        });
+      }
+
+      // Règle d'accès technique : Stabilité VIP N payée obligatoire pour accéder au Bien-être VIP N
+      const reqVipLevel = targetProduct.vipLevel || 1;
+      const hasPaidCorrespondingStability = investments.some(
+        (inv: any) => inv.userId === userId && inv.category === 'stability' && (inv.vipLevel === reqVipLevel || inv.productId === `stab-${reqVipLevel}`)
+      );
+
+      if (!hasPaidCorrespondingStability) {
+        return res.json({
+          success: false,
+          message: `Accès non autorisé : Vous devez d'abord payer le plan Stabilité VIP ${reqVipLevel} correspondant pour débloquer l'accès au Bien-être VIP ${reqVipLevel}.`
         });
       }
     }
@@ -3124,18 +3051,16 @@ const SERVER_DEFAULT_PRODUCTS = [
     return res.json({ success: true, message: `Le produit "${inv.productName}" est désormais ACTIF !`, investment: inv });
   });
 
-  // Endpoints pour la gestion des horaires d'ouverture Bien-être, Activités et Retraits
+  // Endpoints pour la gestion des horaires d'ouverture Bien-être et Retraits
   app.get("/api/category-schedules", (req, res) => {
     const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
     const wellbeingStatus = evaluateCategorySchedule('wellbeing', schedules);
-    const activityStatus = evaluateCategorySchedule('activity', schedules);
     const withdrawalsStatus = evaluateCategorySchedule('withdrawals', schedules);
     res.json({
       success: true,
       schedules,
       status: {
         wellbeing: wellbeingStatus,
-        activity: activityStatus,
         withdrawals: withdrawalsStatus
       },
       serverTime: new Date().toISOString()
@@ -3151,7 +3076,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         ...currentSchedules,
         ...schedules
       };
-    } else if (category && (category === 'wellbeing' || category === 'activity' || category === 'withdrawals') && schedule) {
+    } else if (category && (category === 'wellbeing' || category === 'withdrawals') && schedule) {
       currentSchedules[category] = {
         ...currentSchedules[category],
         ...schedule,
@@ -3163,7 +3088,6 @@ const SERVER_DEFAULT_PRODUCTS = [
     await saveStore(["gi_category_schedules"]);
 
     const wellbeingStatus = evaluateCategorySchedule('wellbeing', currentSchedules);
-    const activityStatus = evaluateCategorySchedule('activity', currentSchedules);
     const withdrawalsStatus = evaluateCategorySchedule('withdrawals', currentSchedules);
 
     res.json({
@@ -3171,7 +3095,6 @@ const SERVER_DEFAULT_PRODUCTS = [
       schedules: currentSchedules,
       status: {
         wellbeing: wellbeingStatus,
-        activity: activityStatus,
         withdrawals: withdrawalsStatus
       }
     });
@@ -5658,7 +5581,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     // Recalculate daily earnings for the associated user
     const uIdx = users.findIndex((u: any) => u.id === inv.userId);
     if (uIdx !== -1) {
-      const activeInvs = investments.filter((i: any) => i.userId === inv.userId && i.status === 'active' && i.category !== 'activity' && i.category !== 'wellbeing' && i.category !== 'stability' && !i.isCyclic);
+      const activeInvs = investments.filter((i: any) => i.userId === inv.userId && i.status === 'active' && i.category !== 'wellbeing' && i.category !== 'stability' && !i.isCyclic);
       users[uIdx].dailyEarnings = activeInvs.reduce((sum: number, i: any) => sum + i.dailyReturn, 0);
       users[uIdx].lastModified = Date.now();
       storeData["gi_users"] = users;

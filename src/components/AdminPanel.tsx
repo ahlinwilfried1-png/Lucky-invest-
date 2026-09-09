@@ -138,17 +138,12 @@ export default function AdminPanel({
   // Category & Operations Schedules Management (Bien-être, Activités & Retraits)
   const [categorySchedules, setCategorySchedules] = useState<CategorySchedules>(() => DataStore.getCategorySchedules());
   const [currentSystemTime, setCurrentSystemTime] = useState<Date>(new Date());
-  const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'activity' | 'withdrawals' | null>(null);
+  const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'withdrawals' | null>(null);
   const [timeInputs, setTimeInputs] = useState({
     wellbeing: {
       openTime: categorySchedules.wellbeing?.openTime || '08:00',
       closeTime: categorySchedules.wellbeing?.closeTime || '20:00',
       enabled: categorySchedules.wellbeing?.enabled ?? true
-    },
-    activity: {
-      openTime: categorySchedules.activity?.openTime || '08:00',
-      closeTime: categorySchedules.activity?.closeTime || '20:00',
-      enabled: categorySchedules.activity?.enabled ?? true
     },
     withdrawals: {
       openTime: categorySchedules.withdrawals?.openTime || '09:00',
@@ -171,11 +166,6 @@ export default function AdminPanel({
           closeTime: fresh.wellbeing?.closeTime || '20:00',
           enabled: fresh.wellbeing?.enabled ?? true
         },
-        activity: {
-          openTime: fresh.activity?.openTime || '08:00',
-          closeTime: fresh.activity?.closeTime || '20:00',
-          enabled: fresh.activity?.enabled ?? true
-        },
         withdrawals: {
           openTime: fresh.withdrawals?.openTime || '09:00',
           closeTime: fresh.withdrawals?.closeTime || '17:00',
@@ -195,7 +185,7 @@ export default function AdminPanel({
   }, []);
 
   const handleUpdateCategorySchedule = async (
-    category: 'wellbeing' | 'activity' | 'withdrawals',
+    category: 'wellbeing' | 'withdrawals',
     updates: Partial<CategorySchedule>
   ) => {
     setIsSavingSchedule(category);
@@ -214,7 +204,7 @@ export default function AdminPanel({
       setCategorySchedules(newSchedules);
       DataStore.saveCategorySchedules(newSchedules, true);
 
-      const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activités' : 'Retraits';
+      const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Retraits';
       let actionLabel = 'mis à jour';
       if (updates.mode === 'open') actionLabel = 'ouverts immédiatement';
       else if (updates.mode === 'closed') actionLabel = 'fermés immédiatement';
@@ -906,7 +896,7 @@ export default function AdminPanel({
   const [editProductImageUrl, setEditProductImageUrl] = useState<string>('');
   const [editVipIsCyclic, setEditVipIsCyclic] = useState<boolean>(false);
   const [editVipGeneratedProductIds, setEditVipGeneratedProductIds] = useState<string[]>([]);
-  const [editVipCategory, setEditVipCategory] = useState<'stability' | 'wellbeing' | 'activity'>('stability');
+  const [editVipCategory, setEditVipCategory] = useState<'stability' | 'wellbeing'>('stability');
 
   // New product form state
   const [newVipLevel, setNewVipLevel] = useState(1);
@@ -918,7 +908,7 @@ export default function AdminPanel({
   const [newVipImageUrl, setNewVipImageUrl] = useState('');
   const [newVipIsCyclic, setNewVipIsCyclic] = useState<boolean>(false);
   const [newVipGeneratedProductIds, setNewVipGeneratedProductIds] = useState<string[]>([]);
-  const [newVipCategory, setNewVipCategory] = useState<'stability' | 'wellbeing' | 'activity'>('stability');
+  const [newVipCategory, setNewVipCategory] = useState<'stability' | 'wellbeing'>('stability');
 
   // Global notify state
   const [globalNotifTitle, setGlobalNotifTitle] = useState('');
@@ -1954,12 +1944,11 @@ export default function AdminPanel({
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Catégorie du Produit</label>
                 <select
                   value={editVipCategory}
-                  onChange={(e) => setEditVipCategory(e.target.value as 'stability' | 'wellbeing' | 'activity')}
+                  onChange={(e) => setEditVipCategory(e.target.value as 'stability' | 'wellbeing')}
                   className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-yellow-500/40"
                 >
                   <option value="stability">Stabilité (Plans standard)</option>
                   <option value="wellbeing">Bien-être (Plans bien-être)</option>
-                  <option value="activity">Activité (Plans court terme)</option>
                 </select>
               </div>
 
@@ -2900,13 +2889,12 @@ export default function AdminPanel({
               </div>
             </div>
 
-            {/* Category & Operations Columns: Wellbeing, Activity and Withdrawals */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {(['wellbeing', 'activity', 'withdrawals'] as const).map((cat) => {
+            {/* Category & Operations Columns: Wellbeing and Withdrawals */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {(['wellbeing', 'withdrawals'] as const).map((cat) => {
                 const sched = categorySchedules[cat] || DEFAULT_CATEGORY_SCHEDULES[cat];
-                const catLabel = cat === 'wellbeing' ? 'Bien-être' : cat === 'activity' ? 'Activité' : 'Retraits';
+                const catLabel = cat === 'wellbeing' ? 'Bien-être' : 'Retraits';
                 const isWellbeing = cat === 'wellbeing';
-                const isActivity = cat === 'activity';
                 const status = DataStore.isCategoryOpen(cat, currentSystemTime);
                 const isSaving = isSavingSchedule === cat;
 
@@ -2926,10 +2914,6 @@ export default function AdminPanel({
                           <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
                             <Sparkles className="w-4 h-4" />
                           </div>
-                        ) : isActivity ? (
-                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                            <Flame className="w-4 h-4" />
-                          </div>
                         ) : (
                           <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                             <Clock className="w-4 h-4" />
@@ -2940,7 +2924,7 @@ export default function AdminPanel({
                             {cat === 'withdrawals' ? 'Horaires Retraits' : `Catégorie ${catLabel}`}
                           </h4>
                           <span className="text-[10px] text-slate-400 block">
-                            {isWellbeing ? 'Produits Cycles Bien-être' : isActivity ? 'Produits Cycles Courts Activité' : 'Demandes de retraits d\'argent'}
+                            {isWellbeing ? 'Produits Cycles Bien-être' : 'Demandes de retraits d\'argent'}
                           </span>
                         </div>
                       </div>
@@ -3214,12 +3198,11 @@ export default function AdminPanel({
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Catégorie du Produit</label>
                 <select
                   value={newVipCategory}
-                  onChange={(e) => setNewVipCategory(e.target.value as 'stability' | 'wellbeing' | 'activity')}
+                  onChange={(e) => setNewVipCategory(e.target.value as 'stability' | 'wellbeing')}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-yellow-500/40"
                 >
                   <option value="stability">Stabilité (Plans standard)</option>
                   <option value="wellbeing">Bien-être (Plans bien-être)</option>
-                  <option value="activity">Activité (Plans court terme)</option>
                 </select>
               </div>
 
@@ -3242,7 +3225,7 @@ export default function AdminPanel({
             {/* 1. Plans Stabilité VIP */}
             <div>
               <h4 className="text-sm font-display font-bold text-yellow-500 uppercase tracking-widest mb-4">
-                📦 Catalogue de tous les Produits (Stabilité, Bien-être & Activité)
+                📦 Catalogue de tous les Produits (Stabilité & Bien-être)
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {products.map((p) => {
@@ -3261,11 +3244,9 @@ export default function AdminPanel({
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-sans font-bold uppercase tracking-wider ${
                                 p.category === 'wellbeing'
                                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : p.category === 'activity'
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                   : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                               }`}>
-                                {p.category === 'wellbeing' ? '🌸 Bien-être' : p.category === 'activity' ? '⚡ Activité' : '💎 Stabilité'}
+                                {p.category === 'wellbeing' ? '🌸 Bien-être' : '💎 Stabilité'}
                               </span>
                               <span className={`w-1.5 h-1.5 rounded-full ${isCurrentlyBlocked ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
                             </div>

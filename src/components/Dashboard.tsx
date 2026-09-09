@@ -67,11 +67,12 @@ import {
   UserCheck,
   ExternalLink
 } from 'lucide-react';
-import { User, Deposit, Withdrawal, Product, Investment, Commission, SystemNotification, SupportMessage, WithdrawalProof } from '../types';
+import { User, Deposit, Withdrawal, Product, Investment, Commission, SystemNotification, SupportMessage, WithdrawalProof, RevenueRecord } from '../types';
 import { DataStore, syncWithBackend, getApiUrl, apiFetch } from '../dataStore';
 import AdminPanel from './AdminPanel';
 import CountdownTimer from './CountdownTimer';
 import { InvestmentItem } from './InvestmentItem';
+import { OnlineSupportPage } from './OnlineSupportPage';
 import { getMaskedAnonymousId, deduplicateForumPosts } from '../lib/forumUtils';
 
 
@@ -1039,7 +1040,7 @@ export default function Dashboard({
 
   const [productErrors, setProductErrors] = useState<Record<string, string>>({});
 
-  const [isSupportMenuOpen, setIsSupportMenuOpen] = useState<boolean>(false);
+  const [isSupportPageOpen, setIsSupportPageOpen] = useState<boolean>(false);
   const [isLiveChatOpen, setIsLiveChatOpen] = useState<boolean>(false);
   const [isSendingChatMessage, setIsSendingChatMessage] = useState<boolean>(false);
   const [chatImageAttachment, setChatImageAttachment] = useState<string | null>(null);
@@ -2393,8 +2394,8 @@ export default function Dashboard({
     }
 
     // 2. Vérification discrète de la disponibilité du produit (état géré discrètement par le système)
-    if (product.category === 'wellbeing' || product.category === 'activity') {
-      const scheduleStatus = DataStore.isCategoryOpen(product.category);
+    if (product.category === 'wellbeing') {
+      const scheduleStatus = DataStore.isCategoryOpen('wellbeing');
       if (!scheduleStatus.isOpen) {
         openAlert(
           'Indisponible',
@@ -2406,9 +2407,9 @@ export default function Dashboard({
     }
 
     // 2. Condition d'activation pour les catégories spéciales (appliquée automatiquement par le système)
-    const isSpecialCategory = product.category === 'wellbeing' || product.category === 'activity';
+    const isSpecialCategory = product.category === 'wellbeing';
     if (isSpecialCategory) {
-      const check = DataStore.checkSpecialProductActivation(userState.id, product.category as 'wellbeing' | 'activity');
+      const check = DataStore.checkSpecialProductActivation(userState.id, 'wellbeing');
       if (!check.canActivate) {
         openAlert(
           'Activation Non Autorisée',
@@ -3307,42 +3308,43 @@ export default function Dashboard({
             if (profileSubPage === 'tasks' || profileSubPage === 'taches') {
               const activeFriendsCount = level1Users.filter(u => getUserInvestedAmount(u.id) > 0).length;
               const claimedTasks = userState.claimedTasks || [];
+              const taskBaselines = userState.taskBaselines || {};
               
               const referralTasksList = [
                 {
                   id: 'task_5',
                   requiredFriends: 5,
                   rewardAmount: 1000,
-                  title: 'Activez 5 amis',
-                  description: 'Invitez et activez 5 amis au Niveau 1 pour débloquer votre prime'
+                  title: 'Tâche 1 : Activez 5 amis',
+                  description: 'Invitez et activez 5 amis au Niveau 1 pour débloquer votre première prime'
                 },
                 {
                   id: 'task_10',
                   requiredFriends: 10,
                   rewardAmount: 2000,
-                  title: 'Activez 10 amis',
-                  description: 'Invitez et activez 10 amis au Niveau 1 pour débloquer votre prime'
+                  title: 'Tâche 2 : Activez 10 amis',
+                  description: 'Activez 10 nouveaux amis au Niveau 1 après validation de la tâche 1'
                 },
                 {
                   id: 'task_20',
                   requiredFriends: 20,
                   rewardAmount: 5000,
-                  title: 'Activez 20 amis',
-                  description: 'Invitez et activez 20 amis au Niveau 1 pour débloquer votre prime'
+                  title: 'Tâche 3 : Activez 20 amis',
+                  description: 'Activez 20 nouveaux amis au Niveau 1 après validation de la tâche 2'
                 },
                 {
                   id: 'task_50',
                   requiredFriends: 50,
                   rewardAmount: 10000,
-                  title: 'Activez 50 amis',
-                  description: 'Invitez et activez 50 amis au Niveau 1 pour débloquer votre prime'
+                  title: 'Tâche 4 : Activez 50 amis',
+                  description: 'Activez 50 nouveaux amis au Niveau 1 après validation de la tâche 3'
                 },
                 {
                   id: 'task_100',
                   requiredFriends: 100,
                   rewardAmount: 20000,
-                  title: 'Activez 100 amis',
-                  description: 'Invitez et activez 100 amis au Niveau 1 pour débloquer votre prime'
+                  title: 'Tâche 5 : Activez 100 amis',
+                  description: 'Activez 100 nouveaux amis au Niveau 1 après validation de la tâche 4'
                 }
               ];
 
@@ -3351,22 +3353,38 @@ export default function Dashboard({
                 return acc + (task ? task.rewardAmount : 0);
               }, 0);
 
-              const handleClaimTask = (task: typeof referralTasksList[0]) => {
-                if (activeFriendsCount < task.requiredFriends) {
-                  triggerToast(`Condition non remplie. Il vous reste ${task.requiredFriends - activeFriendsCount} ami(s) à activer.`, "error");
+              const handleClaimTask = (task: typeof referralTasksList[0], taskIndex: number) => {
+                if (claimedTasks.includes(task.id)) {
+                  triggerToast("Cette tâche a déjà été récompensée !", "info");
                   return;
                 }
-                if (claimedTasks.includes(task.id)) {
-                  triggerToast("Vous avez déjà récupéré cette récompense !", "info");
+
+                const baseline = taskBaselines[task.id] || 0;
+                const currentCount = Math.max(0, activeFriendsCount - baseline);
+
+                if (currentCount < task.requiredFriends) {
+                  const rem = task.requiredFriends - currentCount;
+                  triggerToast(`Condition non remplie. Il vous reste ${rem} nouvel(le)s ami(s) à activer pour cette tâche.`, "error");
                   return;
                 }
 
                 const updatedClaimed = [...claimedTasks, task.id];
+                const updatedBaselines = { ...(userState.taskBaselines || {}) };
+
+                // Débloquer la tâche suivante et la faire recommencer à 0 par rapport aux activations actuelles
+                if (taskIndex + 1 < referralTasksList.length) {
+                  const nextTask = referralTasksList[taskIndex + 1];
+                  updatedBaselines[nextTask.id] = activeFriendsCount;
+                }
+
                 const newBalance = (userState.balance || 0) + task.rewardAmount;
+                const newTotalEarnings = (userState.totalEarnings || 0) + task.rewardAmount;
                 const updatedUser: User = {
                   ...userState,
                   balance: newBalance,
-                  claimedTasks: updatedClaimed
+                  totalEarnings: newTotalEarnings,
+                  claimedTasks: updatedClaimed,
+                  taskBaselines: updatedBaselines
                 };
 
                 DataStore.saveCurrentUser(updatedUser);
@@ -3387,12 +3405,13 @@ export default function Dashboard({
                   id: 'task-bonus-' + Date.now(),
                   userId: updatedUser.id,
                   title: `Récompense de Tâche : ${task.title} 🎉`,
-                  message: `Félicitations ! Vous avez réclamé votre prime de ${task.rewardAmount.toLocaleString()} FCFA pour avoir activé ${task.requiredFriends} amis.`,
+                  message: `Félicitations ! Vous avez réclamé votre prime de ${task.rewardAmount.toLocaleString()} FCFA. Votre solde a été crédité.`,
                   createdAt: new Date().toISOString(),
                   isRead: false
                 });
 
-                triggerToast(`Félicitations ! +${task.rewardAmount.toLocaleString()} FCFA crédités sur votre solde 🎉`, "success");
+                syncWithBackend();
+                triggerToast(`Félicitations ! +${task.rewardAmount.toLocaleString()} FCFA ajoutés à votre solde 🎉`, "success");
               };
 
               return (
@@ -3419,7 +3438,7 @@ export default function Dashboard({
                     <div className="max-w-xl mx-auto grid grid-cols-2 gap-3 relative z-10 pb-2">
                       <div className="bg-rose-950/60 p-3.5 rounded-2xl border border-rose-700/40">
                         <span className="text-[9.5px] text-rose-200 uppercase font-black tracking-wider block">
-                          Amis activés (Niv 1)
+                          Amis activés au total (Niv 1)
                         </span>
                         <div className="flex items-baseline gap-1.5 mt-1">
                           <span className="text-2xl font-black font-sans text-emerald-300">
@@ -3444,17 +3463,22 @@ export default function Dashboard({
 
                   {/* Tasks Container */}
                   <div className="max-w-xl mx-auto -mt-6 px-4 space-y-3.5 relative z-10">
-                    {referralTasksList.map((task) => {
+                    {referralTasksList.map((task, index) => {
                       const isClaimed = claimedTasks.includes(task.id);
-                      const isCompleted = activeFriendsCount >= task.requiredFriends;
-                      const remaining = Math.max(0, task.requiredFriends - activeFriendsCount);
-                      const progressRatio = Math.min(1, activeFriendsCount / task.requiredFriends);
+                      const isUnlocked = index === 0 || claimedTasks.includes(referralTasksList[index - 1].id);
+                      const baseline = isUnlocked ? (taskBaselines[task.id] || 0) : 0;
+                      const currentProgress = isUnlocked ? Math.max(0, activeFriendsCount - baseline) : 0;
+                      const isCompleted = isUnlocked && currentProgress >= task.requiredFriends;
+                      const remaining = Math.max(0, task.requiredFriends - currentProgress);
+                      const progressRatio = Math.min(1, currentProgress / task.requiredFriends);
                       const progressPercentage = Math.round(progressRatio * 100);
 
                       return (
                         <div 
                           key={task.id}
-                          className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-lg border border-slate-100 space-y-3 text-slate-800 transition-all hover:shadow-xl"
+                          className={`bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-lg border space-y-3 text-slate-800 transition-all hover:shadow-xl ${
+                            !isUnlocked ? 'opacity-70 border-slate-200' : 'border-slate-100'
+                          }`}
                           id={`card-task-${task.requiredFriends}`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -3462,12 +3486,16 @@ export default function Dashboard({
                               <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
                                 isClaimed 
                                   ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                                  : isCompleted 
-                                    ? 'bg-amber-50 text-amber-600 border border-amber-200 animate-pulse'
-                                    : 'bg-rose-50 text-[#e11d48] border border-rose-100'
+                                  : !isUnlocked
+                                    ? 'bg-slate-100 text-slate-400 border border-slate-200'
+                                    : isCompleted 
+                                      ? 'bg-amber-50 text-amber-600 border border-amber-200 animate-pulse'
+                                      : 'bg-rose-50 text-[#e11d48] border border-rose-100'
                               }`}>
                                 {isClaimed ? (
                                   <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                                ) : !isUnlocked ? (
+                                  <Lock className="w-5 h-5 stroke-[2]" />
                                 ) : isCompleted ? (
                                   <Award className="w-6 h-6 stroke-[2.5]" />
                                 ) : (
@@ -3476,9 +3504,16 @@ export default function Dashboard({
                               </div>
 
                               <div>
-                                <h3 className="font-sans font-black text-sm sm:text-base text-slate-900 leading-snug">
-                                  {task.title}
-                                </h3>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-sans font-black text-sm sm:text-base text-slate-900 leading-snug">
+                                    {task.title}
+                                  </h3>
+                                  {!isUnlocked && (
+                                    <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-md">
+                                      Verrouillée
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
                                   {task.description}
                                 </p>
@@ -3499,16 +3534,24 @@ export default function Dashboard({
                           <div className="space-y-1.5 pt-1">
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-[11px] font-bold text-slate-600">
-                                {isCompleted ? (
+                                {isClaimed ? (
+                                  <span className="text-emerald-600 font-extrabold flex items-center gap-1">
+                                    <Check className="w-3.5 h-3.5 stroke-[3]" /> Tâche validée et récompense ajoutée au solde
+                                  </span>
+                                ) : !isUnlocked ? (
+                                  <span className="text-slate-400 italic">
+                                    Terminez d'abord la tâche précédente pour débloquer celle-ci (progression à 0)
+                                  </span>
+                                ) : isCompleted ? (
                                   <span className="text-emerald-600 font-extrabold flex items-center gap-1">
                                     <Check className="w-3.5 h-3.5 stroke-[3]" /> Objectif atteint ({task.requiredFriends}/{task.requiredFriends})
                                   </span>
                                 ) : (
-                                  <span>Progression : <b className="text-slate-900">{activeFriendsCount}</b> / {task.requiredFriends} activé(s)</span>
+                                  <span>Progression : <b className="text-slate-900">{currentProgress}</b> / {task.requiredFriends} nouvel(le)s activé(e)s</span>
                                 )}
                               </span>
                               <span className="text-[11px] font-black text-slate-500 font-mono">
-                                {progressPercentage}%
+                                {isClaimed ? '100%' : !isUnlocked ? '0%' : `${progressPercentage}%`}
                               </span>
                             </div>
 
@@ -3517,17 +3560,19 @@ export default function Dashboard({
                                 className={`h-full rounded-full transition-all duration-500 ${
                                   isClaimed 
                                     ? 'bg-emerald-500' 
-                                    : isCompleted 
-                                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 animate-pulse' 
-                                      : 'bg-gradient-to-r from-rose-500 to-red-500'
+                                    : !isUnlocked
+                                      ? 'bg-slate-300'
+                                      : isCompleted 
+                                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 animate-pulse' 
+                                        : 'bg-gradient-to-r from-rose-500 to-red-500'
                                 }`}
-                                style={{ width: `${progressPercentage}%` }}
+                                style={{ width: `${isClaimed ? 100 : !isUnlocked ? 0 : progressPercentage}%` }}
                               />
                             </div>
 
-                            {!isCompleted && (
+                            {isUnlocked && !isCompleted && !isClaimed && (
                               <p className="text-[10.5px] text-slate-400 font-medium italic">
-                                Il reste {remaining} ami(s) à activer pour débloquer cette prime.
+                                Il reste {remaining} nouvel(le)s ami(s) à activer pour débloquer cette prime.
                               </p>
                             )}
                           </div>
@@ -3540,16 +3585,24 @@ export default function Dashboard({
                                 className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 text-emerald-700 font-black text-xs uppercase tracking-wider border border-emerald-200 flex items-center justify-center gap-2 cursor-default"
                               >
                                 <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                                <span>Récompense Déjà Réclamée ({task.rewardAmount.toLocaleString()} FCFA) ✓</span>
+                                <span>Récompense Déjà Réclamée (+{task.rewardAmount.toLocaleString()} FCFA au solde) ✓</span>
+                              </button>
+                            ) : !isUnlocked ? (
+                              <button
+                                disabled
+                                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs uppercase tracking-wider border border-slate-200/50 flex items-center justify-center gap-2 cursor-not-allowed"
+                              >
+                                <Lock className="w-4 h-4 stroke-[2]" />
+                                <span>Tâche verrouillée</span>
                               </button>
                             ) : isCompleted ? (
                               <button
-                                onClick={() => handleClaimTask(task)}
+                                onClick={() => handleClaimTask(task, index)}
                                 className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:brightness-105 active:scale-[0.98] text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-md shadow-amber-500/25 border-0 flex items-center justify-center gap-2 cursor-pointer animate-pulse transition-all"
                                 id={`btn-claim-task-${task.requiredFriends}`}
                               >
                                 <Gift className="w-4 h-4 stroke-[2.5]" />
-                                <span>Recevoir {task.rewardAmount.toLocaleString()} FCFA</span>
+                                <span>Ajouter {task.rewardAmount.toLocaleString()} FCFA à mon solde</span>
                               </button>
                             ) : (
                               <button
@@ -3557,7 +3610,7 @@ export default function Dashboard({
                                 className="w-full py-2.5 px-4 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs uppercase tracking-wider border border-slate-200/50 flex items-center justify-center gap-2 cursor-not-allowed"
                               >
                                 <Clock className="w-4 h-4 stroke-[2]" />
-                                <span>En cours ({activeFriendsCount}/{task.requiredFriends})</span>
+                                <span>En cours ({currentProgress}/{task.requiredFriends})</span>
                               </button>
                             )}
                           </div>
@@ -4249,6 +4302,177 @@ export default function Dashboard({
                       </div>
                     )}
 
+                  </div>
+                </div>
+              );
+            }
+
+            // HISTORIQUE DES REVENUS DES CYCLES TERMINÉS (PAGE DÉDIÉE PORTEFEUILLE)
+            if (profileSubPage === 'revenue-history') {
+              const revRecords = DataStore.getRevenueHistory(userState.id);
+              const completedInvs = activeInvestments.filter(i => i.status === 'completed');
+              
+              const totalRevenueSum = revRecords.reduce((acc, r) => acc + (r.totalPayout || 0), 0) ||
+                completedInvs.reduce((acc, i) => acc + (i.totalReturnClaimed || (i.price + (i.dailyReturn * i.durationDays))), 0);
+              
+              const totalProfitSum = revRecords.reduce((acc, r) => acc + (r.netProfit || 0), 0) ||
+                completedInvs.reduce((acc, i) => acc + (i.dailyReturn * i.durationDays), 0);
+
+              const formatDate = (dateStr: string) => {
+                try {
+                  const d = new Date(dateStr);
+                  if (isNaN(d.getTime())) return dateStr;
+                  return d.toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                } catch {
+                  return dateStr;
+                }
+              };
+
+              return (
+                <div className="bg-[#fff5f7] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-8 text-slate-900 text-left animate-fadeIn">
+                  <div className="max-w-md mx-auto w-full space-y-4">
+                    {/* Header with Back button */}
+                    <div className="flex items-center justify-between pt-1 pb-1">
+                      <button 
+                        onClick={() => setProfileSubPage(null)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:text-slate-950 font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer border-none outline-none"
+                        id="back-to-profile-from-revenue-history"
+                      >
+                        <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+                        <span>Retour</span>
+                      </button>
+                      <h2 className="font-bold text-base sm:text-lg text-slate-900 tracking-tight">Historique des revenus</h2>
+                      <div className="w-16" />
+                    </div>
+
+                    {/* Stats Summary */}
+                    <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] grid grid-cols-2 gap-3 text-center border border-slate-100">
+                      <div className="p-3 bg-emerald-50/80 rounded-2xl border border-emerald-100">
+                        <span className="text-[11px] font-bold text-emerald-800 uppercase block">Total Versé au Solde</span>
+                        <span className="font-bold text-base sm:text-lg text-emerald-700 mt-1 block font-mono">
+                          {totalRevenueSum.toLocaleString()} F
+                        </span>
+                      </div>
+                      <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-100">
+                        <span className="text-[11px] font-bold text-amber-800 uppercase block">Bénéfices Nets</span>
+                        <span className="font-bold text-base sm:text-lg text-amber-700 mt-1 block font-mono">
+                          {totalProfitSum.toLocaleString()} F
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Info Notice */}
+                    <div className="p-3.5 bg-amber-50/80 border border-amber-200/70 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900 shadow-xs">
+                      <Coins className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="leading-snug font-medium">
+                        Les revenus des produits dont le cycle est terminé sont enregistrés ici et leur montant total (capital + gains) est immédiatement crédité sur votre solde.
+                      </p>
+                    </div>
+
+                    {/* Records List */}
+                    <div className="space-y-3">
+                      {revRecords.length === 0 && completedInvs.length === 0 ? (
+                        <div className="text-center py-12 bg-white rounded-3xl p-6 border border-slate-100 shadow-xs">
+                          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto mb-3">
+                            <Coins className="w-6 h-6" />
+                          </div>
+                          <p className="text-xs font-bold text-slate-700">Aucun cycle de produit terminé pour le moment.</p>
+                          <p className="text-[11px] text-slate-400 mt-1">Vos revenus de fin de cycle apparaîtront automatiquement ici dès qu'un plan arrive à terme.</p>
+                        </div>
+                      ) : revRecords.length > 0 ? (
+                        revRecords.map((rec) => (
+                          <div 
+                            key={rec.id}
+                            className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3 text-left"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="text-sm font-sans font-black text-slate-900">
+                                  {rec.productName}
+                                </h4>
+                                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                  Cycle terminé • {rec.durationDays} jour{rec.durationDays > 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                                Crédité au solde ✓
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase block">Capital investi</span>
+                                <span className="text-xs font-black text-slate-800 font-mono">
+                                  {rec.price.toLocaleString()} F CFA
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] text-emerald-600 font-bold uppercase block">Total reversé (Capital + Gains)</span>
+                                <span className="text-sm font-black text-emerald-600 font-mono">
+                                  +{rec.totalPayout.toLocaleString()} F CFA
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="pt-1 flex items-center justify-between text-[10.5px] text-slate-400 border-t border-slate-50">
+                              <span>Bénéfice net : +{(rec.netProfit || 0).toLocaleString()} F</span>
+                              <span>{formatDate(rec.claimedAt)}</span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        completedInvs.map((inv) => {
+                          const totalPayout = inv.totalReturnClaimed || (inv.price + (inv.dailyReturn * inv.durationDays));
+                          const netProfit = totalPayout - inv.price;
+                          return (
+                            <div 
+                              key={inv.id}
+                              className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3 text-left"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="text-sm font-sans font-black text-slate-900">
+                                    {inv.productName}
+                                  </h4>
+                                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                    Cycle de {inv.durationDays} jours terminé
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                                  Crédité au solde ✓
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Capital initial</span>
+                                  <span className="text-xs font-black text-slate-800 font-mono">
+                                    {inv.price.toLocaleString()} F CFA
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] text-emerald-600 font-bold uppercase block">Total crédité au solde</span>
+                                  <span className="text-sm font-black text-emerald-600 font-mono">
+                                    +{totalPayout.toLocaleString()} F CFA
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="pt-1 flex items-center justify-between text-[10.5px] text-slate-400 border-t border-slate-50">
+                                <span>Bénéfice net : +{netProfit.toLocaleString()} F</span>
+                                <span>{formatDate(inv.createdAt)}</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -5319,7 +5543,7 @@ export default function Dashboard({
                 <div className="absolute -bottom-12 -right-12 w-56 h-56 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none z-10" />
                 <div className="absolute -top-12 -left-12 w-56 h-56 bg-amber-600/20 rounded-full blur-3xl pointer-events-none z-10" />
                 
-                {/* Top content - Section Solde Actuel agrandie et visible */}
+                {/* Top content - Statut VIP & Sécurité */}
                 <div className="relative z-20 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-1.5">
                     <span className="relative flex h-2 w-2">
@@ -5331,14 +5555,9 @@ export default function Dashboard({
                     </span>
                   </div>
 
-                  {/* Section Solde Actuel Agrandie, Pro & Responsive */}
-                  <div className="text-right bg-gradient-to-r from-[#ffe082] via-[#f59e0b] to-[#d97706] px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl shadow-xl border border-yellow-200/50 select-all backdrop-blur-sm transition-transform hover:scale-[1.02]">
-                    <span className="text-[9px] sm:text-[10px] text-slate-950 font-sans font-black block leading-none uppercase tracking-widest text-right">
-                      💰 {t('SOLDE ACTUEL', 'CURRENT BALANCE')}
-                    </span>
-                    <span className="text-base sm:text-xl md:text-2xl font-sans font-black text-slate-950 block mt-1 font-mono leading-none tracking-tight">
-                      {userState.balance.toLocaleString()} <span className="text-xs sm:text-sm font-sans font-extrabold">F CFA</span>
-                    </span>
+                  <div className="flex items-center gap-1.5 bg-slate-950/70 border border-yellow-500/30 px-3 py-1 rounded-full text-[10px] font-sans font-bold text-yellow-300 backdrop-blur-sm shadow-xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
+                    <span>{t('SÉCURISÉ 100%', '100% SECURE')}</span>
                   </div>
                 </div>
 
@@ -5367,6 +5586,62 @@ export default function Dashboard({
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* SECTION SOLDE ACTUEL - AGRANDIE, VISIBLE, ULTRA-PRO & RESPONSIVE */}
+              <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-[#131d31] via-[#0d1527] to-[#070b14] border border-yellow-500/30 shadow-xl shadow-black/40">
+                <div className="absolute -top-12 -right-12 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-xs sm:text-sm font-sans font-black text-amber-300 uppercase tracking-widest">
+                        💰 {t('Solde Actuel Disponible', 'Current Available Balance')}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold uppercase border border-emerald-500/40">
+                        Actif
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline gap-2.5 pt-0.5">
+                      <span className="text-3xl sm:text-4xl md:text-5xl font-sans font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-500 font-mono drop-shadow-[0_2px_14px_rgba(245,158,11,0.35)]">
+                        {userState.balance.toLocaleString()}
+                      </span>
+                      <span className="text-base sm:text-xl md:text-2xl font-sans font-black text-yellow-400 uppercase tracking-wide">
+                        F CFA
+                      </span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
+                      {t('Solde disponible pour vos investissements et retraits instantanés', 'Balance available for your investments and instant withdrawals')}
+                    </p>
+                  </div>
+
+                  {/* Actions Rapides Solde */}
+                  <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 pt-1 sm:pt-0">
+                    <button
+                      onClick={() => setActiveTab('deposit')}
+                      id="btn-home-recharge"
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-sans font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer"
+                    >
+                      <Wallet className="w-4 h-4 stroke-[2.5]" />
+                      <span>{t('Recharger', 'Recharge')}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab('withdraw')}
+                      id="btn-home-withdraw"
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl sm:rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-yellow-500/30 text-yellow-300 hover:text-yellow-200 font-sans font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-md active:scale-95 cursor-pointer"
+                    >
+                      <ArrowUpCircle className="w-4 h-4 stroke-[2.5]" />
+                      <span>{t('Retrait', 'Withdraw')}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* 2. QUICK ACCESS BUTTONS ROW (4 BUTTONS FLUID & BORDERLESS) */}
@@ -5767,9 +6042,6 @@ export default function Dashboard({
                           : null;
 
                         const getVipDisplayName = (prod: Product, defaultVipLevel: number) => {
-                          if (prod.category === 'activity') {
-                            return `Gold Avenue Activité ${prod.vipLevel || defaultVipLevel}`;
-                          }
                           if (prod.category === 'wellbeing') {
                             return `Gold Avenue Bien-être ${prod.vipLevel || defaultVipLevel}`;
                           }
@@ -5777,19 +6049,6 @@ export default function Dashboard({
                         };
 
                         const getCardStyle = (cat?: string) => {
-                          if (cat === 'activity') {
-                            return {
-                              container: 'bg-rose-950/45 border border-rose-800/40 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:border-rose-600 transition-all duration-300 relative flex flex-col justify-between',
-                              imgBg: 'bg-rose-900 border border-rose-800',
-                              badge: 'text-rose-200 bg-rose-900/80',
-                              statLabel: 'text-rose-200/80',
-                              statVal: 'text-amber-300 font-extrabold',
-                              statValTotal: 'text-white font-black',
-                              buttonLeft: 'bg-rose-900/60 text-white',
-                              buttonRight: 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black',
-                              buttonBorder: 'border-rose-700/50'
-                            };
-                          }
                           if (cat === 'wellbeing') {
                             return {
                               container: 'bg-rose-950/45 border border-rose-800/40 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:border-rose-600 transition-all duration-300 relative flex flex-col justify-between',
@@ -5820,8 +6079,8 @@ export default function Dashboard({
                         const theme = getCardStyle(p.category);
                         const displayName = getVipDisplayName(p, p.vipLevel || (index + 1));
                         const purchasedCount = activeInvestments.filter(i => i.productName === p.name || i.productId === p.id).length;
-                        const specialCheck = (p.category === 'wellbeing' || p.category === 'activity')
-                          ? DataStore.checkSpecialProductActivation(userState.id, p.category as 'wellbeing' | 'activity')
+                        const specialCheck = (p.category === 'wellbeing')
+                          ? DataStore.checkSpecialProductActivation(userState.id, 'wellbeing')
                           : { canActivate: true };
                         const totalExpectedProductPayout = p.totalReturn || (p.price + (p.dailyReturn * p.durationDays));
 
@@ -7232,6 +7491,26 @@ export default function Dashboard({
                       </div>
                     </button>
 
+                    {/* Historique des revenus */}
+                    <button 
+                      onClick={() => setProfileSubPage('revenue-history')}
+                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      id="card-historique-revenus"
+                    >
+                      <div className="flex items-center flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                          <Coins className="w-5 h-5 stroke-[2.25]" />
+                        </div>
+                        <div className="ml-3.5 flex flex-col min-w-0">
+                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Historique des revenus</span>
+                          <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                            Revenus & bénéfices des cycles de produits terminés
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+
                     {/* 1. Carte bancaire */}
                     <button 
                       onClick={() => {
@@ -7333,13 +7612,9 @@ export default function Dashboard({
                       <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
-                    {/* 7. Service Client (Chat) */}
+                    {/* 7. Support en ligne */}
                     <button 
-                      onClick={() => {
-                        setIsLiveChatOpen(true);
-                        DataStore.markSupportMessagesAsRead(currentUser.id, 'user');
-                        setSupportMessages(prev => prev.map(m => (m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread') ? { ...m, status: 'read' } : m));
-                      }}
+                      onClick={() => setIsSupportPageOpen(true)}
                       className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
                       id="card-service-client-chat"
                     >
@@ -7356,11 +7631,11 @@ export default function Dashboard({
                           )}
                         </div>
                         <div className="ml-3.5 flex flex-col min-w-0">
-                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Service Client (Chat)</span>
+                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Support en ligne</span>
                           <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
                             {unreadSupportCount > 0 
                               ? `${unreadSupportCount} nouveau${unreadSupportCount > 1 ? 'x' : ''} message${unreadSupportCount > 1 ? 's' : ''}` 
-                              : 'Assistance & messagerie directe'}
+                              : 'Recharge non reçue, Canal WhatsApp, Conseiller'}
                           </span>
                         </div>
                       </div>
@@ -7519,9 +7794,10 @@ export default function Dashboard({
       {/* FLOATING HEADSET SUPPORT BUTTON */}
       <div className="fixed right-3.5 bottom-15 z-45 sm:right-5 sm:bottom-16">
         <button
-          onClick={() => setIsSupportMenuOpen(!isSupportMenuOpen)}
+          onClick={() => setIsSupportPageOpen(true)}
           className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-900 hover:bg-slate-800 border-2 border-white text-white flex items-center justify-center shadow-lg active:scale-95 duration-150 transition-all cursor-pointer relative"
-          title="Assistance & Support"
+          title="Assistance & Support en ligne"
+          id="btn-floating-support-headset"
         >
           <Headphones className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.25]" />
           {unreadSupportCount > 0 ? (
@@ -7534,84 +7810,23 @@ export default function Dashboard({
         </button>
       </div>
 
-      {/* SUPPORT LINKS DRAWER/MENU POPUP */}
+      {/* NOUVELLE PAGE DÉDIÉE SUPPORT EN LIGNE (PLEIN ÉCRAN) */}
       <AnimatePresence>
-        {isSupportMenuOpen && (
-          <>
-            {/* Transparent backdrop for easy dismiss */}
-            <div 
-              className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 cursor-default" 
-              onClick={() => setIsSupportMenuOpen(false)} 
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 15, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 15, scale: 0.95 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="fixed right-4 bottom-34 sm:right-6 z-50 bg-white border border-slate-200 rounded-[28px] p-5 shadow-xl w-72 text-left space-y-3.5 text-slate-900"
-            >
-              <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] text-slate-500 font-sans font-extrabold uppercase tracking-widest block">SUPPORT EN LIGNE</span>
-                </div>
-                <button 
-                  onClick={() => setIsSupportMenuOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4 stroke-[2.5]" />
-                </button>
-              </div>
-              
-              {/* Canal WhatsApp option */}
-              <a 
-                href={DataStore.getWhatsAppChannel()}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setIsSupportMenuOpen(false)}
-                className="w-full py-3.5 px-4 bg-[#075E54] hover:bg-[#128C7E] text-white rounded-2xl flex items-center space-x-3 transition-transform duration-100 hover:scale-[1.02] shadow-md shadow-emerald-600/20 cursor-pointer select-none text-left"
-              >
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-xl">
-                  📢
-                </div>
-                <div className="leading-tight flex-1">
-                  <span className="text-white font-sans font-black text-xs block uppercase tracking-wide">Canal WhatsApp</span>
-                  <span className="text-[10px] text-white/90 font-bold block mt-0.5">Alertes & Infos 👉</span>
-                </div>
-              </a>
-
-              {/* Live Chat option */}
-              <button 
-                onClick={() => {
-                  setIsSupportMenuOpen(false);
-                  setIsLiveChatOpen(true);
-                  DataStore.markSupportMessagesAsRead(currentUser.id, 'user');
-                  setSupportMessages(prev => prev.map(m => (m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread') ? { ...m, status: 'read' } : m));
-                }}
-                className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl flex items-center space-x-3 transition-transform duration-100 hover:scale-[1.02] shadow-md cursor-pointer select-none text-left"
-              >
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-xl relative">
-                  🎧
-                  {unreadSupportCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center border border-white">
-                      {unreadSupportCount}
-                    </span>
-                  )}
-                </div>
-                <div className="leading-tight flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-sans font-black text-xs block uppercase tracking-wide">Support en direct</span>
-                    {unreadSupportCount > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-black">
-                        {unreadSupportCount} nouveau{unreadSupportCount > 1 ? 'x' : ''}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-slate-300 font-bold block mt-0.5">Parler avec un conseiller 👋</span>
-                </div>
-              </button>
-            </motion.div>
-          </>
+        {isSupportPageOpen && (
+          <OnlineSupportPage
+            onBack={() => setIsSupportPageOpen(false)}
+            onOpenAdvisorChat={(prefilledMessage) => {
+              setIsSupportPageOpen(false);
+              if (prefilledMessage) {
+                setChatMessageInput(prefilledMessage);
+              }
+              setIsLiveChatOpen(true);
+              DataStore.markSupportMessagesAsRead(currentUser.id, 'user');
+              setSupportMessages(prev => prev.map(m => (m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread') ? { ...m, status: 'read' } : m));
+            }}
+            whatsAppChannelUrl={DataStore.getWhatsAppChannel()}
+            userName={currentUser.name}
+          />
         )}
       </AnimatePresence>
 
