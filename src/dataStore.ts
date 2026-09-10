@@ -838,12 +838,25 @@ export function normalizePhoneNumber(whatsapp: string, countryName?: string): st
   return clean;
 }
 
-export const syncWithBackend = async (): Promise<boolean> => {
-  try {
-    const resp = await apiFetch(getApiUrl('/api/get-store?t=' + Date.now()));
-    if (!resp.ok) return false;
-    const data = await resp.json();
-    if (data && typeof data === 'object') {
+let inFlightSync: Promise<boolean> | null = null;
+let lastSyncCallTime = 0;
+
+export const syncWithBackend = async (force = false): Promise<boolean> => {
+  const now = Date.now();
+  if (!force && inFlightSync) {
+    return inFlightSync;
+  }
+  if (!force && now - lastSyncCallTime < 400) {
+    return true;
+  }
+  lastSyncCallTime = now;
+
+  inFlightSync = (async () => {
+    try {
+      const resp = await apiFetch(getApiUrl('/api/get-store?t=' + Date.now()));
+      if (!resp.ok) return false;
+      const data = await resp.json();
+      if (data && typeof data === 'object') {
       // Check for remote database purge/cleanup command
       const serverCleanupTime = Number(data['gi_cleanup_timestamp'] || 0);
       let localCleanupTime = 0;
@@ -1077,6 +1090,13 @@ export const syncWithBackend = async (): Promise<boolean> => {
               }
             }
             mergedVal = Array.from(mergedMap.values());
+            if (key === "gi_investments") {
+              const currentDeleted = Array.from(new Set([
+                ...(Array.isArray(data["gi_deleted_investments"]) ? data["gi_deleted_investments"].map(String) : []),
+                ...getFromStore<string[]>('gi_deleted_investments', []).map(String)
+              ]));
+              mergedVal = mergedVal.filter((i: any) => i && i.id && !currentDeleted.includes(String(i.id).trim()));
+            }
             if (key === "gi_support_messages") {
               mergedVal = DataStore.deduplicateSupportMessages(mergedVal);
             }
@@ -1110,6 +1130,29 @@ export const syncWithBackend = async (): Promise<boolean> => {
         }
       }
 
+      // Keep logged in user state synchronized with server data
+      const activeUser = DataStore.getCurrentUser();
+      if (activeUser && Array.isArray(data["gi_users"])) {
+        const freshUserRecord = data["gi_users"].find((u: any) => u && String(u.id) === String(activeUser.id));
+        if (freshUserRecord) {
+          const updatedActive = {
+            ...activeUser,
+            ...freshUserRecord,
+            balance: Number(freshUserRecord.balance ?? activeUser.balance),
+            dailyEarnings: Number(freshUserRecord.dailyEarnings ?? activeUser.dailyEarnings),
+            totalEarnings: Number(freshUserRecord.totalEarnings ?? activeUser.totalEarnings),
+            bonus: Number(freshUserRecord.bonus ?? activeUser.bonus),
+            role: freshUserRecord.role || activeUser.role,
+            isBlocked: Boolean(freshUserRecord.isBlocked),
+            withdrawBlocked: Boolean(freshUserRecord.withdrawBlocked)
+          };
+          if (JSON.stringify(updatedActive) !== JSON.stringify(activeUser)) {
+            DataStore.saveCurrentUser(updatedActive);
+            changed = true;
+          }
+        }
+      }
+
       if (changed) {
         dispatchStoreUpdated();
       }
@@ -1117,8 +1160,12 @@ export const syncWithBackend = async (): Promise<boolean> => {
     }
   } catch (error) {
     console.warn('Failed background sync (transient network or polling update):', error);
+  } finally {
+    inFlightSync = null;
   }
   return false;
+  })();
+  return inFlightSync;
 };
 
 // Database class that proxies lists inside localStorage
@@ -1490,8 +1537,12 @@ export class DataStore {
 
   static getInvestments(): Investment[] {
     let list = getFromStore<Investment[]>('gi_investments', INITIAL_INVESTMENTS);
-    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
-    const filtered = list.filter(i => i && i.id && !deletedInvestments.includes(i.id));
+    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []).map(String);
+    const filtered = list.filter(i => i && i.id && !deletedInvestments.includes(String(i.id).trim()));
+
+    if (filtered.length !== list.length) {
+      setToStore<Investment[]>('gi_investments', filtered);
+    }
 
     const stabDefaults: Record<string, { dailyReturn: number; totalReturn: number }> = {
       'stab-1': { dailyReturn: 180, totalReturn: 7200 },
@@ -1526,8 +1577,8 @@ export class DataStore {
   }
 
   static saveInvestments(investments: Investment[]): void {
-    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
-    const filtered = investments.filter(i => i && i.id && !deletedInvestments.includes(i.id));
+    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []).map(String);
+    const filtered = investments.filter(i => i && i.id && !deletedInvestments.includes(String(i.id).trim()));
     setToStore<Investment[]>('gi_investments', filtered);
   }
 
@@ -2771,10 +2822,17 @@ export class DataStore {
             allUsers[uIdx] = { ...allUsers[uIdx], ...res.user };
             this.saveUsers(allUsers);
           }
+          if (res.investment) {
+            const currentInvs = this.getInvestments();
+            if (!currentInvs.some(i => String(i.id) === String(res.investment.id))) {
+              currentInvs.unshift(res.investment);
+              this.saveInvestments(currentInvs);
+            }
+          }
           try {
             dispatchStoreUpdated();
           } catch (e) {}
-          await syncWithBackend();
+          syncWithBackend().catch(() => {});
           return res;
         } else if (res) {
           // Server actively completed but rejected purchase (e.g. insufficient funds, blocked VIP plan)
@@ -2837,7 +2895,7 @@ export class DataStore {
       this.saveCurrentUser(activeUser);
     }
 
-    // Create investment record in pending_activation status
+    // Create investment record in active status
     const investments = this.getInvestments();
     const newInvestment: Investment = {
       id: `inv-${Date.now()}`,
@@ -2851,8 +2909,8 @@ export class DataStore {
       durationDays: targetProduct.durationDays,
       totalReturnClaimed: 0,
       lastClaimDate: new Date().toISOString(),
-      status: 'pending_activation' as const, // Non actif par défaut tant que les conditions d'activation ne sont pas remplies
-      activationConditionsMet: false,
+      status: 'active' as const,
+      activationConditionsMet: true,
       createdAt: new Date().toISOString(),
       lastModified: Date.now(),
       category: targetProduct.category || 'stability',
@@ -3503,26 +3561,23 @@ export class DataStore {
     dispatchStoreUpdated();
     dispatchCustomEvent('gi_new_message');
 
-    // Push to backend server asynchronously with the exact matching ID to prevent duplicate generation
-    try {
-      await apiFetch(getApiUrl('/api/send-message'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: newMsg.id,
-          userId,
-          message: cleanText,
-          sender: senderRole,
-          image: imageBase64,
-          createdAt: newMsg.createdAt,
-          lastModified: newMsg.lastModified,
-          status: newMsg.status
-        })
-      });
-      await syncWithBackend();
-    } catch (e) {
-      console.warn('Failed to sync support message with central server:', e);
-    }
+    // Push to backend server asynchronously in the background without blocking the UI
+    apiFetch(getApiUrl('/api/send-message'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newMsg.id,
+        userId,
+        message: cleanText,
+        sender: senderRole,
+        image: imageBase64,
+        createdAt: newMsg.createdAt,
+        lastModified: newMsg.lastModified,
+        status: newMsg.status
+      })
+    }).catch(e => {
+      console.warn('Network issue while pushing support message to server:', e);
+    });
 
     return newMsg;
   }
@@ -3958,70 +4013,142 @@ export class DataStore {
   }
 
   // Delete purchased product (investment)
-  static async deleteInvestment(investmentId: string): Promise<boolean> {
-    const investments = this.getInvestments();
-    const inv = investments.find(i => i.id === investmentId);
-    if (!inv) return false;
+  static async deleteInvestment(investmentId: string, userId?: string, productId?: string): Promise<boolean> {
+    if (!investmentId && (!userId || !productId)) return false;
+    const invIdStr = investmentId ? String(investmentId).trim() : '';
+    const uIdStr = userId ? String(userId).trim() : '';
+    const pIdStr = productId ? String(productId).trim() : '';
 
-    // Track deleted investment locally to prevent sync resurrection
-    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []);
-    if (!deletedInvestments.includes(investmentId)) {
-      deletedInvestments.push(investmentId);
-      setToStore<string[]>('gi_deleted_investments', deletedInvestments);
+    const investments = this.getInvestments();
+    const matchingInvs = investments.filter(i => {
+      if (!i) return false;
+      if (invIdStr && String(i.id).trim() === invIdStr) return true;
+      if (uIdStr && pIdStr && String(i.userId).trim() === uIdStr && String(i.productId).trim() === pIdStr) return true;
+      return false;
+    });
+
+    const idsToDelete: string[] = matchingInvs.map(i => String(i.id).trim());
+    if (invIdStr && !idsToDelete.includes(invIdStr)) {
+      idsToDelete.push(invIdStr);
     }
 
-    // Filter out the deleted investment
-    const updatedInvestments = investments.filter(i => i.id !== investmentId);
+    // 1. Track deleted investment locally to prevent sync resurrection
+    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []).map(String);
+    for (const dId of idsToDelete) {
+      if (!deletedInvestments.includes(dId)) {
+        deletedInvestments.push(dId);
+      }
+    }
+    setToStore<string[]>('gi_deleted_investments', deletedInvestments);
+
+    // 2. Filter out the deleted investment locally
+    const updatedInvestments = investments.filter(i => i && !idsToDelete.includes(String(i.id).trim()));
     this.saveInvestments(updatedInvestments);
 
-    // Recalculate daily earnings for the user
-    const users = this.getUsers();
-    const userIdx = users.findIndex(u => u.id === inv.userId);
-    if (userIdx !== -1) {
-      const activeInvs = updatedInvestments.filter(i => i.userId === inv.userId && i.status === 'active' && i.category !== 'wellbeing' && i.category !== 'stability' && !(i as any).isCyclic);
-      users[userIdx].dailyEarnings = activeInvs.reduce((sum, i) => sum + i.dailyReturn, 0);
-      users[userIdx].lastModified = Date.now();
-      this.saveUsers(users);
+    // 3. Recalculate daily earnings for affected users
+    const affectedUserIds = Array.from(new Set([
+      ...matchingInvs.map(i => String(i.userId).trim()),
+      ...(uIdStr ? [uIdStr] : [])
+    ])).filter(Boolean);
 
-      // If active user is this user, reload their state locally too
+    const users = this.getUsers();
+    let userChanged = false;
+    for (let idx = 0; idx < users.length; idx++) {
+      if (affectedUserIds.includes(String(users[idx].id).trim())) {
+        const activeInvs = updatedInvestments.filter(i => 
+          i && String(i.userId).trim() === String(users[idx].id).trim() && i.status === 'active'
+        );
+        users[idx].dailyEarnings = activeInvs.reduce((sum, i) => sum + (Number(i.dailyReturn) || 0), 0);
+        users[idx].lastModified = Date.now();
+        userChanged = true;
+      }
+    }
+    if (userChanged) {
+      this.saveUsers(users);
       const current = this.getCurrentUser();
-      if (current && current.id === inv.userId) {
-        current.dailyEarnings = users[userIdx].dailyEarnings;
-        this.saveCurrentUser(current);
+      if (current && affectedUserIds.includes(String(current.id).trim())) {
+        const upToDateUser = users.find(u => String(u.id).trim() === String(current.id).trim());
+        if (upToDateUser) {
+          this.saveCurrentUser({ ...current, ...upToDateUser });
+        }
       }
     }
 
     dispatchStoreUpdated();
 
-    // Notify backend
+    // 4. Notify backend to delete from server memory and Supabase Cloud
     try {
       const response = await apiFetch(getApiUrl('/api/admin/delete-investment'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ investmentId })
+        body: JSON.stringify({ investmentId: invIdStr, userId: uIdStr, productId: pIdStr })
       });
       const data = await response.json();
       if (data && data.success) {
-        if (data.investments) {
+        if (Array.isArray(data.investments)) {
           this.saveInvestments(data.investments);
         }
-        if (data.users) {
+        if (Array.isArray(data.users)) {
           this.saveUsers(data.users);
-          
-          // Sync current logged in user details if they match
           const current = this.getCurrentUser();
           if (current) {
-            const upToDateUser = data.users.find((u: any) => u.id === current.id);
+            const upToDateUser = data.users.find((u: any) => u && String(u.id) === String(current.id));
             if (upToDateUser) {
-              const mergedCurrent = { ...current, ...upToDateUser };
-              this.saveCurrentUser(mergedCurrent);
+              this.saveCurrentUser({ ...current, ...upToDateUser });
             }
           }
         }
       }
     } catch (e) {
-      console.error('Failed to sync deleted investment:', e);
+      console.error('Failed to sync deleted investment with backend:', e);
     }
+
+    try {
+      await syncWithBackend();
+    } catch (e) {}
+
+    dispatchStoreUpdated();
+    return true;
+  }
+
+  // Delete all purchased products / investments
+  static async deleteAllInvestments(): Promise<boolean> {
+    const investments = this.getInvestments();
+    const deletedInvIds = investments.map(i => i && i.id ? String(i.id).trim() : '').filter(Boolean);
+
+    const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []).map(String);
+    for (const dId of deletedInvIds) {
+      if (!deletedInvestments.includes(dId)) {
+        deletedInvestments.push(dId);
+      }
+    }
+    setToStore<string[]>('gi_deleted_investments', deletedInvestments);
+    this.saveInvestments([]);
+
+    // Reset daily earnings for all users
+    const users = this.getUsers();
+    for (let idx = 0; idx < users.length; idx++) {
+      users[idx].dailyEarnings = 0;
+      users[idx].lastModified = Date.now();
+    }
+    this.saveUsers(users);
+
+    const current = this.getCurrentUser();
+    if (current) {
+      this.saveCurrentUser({ ...current, dailyEarnings: 0, lastModified: Date.now() });
+    }
+
+    dispatchStoreUpdated();
+
+    try {
+      await apiFetch(getApiUrl('/api/admin/delete-all-investments'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (e) {
+      console.error('Failed to sync delete-all-investments with backend:', e);
+    }
+
     dispatchStoreUpdated();
     return true;
   }
@@ -4324,14 +4451,56 @@ export class DataStore {
   }
 
   static deleteProduct(productId: string): void {
+    const prodIdStr = String(productId).trim();
     let list = this.getProducts();
-    list = list.filter(p => p.id !== productId);
-    const deletedProducts = getFromStore<string[]>('gi_deleted_products', []);
-    if (!deletedProducts.includes(productId)) {
-      deletedProducts.push(productId);
+    const targetProd = list.find(p => p && String(p.id).trim() === prodIdStr);
+    list = list.filter(p => p && String(p.id).trim() !== prodIdStr);
+
+    const deletedProducts = getFromStore<string[]>('gi_deleted_products', []).map(String);
+    if (!deletedProducts.includes(prodIdStr)) {
+      deletedProducts.push(prodIdStr);
       setToStore<string[]>('gi_deleted_products', deletedProducts);
     }
     this.saveProducts(list);
+
+    // Cascade delete associated investments / user purchases
+    const investments = this.getInvestments();
+    const matchingInvs = investments.filter(i => 
+      i && (String(i.productId).trim() === prodIdStr || (targetProd && i.productName === targetProd.name))
+    );
+
+    if (matchingInvs.length > 0) {
+      const deletedInvIds = matchingInvs.map(i => String(i.id).trim());
+      const deletedInvs = getFromStore<string[]>('gi_deleted_investments', []).map(String);
+      for (const dId of deletedInvIds) {
+        if (!deletedInvs.includes(dId)) deletedInvs.push(dId);
+      }
+      setToStore<string[]>('gi_deleted_investments', deletedInvs);
+
+      const remainingInvs = investments.filter(i => i && !deletedInvIds.includes(String(i.id).trim()));
+      this.saveInvestments(remainingInvs);
+
+      const affectedUserIds = Array.from(new Set(matchingInvs.map(i => String(i.userId).trim())));
+      const users = this.getUsers();
+      for (let idx = 0; idx < users.length; idx++) {
+        if (affectedUserIds.includes(String(users[idx].id).trim())) {
+          const userActive = remainingInvs.filter(i => i && String(i.userId).trim() === String(users[idx].id).trim() && i.status === 'active');
+          users[idx].dailyEarnings = userActive.reduce((sum, i) => sum + (Number(i.dailyReturn) || 0), 0);
+          users[idx].lastModified = Date.now();
+        }
+      }
+      this.saveUsers(users);
+
+      const current = this.getCurrentUser();
+      if (current && affectedUserIds.includes(String(current.id).trim())) {
+        const upToDateUser = users.find(u => String(u.id).trim() === String(current.id).trim());
+        if (upToDateUser) {
+          this.saveCurrentUser({ ...current, ...upToDateUser });
+        }
+      }
+    }
+
+    dispatchStoreUpdated();
   }
 
   static updateProduct(productId: string, updatedP: Partial<Product>): void {

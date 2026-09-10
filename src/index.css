@@ -1,11 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Roboto+Serif:ital,opsz,wght@0,8..144,300..900;1,8..144,300..900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Georgia", "Lora", "Roboto Serif", "Merriweather", "Noto Serif", "Times New Roman", serif;
-  --font-display: "Georgia", "Lora", "Roboto Serif", "Merriweather", serif;
-  --font-serif: "Georgia", "Lora", "Roboto Serif", "Merriweather", "Noto Serif", serif;
-  --font-mono: "Georgia", "Lora", serif;
+  --font-sans: "Lora", "Spectral", "Georgia", "Cambria", "Times New Roman", serif;
+  --font-display: "Lora", "Spectral", "Georgia", serif;
+  --font-serif: "Lora", "Spectral", "Georgia", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   
   --color-gold-light: #fdfaf3;
   --color-gold-champagne: #f4ecdc;
@@ -16,11 +15,15 @@
   --color-dark-black: #0f172a;
 }
 
-/* Elegant and professional serif typography across the entire site */
-*, html, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, span, p, div, a, li, ul, ol, label, section, footer, header, main, nav, aside {
-  font-family: "Georgia", "Lora", "Roboto Serif", "Merriweather", "Noto Serif", "Times New Roman", serif !important;
+/* Elegant, fine, professional serif typography across the entire site as in reference image */
+html {
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  letter-spacing: 0.018em;
+  line-height: 1.55;
 }
 
 /* Elegant Gold & Midnight Blue Theme & Harmonized Palette */
@@ -41,106 +44,30 @@
 
 html, body, #root {
   width: 100%;
-  min-width: 100%;
-  max-width: 100vw;
+  min-height: 100%;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
   box-sizing: border-box;
-  background-color: #060b14 !important;
+  background-color: #060b14;
   color: #f8fafc;
-}
-
-/* Base layout scaling with responsive typography for optimal mobile clarity */
-html {
-  font-size: 14.5px;
-  -webkit-text-size-adjust: 100%;
-}
-
-@media (min-width: 480px) {
-  html {
-    font-size: 15px;
-  }
-}
-
-@media (min-width: 640px) {
-  html {
-    font-size: 15.5px;
-  }
-}
-
-@media (min-width: 1024px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-/* Balanced typography scale with comfortable mobile legibility and no text overflow */
-.text-\[8px\],
-.text-\[8\.5px\] {
-  font-size: 0.65rem;
-}
-
-.text-\[9px\],
-.text-\[9\.5px\] {
-  font-size: 0.70rem;
-}
-
-.text-\[10px\] {
-  font-size: 0.75rem;
-}
-
-.text-\[11px\] {
-  font-size: 0.80rem;
-}
-
-.text-xs {
-  font-size: 0.85rem;
-}
-
-.text-sm {
-  font-size: 0.92rem;
-}
-
-.text-base {
-  font-size: 1.0rem;
-}
-
-.text-lg {
-  font-size: 1.125rem;
-}
-
-.text-xl {
-  font-size: 1.25rem;
-}
-
-.text-2xl {
-  font-size: 1.45rem;
-}
-
-.text-3xl {
-  font-size: 1.75rem;
-}
-
-.text-4xl {
-  font-size: 2.15rem;
-}
-
-.text-5xl {
-  font-size: 2.65rem;
-}
-
-.text-6xl {
-  font-size: 3.15rem;
+  font-family: var(--font-sans);
+  letter-spacing: 0.018em;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #060b14 !important;
-  background-image: radial-gradient(circle at 50% 0%, #0d1a33 0%, #060b14 60%) !important;
-  background-attachment: fixed !important;
-  color: #f8fafc !important;
+  background-color: #060b14;
+  background-image: radial-gradient(circle at 50% 0%, #0d1a33 0%, #060b14 60%);
+  background-attachment: fixed;
+  color: #f8fafc;
   min-height: 100vh;
+  overflow-x: hidden;
+  letter-spacing: 0.018em;
+}
+
+button, input, select, textarea {
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
 }
 
 /* Form input base styling in deep midnight blue */
@@ -247,29 +174,90 @@ footer button span {
   background: #d4af37;
 }
 
-/* Typography Weight Helpers */
-.font-bold,
-strong, b {
-  font-weight: 700 !important;
-}
-
-.font-extrabold {
-  font-weight: 800 !important;
-}
-
-.font-black,
-h1, h2, h3, h4, h5, h6,
-span.font-black,
-div.font-black {
-  font-weight: 900 !important;
-}
-
-.font-semibold {
+/* Typography Weight Refinement - Fine, elegant, professional & highly legible */
+.font-black {
   font-weight: 600 !important;
 }
 
-.font-medium {
+.font-extrabold {
+  font-weight: 600 !important;
+}
+
+.font-bold,
+strong, b {
+  font-weight: 550 !important;
+}
+
+.font-semibold {
   font-weight: 500 !important;
+}
+
+.font-medium {
+  font-weight: 450 !important;
+}
+
+.font-normal {
+  font-weight: 400 !important;
+}
+
+.font-light {
+  font-weight: 300 !important;
+}
+
+/* Headings: elegant, slightly larger, airy letter-spacing, never chunky */
+h1 {
+  font-size: 1.25rem;
+  font-weight: 550 !important;
+  letter-spacing: 0.025em;
+  line-height: 1.35;
+}
+
+h2 {
+  font-size: 1.15rem;
+  font-weight: 550 !important;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+h3 {
+  font-size: 1.05rem;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+h4, h5, h6 {
+  font-weight: 500 !important;
+  letter-spacing: 0.015em;
+}
+
+/* Secondary & helper texts: finer, light weight, airy spacing */
+.text-xs,
+.text-\[9px\],
+.text-\[10px\],
+.text-\[11px\],
+.text-sm {
+  letter-spacing: 0.02em;
+}
+
+p.text-xs,
+p.text-sm,
+span.text-xs,
+span.text-\[10px\],
+span.text-\[11px\],
+.subtext,
+.text-slate-400,
+.text-slate-300,
+.text-slate-500 {
+  font-weight: 380;
+}
+
+/* Spacious uppercase tracking for buttons, chips, tabs */
+.uppercase,
+button.uppercase,
+span.uppercase,
+div.uppercase {
+  letter-spacing: 0.045em !important;
 }
 
 input::placeholder,
@@ -277,16 +265,18 @@ textarea::placeholder,
 select::placeholder {
   color: #64748b !important;
   opacity: 1 !important;
+  font-weight: 350 !important;
 }
 
-/* Keep the account balance bold and golden */
+/* Account balance: refined, crisp and golden */
 .solde-bold,
 .solde-bold *,
 [id="main-balance-text"],
 [id="main-balance-text"] *,
 .solde-display-number,
 .solde-display-number * {
-  font-weight: 900 !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.02em !important;
 }
 
 /* Infinite Marquee Left to Right with Back and Forth (Va-et-vient) */

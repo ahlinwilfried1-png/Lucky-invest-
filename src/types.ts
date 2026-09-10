@@ -2,6 +2,7 @@ export interface User {
   id: string;
   name: string;
   whatsapp: string;
+  phone?: string;
   password?: string;
   country: string;
   balance: number;
@@ -37,8 +38,10 @@ export interface Deposit {
   amount: number;
   operator: string;
   reference: string;
+  transactionId?: string;
+  paymentMethod?: string;
   receiptImage: string; // Base64 or standard asset url
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'success' | 'failed' | 'cancelled';
   createdAt: string;
   approvedAt?: string;
   lastModified?: number;
@@ -51,7 +54,9 @@ export interface Withdrawal {
   amount: number;
   operator: string;
   number: string;
-  status: 'pending' | 'approved' | 'rejected';
+  method?: string;
+  accountNumber?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'success' | 'failed' | 'cancelled';
   createdAt: string;
   fee?: number;
   netAmount?: number;
@@ -131,9 +136,10 @@ export interface SystemNotification {
   userId?: string; // If undefined, it is global
   title: string;
   message: string;
-  type: 'deposit' | 'withdraw' | 'bonus' | 'plan' | 'info';
+  type: 'deposit' | 'withdraw' | 'bonus' | 'plan' | 'info' | 'reward';
   createdAt: string;
   read: boolean;
+  isRead?: boolean;
   lastModified?: number;
 }
 

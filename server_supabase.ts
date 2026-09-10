@@ -200,8 +200,25 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
 
   // 2. Fetch directly from relational tables if they exist
   try {
-    const deletedUsers: string[] = Array.isArray(result['gi_deleted_users']) ? result['gi_deleted_users'] : [];
-    const deletedInvestments: string[] = Array.isArray(result['gi_deleted_investments']) ? result['gi_deleted_investments'] : [];
+    const deletedUsers: string[] = Array.isArray(result['gi_deleted_users']) ? result['gi_deleted_users'].map(s => String(s).trim()) : [];
+    const deletedInvestments: string[] = Array.isArray(result['gi_deleted_investments']) ? result['gi_deleted_investments'].map(s => String(s).trim()) : [];
+    const deletedForumPosts: string[] = Array.isArray(result['gi_deleted_forum_posts']) ? result['gi_deleted_forum_posts'].map(s => String(s).trim()) : [];
+    const deletedProducts: string[] = Array.isArray(result['gi_deleted_products']) ? result['gi_deleted_products'].map(s => String(s).trim()) : [];
+
+    // Filter store-based forum posts and products if loaded
+    if (Array.isArray(result['gi_forum_posts'])) {
+      result['gi_forum_posts'] = result['gi_forum_posts'].filter((p: any) => p && p.id && !deletedForumPosts.includes(String(p.id).trim()));
+    }
+    if (Array.isArray(result['gi_products'])) {
+      result['gi_products'] = result['gi_products'].filter((p: any) => p && p.id && !deletedProducts.includes(String(p.id).trim()));
+    }
+    if (Array.isArray(result['gi_investments'])) {
+      result['gi_investments'] = result['gi_investments'].filter((i: any) => 
+        i && i.id && 
+        !deletedInvestments.includes(String(i.id).trim()) &&
+        (!i.productId || !deletedProducts.includes(String(i.productId).trim()))
+      );
+    }
 
     // Users
     const { data: userRows, error: userErr } = await client
@@ -309,7 +326,11 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
 
     if (!invErr && Array.isArray(invRows) && invRows.length > 0) {
       result['gi_investments'] = invRows
-        .filter(r => !deletedUsers.includes(r.user_id) && !deletedInvestments.includes(r.id))
+        .filter(r => 
+          !deletedUsers.includes(String(r.user_id).trim()) && 
+          !deletedInvestments.includes(String(r.id).trim()) &&
+          (!r.product_id || !deletedProducts.includes(String(r.product_id).trim()))
+        )
         .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
           return {
@@ -334,6 +355,22 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
       foundAny = true;
     }
 
+    // Recalculate users dailyEarnings from filtered active investments
+    if (Array.isArray(result['gi_users']) && Array.isArray(result['gi_investments'])) {
+      result['gi_users'] = result['gi_users'].map((u: any) => {
+        if (!u || !u.id) return u;
+        const uId = String(u.id).trim();
+        const activeInvs = result['gi_investments'].filter((i: any) => 
+          i && String(i.userId || i.user_id).trim() === uId && i.status === 'active'
+        );
+        const calculatedDaily = activeInvs.reduce((sum: number, i: any) => sum + (Number(i.dailyReturn || i.daily_return) || 0), 0);
+        return {
+          ...u,
+          dailyEarnings: calculatedDaily
+        };
+      });
+    }
+
     // Products
     const { data: prodRows, error: prodErr } = await client
       .from('products')
@@ -341,7 +378,9 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
       .order('created_at', { ascending: true });
 
     if (!prodErr && Array.isArray(prodRows) && prodRows.length > 0) {
-      result['gi_products'] = prodRows.map(r => {
+      result['gi_products'] = prodRows
+        .filter(r => r && r.id && !deletedProducts.includes(String(r.id)))
+        .map(r => {
         const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
         return {
           ...raw,
@@ -548,8 +587,9 @@ export async function syncSupabaseRelationalTables(storeData: Record<string, any
 
     // 5. Products
     if (Array.isArray(storeData['gi_products']) && storeData['gi_products'].length > 0) {
+      const deletedProducts = Array.isArray(storeData['gi_deleted_products']) ? storeData['gi_deleted_products'].map(String) : [];
       const prodPayloads = storeData['gi_products']
-        .filter((p: any) => p && p.id)
+        .filter((p: any) => p && p.id && !deletedProducts.includes(String(p.id)))
         .map((p: any) => ({
           id: p.id,
           name: p.name || 'Produit',
@@ -732,23 +772,86 @@ export async function deleteSupabaseUser(userId: string): Promise<boolean> {
 }
 
 /**
- * Permanently deletes an investment from Supabase
+ * Permanently deletes an investment from Supabase (by investment ID and/or userId + productId)
  */
-export async function deleteSupabaseInvestment(investmentId: string): Promise<boolean> {
+export async function deleteSupabaseInvestment(
+  investmentId: string, 
+  userId?: string, 
+  productId?: string
+): Promise<boolean> {
   const client = getSupabaseAdminClient();
-  if (!client || !investmentId) return false;
+  if (!client || (!investmentId && (!userId || !productId))) return false;
 
   try {
-    const { error } = await client.from('investments').delete().eq('id', investmentId);
-    // Also track in gi_deleted_investments store key
-    const { data } = await client.from('store').select('value').eq('key', 'gi_deleted_investments').maybeSingle();
-    let deleted = (data && Array.isArray(data.value)) ? data.value : [];
-    if (!deleted.includes(investmentId)) {
-      deleted.push(investmentId);
-      await client.from('store').upsert({ key: 'gi_deleted_investments', value: deleted, updated_at: new Date().toISOString() });
+    const invIdStr = investmentId ? String(investmentId).trim() : '';
+    const uIdStr = userId ? String(userId).trim() : '';
+    const pIdStr = productId ? String(productId).trim() : '';
+
+    // 1. Delete from dedicated relational investments table
+    if (invIdStr) {
+      try {
+        await client.from('investments').delete().eq('id', invIdStr);
+      } catch (e: any) {
+        console.warn('[SUPABASE DELETE INV BY ID WARN]', e?.message || e);
+      }
     }
-    return !error;
-  } catch {
+    if (uIdStr && pIdStr) {
+      try {
+        await client.from('investments').delete().eq('user_id', uIdStr).eq('product_id', pIdStr);
+      } catch (e: any) {
+        console.warn('[SUPABASE DELETE INV BY USER/PROD WARN]', e?.message || e);
+      }
+    }
+    
+    // 2. Also track in gi_deleted_investments store key
+    try {
+      const { data } = await client.from('store').select('value').eq('key', 'gi_deleted_investments').maybeSingle();
+      let deleted = (data && Array.isArray(data.value)) ? data.value.map(String) : [];
+      if (invIdStr && !deleted.includes(invIdStr)) {
+        deleted.push(invIdStr);
+      }
+      await client.from('store').upsert({ key: 'gi_deleted_investments', value: deleted, updated_at: new Date().toISOString() });
+    } catch {}
+
+    // 3. Clean up gi_investments in store if present
+    try {
+      const { data: invStore } = await client.from('store').select('value').eq('key', 'gi_investments').maybeSingle();
+      if (invStore && Array.isArray(invStore.value)) {
+        const filtered = invStore.value.filter((i: any) => {
+          if (!i) return false;
+          if (invIdStr && String(i.id).trim() === invIdStr) return false;
+          if (uIdStr && pIdStr && String(i.userId || i.user_id).trim() === uIdStr && String(i.productId || i.product_id).trim() === pIdStr) return false;
+          return true;
+        });
+        await client.from('store').upsert({ key: 'gi_investments', value: filtered, updated_at: new Date().toISOString() });
+      }
+    } catch {}
+
+    // 4. Recalculate daily earnings for the user in Supabase
+    if (uIdStr) {
+      try {
+        const { data: userInvs } = await client.from('investments').select('daily_return, status').eq('user_id', uIdStr).eq('status', 'active');
+        const calculatedDaily = Array.isArray(userInvs)
+          ? userInvs.reduce((sum, item) => sum + (Number(item.daily_return) || 0), 0)
+          : 0;
+        await client.from('users').update({ daily_earnings: calculatedDaily, last_modified: Date.now() }).eq('id', uIdStr);
+
+        const { data: userStore } = await client.from('store').select('value').eq('key', 'gi_users').maybeSingle();
+        if (userStore && Array.isArray(userStore.value)) {
+          const updatedUsers = userStore.value.map((u: any) => {
+            if (u && String(u.id).trim() === uIdStr) {
+              return { ...u, dailyEarnings: calculatedDaily, lastModified: Date.now() };
+            }
+            return u;
+          });
+          await client.from('store').upsert({ key: 'gi_users', value: updatedUsers, updated_at: new Date().toISOString() });
+        }
+      } catch {}
+    }
+
+    return true;
+  } catch (err: any) {
+    console.warn('[SUPABASE DELETE INVESTMENT WARN]', err?.message || err);
     return false;
   }
 }
@@ -807,6 +910,96 @@ export async function deleteSupabaseForumPost(postId: string): Promise<boolean> 
 }
 
 /**
+ * Permanently deletes a product from Supabase (relational products table + public.store)
+ */
+export async function deleteSupabaseProduct(productId: string): Promise<boolean> {
+  const client = getSupabaseAdminClient();
+  if (!client || !productId) return false;
+
+  try {
+    const prodIdStr = String(productId).trim();
+
+    // 1. Delete from dedicated relational 'products' table
+    try {
+      await client.from('products').delete().eq('id', prodIdStr);
+    } catch (err: any) {
+      console.warn('[SUPABASE RELATIONAL DELETE PRODUCT WARN]', err?.message || err);
+    }
+
+    // 2. Cascade delete all investments / purchases for this product from relational investments table
+    try {
+      const { data: matchingInvs } = await client.from('investments').select('id, user_id').eq('product_id', prodIdStr);
+      const affectedInvs = Array.isArray(matchingInvs) ? matchingInvs : [];
+      const affectedInvIds = affectedInvs.map(i => String(i.id).trim());
+      const affectedUserIds = Array.from(new Set(affectedInvs.map(i => String(i.user_id).trim())));
+
+      // Delete from relational investments table
+      await client.from('investments').delete().eq('product_id', prodIdStr);
+
+      // Track in gi_deleted_investments
+      if (affectedInvIds.length > 0) {
+        const { data: delInvData } = await client.from('store').select('value').eq('key', 'gi_deleted_investments').maybeSingle();
+        let deletedInvs = (delInvData && Array.isArray(delInvData.value)) ? delInvData.value.map(String) : [];
+        for (const iId of affectedInvIds) {
+          if (!deletedInvs.includes(iId)) deletedInvs.push(iId);
+        }
+        await client.from('store').upsert({ key: 'gi_deleted_investments', value: deletedInvs, updated_at: new Date().toISOString() });
+      }
+
+      // Recalculate daily earnings for affected users
+      for (const uId of affectedUserIds) {
+        const { data: userRemainingInvs } = await client.from('investments').select('daily_return').eq('user_id', uId).eq('status', 'active');
+        const daily = Array.isArray(userRemainingInvs) 
+          ? userRemainingInvs.reduce((sum, item) => sum + (Number(item.daily_return) || 0), 0)
+          : 0;
+        await client.from('users').update({ daily_earnings: daily, last_modified: Date.now() }).eq('id', uId);
+      }
+    } catch (err: any) {
+      console.warn('[SUPABASE CASCADE DELETE INVESTMENTS WARN]', err?.message || err);
+    }
+
+    // 3. Delete from store 'gi_products'
+    try {
+      const { data } = await client.from('store').select('value').eq('key', 'gi_products').maybeSingle();
+      if (data && Array.isArray(data.value)) {
+        const filtered = data.value.filter((p: any) => p && String(p.id) !== prodIdStr);
+        await client.from('store').upsert({ key: 'gi_products', value: filtered, updated_at: new Date().toISOString() });
+      }
+    } catch (err: any) {
+      console.warn('[SUPABASE STORE PRODUCTS DELETE WARN]', err?.message || err);
+    }
+
+    // 4. Delete matching purchases from store 'gi_investments'
+    try {
+      const { data: invStore } = await client.from('store').select('value').eq('key', 'gi_investments').maybeSingle();
+      if (invStore && Array.isArray(invStore.value)) {
+        const filtered = invStore.value.filter((i: any) => i && String(i.productId || i.product_id).trim() !== prodIdStr);
+        await client.from('store').upsert({ key: 'gi_investments', value: filtered, updated_at: new Date().toISOString() });
+      }
+    } catch (err: any) {
+      console.warn('[SUPABASE STORE INVESTMENTS CASCADE WARN]', err?.message || err);
+    }
+
+    // 5. Track in 'gi_deleted_products'
+    try {
+      const { data: delData } = await client.from('store').select('value').eq('key', 'gi_deleted_products').maybeSingle();
+      let delProducts = (delData && Array.isArray(delData.value)) ? delData.value : [];
+      if (!delProducts.includes(prodIdStr)) {
+        delProducts.push(prodIdStr);
+        await client.from('store').upsert({ key: 'gi_deleted_products', value: delProducts, updated_at: new Date().toISOString() });
+      }
+    } catch (err: any) {
+      console.warn('[SUPABASE STORE DELETED PRODUCTS TRACK WARN]', err?.message || err);
+    }
+
+    return true;
+  } catch (err: any) {
+    console.error('[SUPABASE DELETE PRODUCT ERROR]', err);
+    return false;
+  }
+}
+
+/**
  * Fetches real-time row counts directly from Supabase
  */
 export async function fetchLiveSupabaseCounts(): Promise<{
@@ -846,4 +1039,155 @@ export async function fetchLiveSupabaseCounts(): Promise<{
   }
 
   return counts;
+}
+
+/**
+ * Verifies in Supabase whether a referral's deposit is their very first approved recharge.
+ * Strict business rule:
+ * Referral commission is credited ONLY ONCE per referral, on their FIRST validated recharge.
+ * 2nd, 3rd, and all subsequent deposits of that referral must yield NO new commission.
+ */
+export async function isReferralFirstApprovedDepositInSupabase(
+  referralUserId: string,
+  currentDepositId?: string
+): Promise<{ isFirst: boolean; reason: string; priorApprovedCount: number }> {
+  const client = getSupabaseAdminClient();
+  const uId = String(referralUserId || '').trim();
+  if (!uId) {
+    return { isFirst: false, reason: 'ID de filleul manquant.', priorApprovedCount: 0 };
+  }
+
+  if (!client) {
+    return { isFirst: true, reason: 'Client Supabase non initialisé, vérification locale.', priorApprovedCount: 0 };
+  }
+
+  try {
+    // 1. Check in Supabase relational 'deposits' table
+    try {
+      const { data: depRows, error: depErr } = await client
+        .from('deposits')
+        .select('id, user_id, status, created_at, approved_at')
+        .eq('user_id', uId);
+
+      if (!depErr && Array.isArray(depRows)) {
+        const priorApproved = depRows.filter((d: any) => {
+          if (!d) return false;
+          const isApproved = String(d.status || '').toLowerCase() === 'approved';
+          if (!isApproved) return false;
+          // Exclude the current deposit that is currently being approved/processed
+          if (currentDepositId && String(d.id).trim() === String(currentDepositId).trim()) {
+            return false;
+          }
+          return true;
+        });
+
+        if (priorApproved.length > 0) {
+          return {
+            isFirst: false,
+            reason: `Supabase (table deposits) contient déjà ${priorApproved.length} rechargement(s) approuvé(s) pour ce filleul (${uId}).`,
+            priorApprovedCount: priorApproved.length
+          };
+        }
+      }
+    } catch (err: any) {
+      console.warn('[SUPABASE DEPOSITS CHECK WARN]', err?.message || err);
+    }
+
+    // 2. Check in Supabase 'store' table for gi_deposits as backup verification
+    try {
+      const { data: storeDep } = await client
+        .from('store')
+        .select('value')
+        .eq('key', 'gi_deposits')
+        .maybeSingle();
+
+      if (storeDep && Array.isArray(storeDep.value)) {
+        const priorInStore = storeDep.value.filter((d: any) => {
+          if (!d || String(d.userId || d.user_id).trim() !== uId) return false;
+          if (String(d.status || '').toLowerCase() !== 'approved') return false;
+          if (currentDepositId && String(d.id).trim() === String(currentDepositId).trim()) return false;
+          return true;
+        });
+
+        if (priorInStore.length > 0) {
+          return {
+            isFirst: false,
+            reason: `Supabase store gi_deposits contient déjà ${priorInStore.length} rechargement(s) approuvé(s) pour ce filleul (${uId}).`,
+            priorApprovedCount: priorInStore.length
+          };
+        }
+      }
+    } catch (err: any) {
+      console.warn('[SUPABASE STORE DEPOSITS CHECK WARN]', err?.message || err);
+    }
+
+    // 3. Check in Supabase 'store' table for gi_commissions to prevent double attribution
+    try {
+      const { data: storeComm } = await client
+        .from('store')
+        .select('value')
+        .eq('key', 'gi_commissions')
+        .maybeSingle();
+
+      if (storeComm && Array.isArray(storeComm.value)) {
+        const existingRechargeCommission = storeComm.value.some((c: any) => {
+          if (!c) return false;
+          const matchesUser = String(c.fromUserId || c.referralId).trim() === uId;
+          const isRecharge = c.type === 'recharge' || c.originType === 'recharge';
+          return matchesUser && isRecharge;
+        });
+
+        if (existingRechargeCommission) {
+          return {
+            isFirst: false,
+            reason: `Une commission de rechargement a déjà été attribuée pour le filleul (${uId}) dans Supabase gi_commissions.`,
+            priorApprovedCount: 1
+          };
+        }
+      }
+    } catch (err: any) {
+      console.warn('[SUPABASE STORE COMMISSIONS CHECK WARN]', err?.message || err);
+    }
+
+    // 4. Check in Supabase 'commissions' relational table if present
+    try {
+      const { data: commRows, error: commErr } = await client
+        .from('commissions')
+        .select('*')
+        .limit(100);
+
+      if (!commErr && Array.isArray(commRows)) {
+        const alreadyGranted = commRows.some((c: any) => {
+          if (!c) return false;
+          const raw = (c.raw_data && typeof c.raw_data === 'object') ? c.raw_data : {};
+          const cFromUserId = String(c.from_user_id || raw.fromUserId || raw.referralId || '').trim();
+          const isRecharge = String(c.type || raw.type || raw.originType || '').toLowerCase() === 'recharge';
+          return cFromUserId === uId && isRecharge;
+        });
+
+        if (alreadyGranted) {
+          return {
+            isFirst: false,
+            reason: `La table relationnelle commissions contient déjà une commission pour ce filleul (${uId}).`,
+            priorApprovedCount: 1
+          };
+        }
+      }
+    } catch {
+      // Non-blocking if table structure differs
+    }
+
+    return {
+      isFirst: true,
+      reason: `Aucun historique de rechargement antérieur trouvé dans Supabase pour ${uId}. Premier rechargement autorisé.`,
+      priorApprovedCount: 0
+    };
+  } catch (err: any) {
+    console.warn('[SUPABASE FIRST RECHARGE CHECK WARN]', err?.message || err);
+    return {
+      isFirst: true,
+      reason: 'Erreur lors de la requête Supabase, repli sur les vérifications locales.',
+      priorApprovedCount: 0
+    };
+  }
 }

@@ -93,7 +93,7 @@ export default function AdminPanel({
   } | null>(null);
   const [notification, setNotification] = useState<{
     message: string;
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'info';
   } | null>(null);
 
   // Manual synchronizing state feedback 
@@ -225,27 +225,42 @@ export default function AdminPanel({
     }
   };
 
-  const handleDeleteInvestment = (investmentId: string) => {
-    const inv = investments.find(i => i.id === investmentId);
-    if (!inv) return;
+  const handleDeleteInvestment = (investmentId: string, targetUserId?: string, targetProductId?: string) => {
+    if (!investmentId && (!targetUserId || !targetProductId)) return;
+    const invIdStr = investmentId ? String(investmentId).trim() : '';
+    const inv = investments.find(i => 
+      (invIdStr && i && String(i.id).trim() === invIdStr) ||
+      (targetUserId && targetProductId && i && String(i.userId).trim() === String(targetUserId).trim() && String(i.productId).trim() === String(targetProductId).trim())
+    );
+    const userId = targetUserId || inv?.userId;
+    const productId = targetProductId || inv?.productId;
+    const effectiveInvId = inv ? String(inv.id).trim() : invIdStr;
+
+    const productName = inv?.productName || "ce produit payé";
+    const priceStr = inv && inv.price ? ` (${inv.price.toLocaleString()} F)` : '';
 
     setConfirmConfig({
       title: "🔴 SUPPRIMER UN PRODUIT PAYÉ",
-      message: `Voulez-vous vraiment annuler et supprimer cet achat ${inv.productName} (${inv.price.toLocaleString()} F) pour l'utilisateur qui l'a acheté ? Cela recalculera également ses revenus journaliers.`,
+      message: `Voulez-vous vraiment annuler et supprimer définitivement cet achat ${productName}${priceStr} ? Ce produit sera immédiatement supprimé sur le compte de l'utilisateur et ses revenus journaliers seront recalculés.`,
       onConfirm: async () => {
         try {
-          const success = await DataStore.deleteInvestment(investmentId);
+          const success = await DataStore.deleteInvestment(effectiveInvId, userId, productId);
           if (success) {
             // Update local states
-            setInvestments(prev => prev.filter(i => i.id !== investmentId));
-            // Trigger refresh
+            setInvestments(prev => prev.filter(i => {
+              if (!i) return false;
+              if (effectiveInvId && String(i.id).trim() === effectiveInvId) return false;
+              if (userId && productId && String(i.userId).trim() === String(userId).trim() && String(i.productId).trim() === String(productId).trim()) return false;
+              return true;
+            }));
+            try {
+              await syncWithBackend();
+            } catch (e) {}
             onRefreshData();
-            
-            // Reload users if they changed
             setUsers(DataStore.getUsers());
 
             setNotification({
-              message: "🗑️ Produid souscrit supprimé avec succès !",
+              message: "🗑️ Produit souscrit supprimé avec succès !",
               type: "success"
             });
           } else {
@@ -258,6 +273,39 @@ export default function AdminPanel({
           console.error("Error deleting investment:", err);
           setNotification({
             message: "Erreur: " + err.message,
+            type: "error"
+          });
+        }
+      }
+    });
+  };
+
+  const handleDeleteAllInvestments = () => {
+    if (investments.length === 0) {
+      setNotification({
+        message: "Il n'y a aucun produit payé à supprimer.",
+        type: "info"
+      });
+      return;
+    }
+
+    setConfirmConfig({
+      title: "Supprimer TOUS les produits payés ?",
+      message: `⚠️ ATTENTION : Voulez-vous vraiment supprimer définitivement TOUS les ${investments.length} produits payés de tous les utilisateurs ?\n\nTous les forfaits actifs seront immédiatement supprimés des comptes des utilisateurs et leurs gains journaliers seront réinitialisés à 0 XOF. Cette action est irréversible.`,
+      onConfirm: async () => {
+        try {
+          await DataStore.deleteAllInvestments();
+          setInvestments([]);
+          setUsers(DataStore.getUsers());
+          onRefreshData();
+          setNotification({
+            message: "🗑️ Tous les produits payés ont été supprimés avec succès !",
+            type: "success"
+          });
+        } catch (err: any) {
+          console.error("Error deleting all investments:", err);
+          setNotification({
+            message: "Erreur lors de la suppression: " + err.message,
             type: "error"
           });
         }
@@ -508,12 +556,15 @@ export default function AdminPanel({
   // Real-time synchronization directly with the central Express database server.
   // Bypasses any client integration bottlenecks, ensures 100% of registrations on standard,
   // mobile, and tablet devices appear instantly without exclusion, pagination boundaries, or filter caching.
-  const executeDirectCentralSync = async () => {
+  const executeDirectCentralSync = async (forceFresh = false) => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
     try {
       setSyncStatus('checking');
-      const resp = await apiFetch(getApiUrl('/api/get-store?fresh=true&t=' + Date.now()));
+      const url = forceFresh 
+        ? '/api/get-store?fresh=true&t=' + Date.now() 
+        : '/api/get-store?t=' + Date.now();
+      const resp = await apiFetch(getApiUrl(url));
       if (resp.ok) {
         const data = await resp.json();
         if (data && typeof data === 'object') {
@@ -551,12 +602,14 @@ export default function AdminPanel({
         setSyncError(`Server responded with key status ${resp.status}`);
       }
 
-      // Fetch diagnostics directly
-      const diagResp = await apiFetch(getApiUrl('/api/admin-diagnostics?t=' + Date.now()));
-      if (diagResp.ok) {
-        const diagData = await diagResp.json();
-        if (diagData.success) {
-          setServerDiag(diagData);
+      // Fetch diagnostics only when on platform tab or explicitly forced
+      if (activeAdminTabRef.current === 'platform' || forceFresh) {
+        const diagResp = await apiFetch(getApiUrl('/api/admin-diagnostics?t=' + Date.now()));
+        if (diagResp.ok) {
+          const diagData = await diagResp.json();
+          if (diagData.success) {
+            setServerDiag(diagData);
+          }
         }
       }
     } catch (err) {
@@ -683,11 +736,11 @@ export default function AdminPanel({
       onRefreshData();
     });
 
-    // Constant real-time active synchronization (poll every 2 seconds for guaranteed freshness)
-    const interval = setInterval(executeDirectCentralSync, 2000);
+    // Constant real-time active synchronization (poll every 3.5 seconds for guaranteed freshness without lag)
+    const interval = setInterval(() => executeDirectCentralSync(false), 3500);
     
     const handleStoreUpdated = () => {
-      executeDirectCentralSync();
+      executeDirectCentralSync(false);
     };
     window.addEventListener('gi_store_updated', handleStoreUpdated);
 
@@ -700,7 +753,7 @@ export default function AdminPanel({
 
   // Force direct sync on admin tab switch too
   React.useEffect(() => {
-    executeDirectCentralSync();
+    executeDirectCentralSync(false);
   }, [activeAdminTab]);
 
   // Auto-dismiss custom notifications after 4 seconds
@@ -1318,8 +1371,8 @@ export default function AdminPanel({
     alert("✅ Produit d'investissement créé et enregistré avec succès !");
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!confirm("Voulez-vous vraiment supprimer ce produit d'investissement ?")) return;
+  const handleDeleteProduct = async (id: string, skipConfirm = false) => {
+    if (!skipConfirm && !confirm("Voulez-vous vraiment supprimer ce produit d'investissement et toutes les souscriptions associées sur les comptes utilisateurs ?")) return;
 
     DataStore.deleteProduct(id);
     syncLocalStates();
@@ -1331,17 +1384,25 @@ export default function AdminPanel({
         body: JSON.stringify({ productId: id })
       });
       if (resp.ok) {
+        const data = await resp.json();
+        if (data && Array.isArray(data.investments)) {
+          setInvestments(data.investments);
+        }
+        if (data && Array.isArray(data.users)) {
+          setUsers(data.users);
+        }
         await executeDirectCentralSync();
       }
     } catch (e) {
       console.error("Failed server product deletion, fallback local:", e);
     }
-    alert("✅ Produit supprimé avec succès !");
+    alert("✅ Produit et souscriptions associées supprimés avec succès !");
   };
 
   const handleDeleteAllProducts = async () => {
-    if (confirm('⚠️ Voulez-vous vraiment supprimer définitivement TOUS les produits d\'investissement ? Cette action est irréversible.')) {
+    if (confirm('⚠️ Voulez-vous vraiment supprimer définitivement TOUS les produits d\'investissement et leurs souscriptions ? Cette action est irréversible.')) {
       DataStore.saveProducts([]);
+      DataStore.saveInvestments([]);
       syncLocalStates();
 
       try {
@@ -1355,7 +1416,7 @@ export default function AdminPanel({
       } catch (e) {
         console.error("Failed server products clear:", e);
       }
-      alert("✅ Tous les produits ont été supprimés avec succès !");
+      alert("✅ Tous les produits et souscriptions ont été supprimés avec succès !");
     }
   };
 
@@ -1837,7 +1898,7 @@ export default function AdminPanel({
                 onClick={async () => {
                   const id = productToDelete.id;
                   setProductToDelete(null);
-                  await handleDeleteProduct(id);
+                  await handleDeleteProduct(id, true);
                 }}
                 className="flex-1 py-3 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/10"
               >
@@ -4230,16 +4291,20 @@ export default function AdminPanel({
 
         const handleSendAdminReply = async (e: React.FormEvent) => {
           e.preventDefault();
-          if (isSendingAdminReply || !selectedUserId || !adminReplyInput.trim()) return;
+          if (!selectedUserId || !adminReplyInput.trim()) return;
 
           const replyText = adminReplyInput.trim();
           setAdminReplyInput('');
-          setIsSendingAdminReply(true);
           try {
-            await DataStore.sendMessageToSupport(selectedUserId, replyText, 'admin');
-            executeDirectCentralSync();
-          } finally {
-            setIsSendingAdminReply(false);
+            const newMsg = await DataStore.sendMessageToSupport(selectedUserId, replyText, 'admin');
+            if (newMsg) {
+              setSupportMessages(prev => {
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+              });
+            }
+          } catch (e) {
+            console.error(e);
           }
         };
 
@@ -4258,7 +4323,7 @@ export default function AdminPanel({
 
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={executeDirectCentralSync}
+                  onClick={() => { executeDirectCentralSync(); }}
                   className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white rounded-lg border border-slate-750 transition-colors"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -5012,9 +5077,18 @@ export default function AdminPanel({
                   Consultez, recherchez et gérez tous les forfaits d'investissement actifs et complets achetés par vos membres. Vous pouvez annuler/supprimer n'importe quel produit payé.
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleDeleteAllInvestments}
+                  disabled={investments.length === 0}
+                  className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Supprimer définitivement tous les produits payés de tous les utilisateurs"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Supprimer tous les payés ({investments.length})</span>
+                </button>
                 <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300">
-                  Total Souscrits: <span className="text-yellow-400 font-bold">{investments.length}</span>
+                  Total: <span className="text-yellow-400 font-bold">{investments.length}</span>
                 </div>
                 <div className="bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20 text-[11px] font-mono text-emerald-400">
                   Actifs: <span className="font-bold">{investments.filter(i => i.status === 'active').length}</span>

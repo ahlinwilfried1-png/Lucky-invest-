@@ -8,10 +8,10 @@
     <meta property="og:title" content="Gold Avenue" />
     <meta property="og:description" content="Plateforme d'investissement aurifère et de gestion de fortune de premier plan, offrant des rendements stables et un système de parrainage MLM de pointe." />
     
-    <!-- Google Fonts & Serif Typography -->
+    <!-- Google Fonts: Elegant, fine, professional serif typography as in reference image -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Roboto+Serif:ital,opsz,wght@0,8..144,300..900;1,8..144,300..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
     
     <!-- PWA Configurations -->
     <link rel="manifest" href="/manifest.json" />
@@ -23,50 +23,21 @@
     
     <script>
       try {
-        // Détecter si l'application tourne dans un iframe (AISTUDIO Preview) ou en développement
-        const isIframe = window.self !== window.top;
-        const isDev = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1') || window.location.hostname.endsWith('.run.app');
-
-        if (isIframe || isDev) {
-          console.log('[PWA] Mode développement ou iframe détecté. Désactivation préventive du cache SW.');
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-              let unregisteredAny = false;
-              for (const reg of registrations) {
-                reg.unregister();
-                unregisteredAny = true;
-              }
-              if (unregisteredAny) {
-                console.log('[PWA] Service Workers obsolètes désenregistrés.');
-                if ('caches' in window) {
-                   caches.keys().then(names => {
-                     for (const name of names) {
-                       try { caches.delete(name); } catch (ce) {}
-                     }
-                   });
-                }
-              }
-            }).catch(err => {
-              console.warn('[PWA] Échec de récupération des service workers.', err);
-            });
-          }
-        } else {
-          // Enregistrer le Service Worker uniquement en production isolée
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-              navigator.serviceWorker.register('/sw.js')
-                .then(reg => {
-                  console.log('PWA Service Worker enregistré avec succès !', reg);
-                })
-                .catch(err => {
-                  console.error('Échec de l\'enregistrement du Service Worker PWA :', err);
-                });
-            });
-          }
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (const reg of registrations) {
+              reg.unregister();
+            }
+          }).catch(() => {});
         }
-      } catch (globalError) {
-        console.warn('[PWA] Exception de script de démarrage de secours silencieusement interceptée :', globalError);
-      }
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            for (const name of names) {
+              try { caches.delete(name); } catch (ce) {}
+            }
+          }).catch(() => {});
+        }
+      } catch (globalError) {}
     </script>
   </head>
   <body>

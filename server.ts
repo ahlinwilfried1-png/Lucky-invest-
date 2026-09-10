@@ -18,10 +18,12 @@ import {
   deleteSupabaseForumPost,
   deleteSupabaseUser,
   deleteSupabaseInvestment,
+  deleteSupabaseProduct,
   upsertSupabaseUser,
   upsertSupabaseDeposit,
   upsertSupabaseWithdrawal,
-  upsertSupabaseInvestment
+  upsertSupabaseInvestment,
+  isReferralFirstApprovedDepositInSupabase
 } from "./server_supabase";
 
 dotenv.config();
@@ -1535,7 +1537,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     return clean;
   }
 
-  function distributeMlmCommissions(userId: string, amount: number, type: 'recharge' | 'investment', originName: string) {
+  async function distributeMlmCommissions(userId: string, amount: number, type: 'recharge' | 'investment', originName: string, depositId?: string) {
     let users = storeData["gi_users"] || [];
     let commissions = storeData["gi_commissions"] || [];
     let notifications = storeData["gi_notifications"] || [];
@@ -1544,6 +1546,54 @@ const SERVER_DEFAULT_PRODUCTS = [
     if (!user) {
       console.warn(`[MLM COMMISSION] User ${userId} not found for commission distribution.`);
       return;
+    }
+
+    // STRICT BUSINESS RULE:
+    // When a referral performs their FIRST recharge only, their sponsor receives the commission.
+    // Starting from the 2nd, 3rd and all subsequent recharges, no new commission is awarded.
+    if (type === 'recharge') {
+      const uIdStr = String(userId).trim();
+      const currentDepIdStr = depositId ? String(depositId).trim() : undefined;
+
+      // 1. Check local storeData deposits: Has this referral EVER had an approved recharge?
+      const localDeposits = storeData["gi_deposits"] || [];
+      const priorApprovedLocal = localDeposits.filter((d: any) => {
+        if (!d || String(d.userId).trim() !== uIdStr) return false;
+        if (String(d.status || '').toLowerCase() !== 'approved') return false;
+        if (currentDepIdStr && String(d.id).trim() === currentDepIdStr) return false;
+        return true;
+      });
+
+      if (priorApprovedLocal.length > 0) {
+        console.log(`[MLM COMMISSION BLOCKED] Filleul ${user.name} (${uIdStr}) a déjà ${priorApprovedLocal.length} dépôt(s) validé(s) dans le store local. Seul le 1er rechargement est éligible à la commission.`);
+        return;
+      }
+
+      // 2. Check local storeData commissions: Was a recharge commission already granted for this referral?
+      const localCommissions = storeData["gi_commissions"] || [];
+      const alreadyHasRechargeComm = localCommissions.some((c: any) => {
+        if (!c) return false;
+        const matchesUser = String(c.fromUserId || c.referralId).trim() === uIdStr ||
+          (user.name && c.fromUserName && String(c.fromUserName).trim().toLowerCase() === String(user.name).trim().toLowerCase());
+        const isRecharge = c.type === 'recharge' || c.originType === 'recharge';
+        return matchesUser && isRecharge;
+      });
+
+      if (alreadyHasRechargeComm) {
+        console.log(`[MLM COMMISSION BLOCKED] Une commission de rechargement existe déjà dans gi_commissions pour le filleul ${user.name} (${uIdStr}). Attribution unique respectée.`);
+        return;
+      }
+
+      // 3. Check Supabase (relational deposits table & Supabase store) for historical approved deposits & existing commissions
+      try {
+        const supabaseCheck = await isReferralFirstApprovedDepositInSupabase(uIdStr, currentDepIdStr);
+        if (!supabaseCheck.isFirst) {
+          console.log(`[MLM COMMISSION BLOCKED via Supabase] ${supabaseCheck.reason}`);
+          return;
+        }
+      } catch (sbErr: any) {
+        console.warn(`[MLM COMMISSION SUPABASE CHECK ERROR]`, sbErr?.message || sbErr);
+      }
     }
 
     // Fetch live MLM Rates
@@ -1581,18 +1631,23 @@ const SERVER_DEFAULT_PRODUCTS = [
         commissions.unshift({
           id: `com-${Date.now()}-1`,
           userId: parentUser.id,
+          fromUserId: user.id,
+          referralId: user.id,
           fromUserName: user.name,
           level: 1,
           amount: commAmtLvl1,
           type: type, // 'recharge' or 'investment'
+          originType: type,
+          firstRechargeOnly: type === 'recharge',
+          depositId: depositId || null,
           lastModified: Date.now(),
           createdAt: new Date().toISOString()
         });
 
-        const title = type === 'recharge' ? 'Commission de dépôt reçue !' : 'Commission d\'investissement reçue !';
+        const title = type === 'recharge' ? 'Commission de 1er rechargement reçue !' : 'Commission d\'investissement reçue !';
         const message = type === 'recharge'
-          ? `Félicitations, vous avez perçu ${commAmtLvl1} XOF (Niveau 1 : ${mlmRates.level1}%) car votre affilié ${user.name} a effectué un dépôt de ${amount} XOF.`
-          : `Félicitations, vous avez perçu ${commAmtLvl1} XOF (Niveau 1 : ${mlmRates.level1}%) car votre affilié ${user.name} a investi de l'argent dans le plan ${originName}.`;
+          ? `Félicitations, vous avez perçu ${commAmtLvl1.toLocaleString()} XOF (Niveau 1 : ${mlmRates.level1}%) sur le premier rechargement validé de votre filleul ${user.name} (${amount.toLocaleString()} XOF).`
+          : `Félicitations, vous avez perçu ${commAmtLvl1.toLocaleString()} XOF (Niveau 1 : ${mlmRates.level1}%) car votre affilié ${user.name} a investi de l'argent dans le plan ${originName}.`;
 
         notifications.unshift({
           id: `not-com1-${Date.now()}`,
@@ -1631,18 +1686,23 @@ const SERVER_DEFAULT_PRODUCTS = [
             commissions.unshift({
               id: `com-${Date.now()}-2`,
               userId: grandParentUser.id,
+              fromUserId: user.id,
+              referralId: user.id,
               fromUserName: user.name,
               level: 2,
               amount: commAmtLvl2,
               type: type,
+              originType: type,
+              firstRechargeOnly: type === 'recharge',
+              depositId: depositId || null,
               lastModified: Date.now(),
               createdAt: new Date().toISOString()
             });
 
-            const title2 = type === 'recharge' ? 'Commission de dépôt Niveau 2 !' : 'Commission d\'investissement Niveau 2 !';
+            const title2 = type === 'recharge' ? 'Commission de 1er rechargement Niveau 2 !' : 'Commission d\'investissement Niveau 2 !';
             const message2 = type === 'recharge'
-              ? `Vous avez perçu ${commAmtLvl2} XOF (Niveau 2 : ${mlmRates.level2}%) suite au dépôt de ${user.name} (parrainé par ${parentUser.name}).`
-              : `Vous avez perçu ${commAmtLvl2} XOF (Niveau 2 : ${mlmRates.level2}%) suite à l'investissement de ${user.name} (parrainé par ${parentUser.name}).`;
+              ? `Vous avez perçu ${commAmtLvl2.toLocaleString()} XOF (Niveau 2 : ${mlmRates.level2}%) sur le premier rechargement validé de ${user.name} (parrainé par ${parentUser.name}).`
+              : `Vous avez perçu ${commAmtLvl2.toLocaleString()} XOF (Niveau 2 : ${mlmRates.level2}%) suite à l'investissement de ${user.name} (parrainé par ${parentUser.name}).`;
 
             notifications.unshift({
               id: `not-com2-${Date.now()}`,
@@ -1681,18 +1741,23 @@ const SERVER_DEFAULT_PRODUCTS = [
                 commissions.unshift({
                   id: `com-${Date.now()}-3`,
                   userId: greatGrandParentUser.id,
+                  fromUserId: user.id,
+                  referralId: user.id,
                   fromUserName: user.name,
                   level: 3,
                   amount: commAmtLvl3,
                   type: type,
+                  originType: type,
+                  firstRechargeOnly: type === 'recharge',
+                  depositId: depositId || null,
                   lastModified: Date.now(),
                   createdAt: new Date().toISOString()
                 });
 
-                const title3 = type === 'recharge' ? 'Commission de dépôt Niveau 3 !' : 'Commission d\'investissement Niveau 3 !';
+                const title3 = type === 'recharge' ? 'Commission de 1er rechargement Niveau 3 !' : 'Commission d\'investissement Niveau 3 !';
                 const message3 = type === 'recharge'
-                  ? `Vous avez perçu ${commAmtLvl3} XOF (Niveau 3 : ${mlmRates.level3}%) suite au dépôt de ${user.name} (parrainé de façon indirecte par un membre de votre réseau).`
-                  : `Vous avez perçu ${commAmtLvl3} XOF (Niveau 3 : ${mlmRates.level3}%) suite à l'investissement de ${user.name} (parrainé de façon indirecte par un membre de votre réseau).`;
+                  ? `Vous avez perçu ${commAmtLvl3.toLocaleString()} XOF (Niveau 3 : ${mlmRates.level3}%) sur le premier rechargement validé de ${user.name} (parrainé de façon indirecte par un membre de votre réseau).`
+                  : `Vous avez perçu ${commAmtLvl3.toLocaleString()} XOF (Niveau 3 : ${mlmRates.level3}%) suite à l'investissement de ${user.name} (parrainé de façon indirecte par un membre de votre réseau).`;
 
                 notifications.unshift({
                   id: `not-com3-${Date.now()}`,
@@ -2204,16 +2269,24 @@ const SERVER_DEFAULT_PRODUCTS = [
   });
 
   let lastSupabasePullTime = 0;
-  const SUPABASE_MIN_PULL_INTERVAL = 800; // ms
+  let lastSupabaseErrorTime = 0;
+  const SUPABASE_MIN_PULL_INTERVAL = 3000; // ms
+  const SUPABASE_ERROR_COOLDOWN = 15000; // ms: if Supabase errors out (e.g. quota), respond instantly without hanging
 
   async function syncFromSupabaseIfAvailable(force: boolean = false): Promise<boolean> {
     const client = getSupabaseAdminClient();
     if (!client) return false;
     const now = Date.now();
-    if (!force && (now - lastSupabasePullTime < SUPABASE_MIN_PULL_INTERVAL)) {
-      return true;
+    if (!force) {
+      if (now - lastSupabaseErrorTime < SUPABASE_ERROR_COOLDOWN) {
+        return false;
+      }
+      if (now - lastSupabasePullTime < SUPABASE_MIN_PULL_INTERVAL) {
+        return true;
+      }
     }
     try {
+      lastSupabasePullTime = now;
       const sbData = await fetchSupabaseStoreData();
       if (sbData && Object.keys(sbData).length > 0) {
         for (const key of Object.keys(sbData)) {
@@ -2226,21 +2299,29 @@ const SERVER_DEFAULT_PRODUCTS = [
         return true;
       }
     } catch (err: any) {
+      lastSupabaseErrorTime = Date.now();
       console.warn("[SUPABASE LIVE PULL WARN]", err?.message || err);
     }
     return false;
   }
 
+  let lastInstallmentProcessing = 0;
   app.get("/api/get-store", async (req, res) => {
     // 1. Authoritative real-time sync with Supabase Cloud
     const forceFresh = req.query.fresh === 'true';
-    await syncFromSupabaseIfAvailable(forceFresh);
+    if (forceFresh || (Date.now() - lastSupabasePullTime >= SUPABASE_MIN_PULL_INTERVAL)) {
+      await syncFromSupabaseIfAvailable(forceFresh);
+    }
 
-    // Process automatic daily earnings on the server to stay fully up-to-date
-    try {
-      await processAutomaticDailyInstallmentsServer();
-    } catch (e) {
-      console.error("[SERVER GET-STORE] Error processing automatic payouts:", e);
+    // Process automatic daily earnings on the server (throttled to at most once per 20s)
+    const now = Date.now();
+    if (now - lastInstallmentProcessing > 20000) {
+      lastInstallmentProcessing = now;
+      try {
+        await processAutomaticDailyInstallmentsServer();
+      } catch (e) {
+        console.error("[SERVER GET-STORE] Error processing automatic payouts:", e);
+      }
     }
 
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -2825,7 +2906,7 @@ const SERVER_DEFAULT_PRODUCTS = [
           id: `not-ref-${Date.now()}`,
           userId: refereeId,
           title: 'Nouveau parrainage',
-          message: `${newUser.name} s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !`,
+          message: `${newUser.name} s'est inscrit en utilisant votre lien. Vous recevrez la commission prévue sur son premier rechargement validé !`,
           type: 'info',
           createdAt: new Date().toISOString(),
           lastModified: Date.now(),
@@ -2975,9 +3056,7 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     // Règle 1 : Lorsqu'un utilisateur paie un produit, le montant est immédiatement déduit de son solde.
     user.balance -= targetProduct.price;
-    if (!isCyclicProduct) {
-      user.dailyEarnings += targetProduct.dailyReturn;
-    }
+    user.dailyEarnings = (user.dailyEarnings || 0) + (targetProduct.dailyReturn || 0);
     user.lastModified = Date.now();
 
     const newInvestment = {
@@ -2985,23 +3064,25 @@ const SERVER_DEFAULT_PRODUCTS = [
       userId,
       productId: targetProduct.id,
       productName: targetProduct.name,
+      vipLevel: targetProduct.vipLevel,
       price: targetProduct.price,
-      dailyReturn: targetProduct.dailyReturn, // Preserve actual dailyReturn so the UI displays the return rate correctly (it won't be credited daily as they are excluded from dailyEarnings)
+      dailyReturn: targetProduct.dailyReturn,
       daysPassed: 0,
       durationDays: targetProduct.durationDays,
       totalReturnClaimed: 0,
       lastClaimDate: new Date().toISOString(),
-      status: 'pending_activation', // Ne pas afficher ni compter un produit comme Actif simplement parce qu'il a été payé
-      activationConditionsMet: false,
+      status: 'active',
+      activationConditionsMet: true,
       lastModified: Date.now(),
       createdAt: new Date().toISOString(),
       category: targetProduct.category || 'stability',
       isCyclic: true,
-      totalReturn: targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays))
+      totalReturn: targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays)),
+      payoutCredited: false
     };
     investments.unshift(newInvestment);
 
-    distributeMlmCommissions(userId, targetProduct.price, 'investment', targetProduct.name);
+    await distributeMlmCommissions(userId, targetProduct.price, 'investment', targetProduct.name);
 
     // Refresh local lists from mutated storeData
     users = storeData["gi_users"] || [];
@@ -3011,8 +3092,8 @@ const SERVER_DEFAULT_PRODUCTS = [
     notifications.unshift({
       id: `not-plan-${Date.now()}`,
       userId,
-      title: 'Plan souscrit (En attente d\'activation)',
-      message: `Votre paiement de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.`,
+      title: 'Plan souscrit avec succès',
+      message: `Votre souscription de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a été validée avec succès.`,
       type: 'plan',
       lastModified: Date.now(),
       createdAt: new Date().toISOString(),
@@ -3034,7 +3115,7 @@ const SERVER_DEFAULT_PRODUCTS = [
       console.warn('[SUPABASE BUY SYNC WARN]', e);
     }
 
-    res.json({ success: true, message: `Paiement validé pour le plan ${targetProduct.name} ! Le produit est en attente d'activation selon les conditions requises.`, user, investment: newInvestment });
+    res.json({ success: true, message: `Souscription validée pour le plan ${targetProduct.name} !`, user, investment: newInvestment });
   });
 
   // Endpoint pour activer un produit payé lorsque les conditions sont remplies (synchronisé avec Supabase)
@@ -3422,7 +3503,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         user.balance += Number(amount);
         user.lastModified = Date.now();
         try {
-          distributeMlmCommissions(userId, Number(amount), 'recharge', operator || 'SoinaPay');
+          await distributeMlmCommissions(userId, Number(amount), 'recharge', operator || 'SoinaPay', newDep.id);
         } catch (mlmErr) {
           console.error("[DEPOSIT API MLM ERROR]", mlmErr);
         }
@@ -3825,8 +3906,8 @@ const SERVER_DEFAULT_PRODUCTS = [
                 read: false
               });
 
-              // Distribute MLM commissions
-              distributeMlmCommissions(dep.userId, Number(dep.amount), 'recharge', 'SendavaPay');
+              // Distribute MLM commissions (FIRST RECHARGE ONLY)
+              await distributeMlmCommissions(dep.userId, Number(dep.amount), 'recharge', 'SendavaPay', dep.id);
               users = storeData["gi_users"] || users;
               notifications = storeData["gi_notifications"] || notifications;
             }
@@ -3983,8 +4064,8 @@ const SERVER_DEFAULT_PRODUCTS = [
                 read: false
               });
 
-              // Distribute MLM commissions
-              distributeMlmCommissions(dep.userId, Number(dep.amount), 'recharge', 'SendavaPay');
+              // Distribute MLM commissions (FIRST RECHARGE ONLY)
+              await distributeMlmCommissions(dep.userId, Number(dep.amount), 'recharge', 'SendavaPay', dep.id);
               users = storeData["gi_users"] || users;
               notifications = storeData["gi_notifications"] || notifications;
 
@@ -4802,11 +4883,21 @@ const SERVER_DEFAULT_PRODUCTS = [
       read: false
     });
 
+    // Distribute MLM commissions (FIRST RECHARGE ONLY)
+    const targetDepId = existingDepIdx !== -1 ? deposits[existingDepIdx].id : (deposits[0] ? deposits[0].id : undefined);
+    try {
+      await distributeMlmCommissions(user.id, amount, 'recharge', finalOperator, targetDepId);
+      users = storeData["gi_users"] || users;
+      notifications = storeData["gi_notifications"] || notifications;
+    } catch (mlmErr) {
+      console.error(`[WEBHOOK ${sourceName.toUpperCase()} MLM ERROR]`, mlmErr);
+    }
+
     storeData["gi_users"] = users;
     storeData["gi_deposits"] = deposits;
     storeData["gi_notifications"] = notifications;
 
-    await saveStore(["gi_users", "gi_deposits", "gi_notifications"]);
+    await saveStore(["gi_users", "gi_deposits", "gi_notifications", "gi_commissions"]);
 
     console.log(`[WEBHOOK ${sourceName.toUpperCase()}] Successfully processed deposit of ${amount} XOF for user ${user.name} (${user.id}).`);
     return res.json({ success: true, message: "Webhook processed successfully" });
@@ -5023,7 +5114,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     };
     updatedMsgs.push(newMsg);
     storeData["gi_support_messages"] = updatedMsgs;
-    await saveStore(["gi_support_messages"]);
+    saveStore(["gi_support_messages"]).catch(e => console.warn('[SAVE SUPPORT MSG WARN]', e));
     res.json({ success: true, message: newMsg });
   });
 
@@ -5299,8 +5390,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         read: false
       });
 
-      // Distribute MLM commissions automatically upon manual approval
-      distributeMlmCommissions(deposits[idx].userId, deposits[idx].amount, 'recharge', deposits[idx].operator || 'Manuel');
+      // Distribute MLM commissions automatically upon manual approval (FIRST RECHARGE ONLY)
+      await distributeMlmCommissions(deposits[idx].userId, deposits[idx].amount, 'recharge', deposits[idx].operator || 'Manuel', deposits[idx].id);
       users = storeData["gi_users"] || users;
       notifications = storeData["gi_notifications"] || notifications;
     } else {
@@ -5590,40 +5681,124 @@ const SERVER_DEFAULT_PRODUCTS = [
   });
 
   app.post("/api/admin/delete-investment", async (req, res) => {
-    const { investmentId } = req.body;
+    const { investmentId, userId, productId } = req.body;
+    if (!investmentId && (!userId || !productId)) {
+      return res.status(400).json({ error: "Identifiants d'enregistrement d'investissement manquants" });
+    }
+    const invIdStr = investmentId ? String(investmentId).trim() : '';
+    const uIdStr = userId ? String(userId).trim() : '';
+    const pIdStr = productId ? String(productId).trim() : '';
+
+    // Pull from Supabase first if available to ensure cache freshness
+    try {
+      await syncFromSupabaseIfAvailable(true);
+    } catch (e) {
+      console.warn('[ADMIN DELETE INV] syncFromSupabase notice:', e);
+    }
+
     let investments = storeData["gi_investments"] || [];
     let users = storeData["gi_users"] || [];
 
-    const inv = investments.find((i: any) => i.id === investmentId);
-    if (!inv) {
-      return res.status(404).json({ error: "Investissement ou produit payé introuvable" });
+    // Find all matching investment records
+    const matchingInvs = investments.filter((i: any) => {
+      if (!i) return false;
+      if (invIdStr && String(i.id).trim() === invIdStr) return true;
+      if (uIdStr && pIdStr && String(i.userId).trim() === uIdStr && String(i.productId).trim() === pIdStr) return true;
+      return false;
+    });
+
+    const idsToDelete: string[] = matchingInvs.map((i: any) => String(i.id).trim());
+    if (invIdStr && !idsToDelete.includes(invIdStr)) {
+      idsToDelete.push(invIdStr);
     }
 
-    // Filter out the deleted investment from database
-    investments = investments.filter((i: any) => i.id !== investmentId);
+    const affectedUserIds = Array.from(new Set([
+      ...matchingInvs.map((i: any) => String(i.userId).trim()),
+      ...(uIdStr ? [uIdStr] : [])
+    ])).filter(Boolean);
+
+    // Filter out the deleted investment from database memory
+    investments = investments.filter((i: any) => i && !idsToDelete.includes(String(i.id).trim()));
     storeData["gi_investments"] = investments;
 
-    // Track deleted investment id
+    // Track deleted investment id permanently to prevent any future resurrection
     let deletedInvestments = storeData["gi_deleted_investments"] || [];
-    if (!deletedInvestments.includes(investmentId)) {
-      deletedInvestments.push(investmentId);
-      storeData["gi_deleted_investments"] = deletedInvestments;
+    for (const idToDel of idsToDelete) {
+      if (!deletedInvestments.map(String).includes(idToDel)) {
+        deletedInvestments.push(idToDel);
+      }
+    }
+    storeData["gi_deleted_investments"] = deletedInvestments;
+
+    // Recalculate daily earnings for the associated users
+    for (let u = 0; u < users.length; u++) {
+      if (affectedUserIds.includes(String(users[u].id).trim())) {
+        const activeInvs = investments.filter((i: any) => 
+          i && String(i.userId).trim() === String(users[u].id).trim() && 
+          i.status === 'active'
+        );
+        users[u].dailyEarnings = activeInvs.reduce((sum: number, i: any) => sum + (Number(i.dailyReturn) || 0), 0);
+        users[u].lastModified = Date.now() + 3000; // Priorité serveur sur le client
+      }
+    }
+    storeData["gi_users"] = users;
+
+    // Direct permanent delete from Supabase Cloud (investments table + store)
+    try {
+      await deleteSupabaseInvestment(invIdStr, uIdStr, pIdStr);
+    } catch (e) {
+      console.warn('[SUPABASE DELETE INV WARN]', e);
     }
 
-    // Recalculate daily earnings for the associated user
-    const uIdx = users.findIndex((u: any) => u.id === inv.userId);
-    if (uIdx !== -1) {
-      const activeInvs = investments.filter((i: any) => i.userId === inv.userId && i.status === 'active' && i.category !== 'wellbeing' && i.category !== 'stability' && !i.isCyclic);
-      users[uIdx].dailyEarnings = activeInvs.reduce((sum: number, i: any) => sum + i.dailyReturn, 0);
-      users[uIdx].lastModified = Date.now();
-      storeData["gi_users"] = users;
+    saveStoreLocal();
+    await saveStore(["gi_investments", "gi_deleted_investments", "gi_users"]);
+    res.json({ success: true, investments, users, deletedInvestments });
+  });
+
+  app.post("/api/admin/delete-all-investments", async (req, res) => {
+    try {
+      await syncFromSupabaseIfAvailable(true);
+    } catch (e) {}
+
+    let investments = storeData["gi_investments"] || [];
+    let users = storeData["gi_users"] || [];
+    let deletedInvestments = storeData["gi_deleted_investments"] || [];
+
+    for (const inv of investments) {
+      if (inv && inv.id) {
+        const iId = String(inv.id).trim();
+        if (!deletedInvestments.map(String).includes(iId)) {
+          deletedInvestments.push(iId);
+        }
+      }
     }
 
-    // Direct delete from Supabase Cloud
-    deleteSupabaseInvestment(investmentId).catch((e) => console.warn('[SUPABASE DELETE INV WARN]', e));
+    storeData["gi_deleted_investments"] = deletedInvestments;
+    storeData["gi_investments"] = [];
 
-    await saveStore();
-    res.json({ success: true, investments, users });
+    // Reset daily earnings for all users
+    for (let u = 0; u < users.length; u++) {
+      users[u].dailyEarnings = 0;
+      users[u].lastModified = Date.now() + 3000;
+    }
+    storeData["gi_users"] = users;
+
+    // Delete in Supabase
+    try {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        await client.from('investments').delete().neq('id', '___non_existent___');
+        await client.from('store').upsert({ key: 'gi_investments', value: [], updated_at: new Date().toISOString() });
+        await client.from('store').upsert({ key: 'gi_deleted_investments', value: deletedInvestments, updated_at: new Date().toISOString() });
+        await client.from('users').update({ daily_earnings: 0, last_modified: Date.now() }).neq('id', '___non_existent___');
+      }
+    } catch (e) {
+      console.warn('[SUPABASE DELETE ALL INVS WARN]', e);
+    }
+
+    saveStoreLocal();
+    await saveStore(["gi_investments", "gi_deleted_investments", "gi_users"]);
+    res.json({ success: true, count: investments.length, users, deletedInvestments });
   });
 
   app.post("/api/admin/update-mlm", async (req, res) => {
@@ -5707,15 +5882,67 @@ const SERVER_DEFAULT_PRODUCTS = [
 
   app.post("/api/admin/product/delete", async (req, res) => {
     const { productId } = req.body;
+    if (!productId) {
+      return res.status(400).json({ error: "ID du produit manquant" });
+    }
+    const prodIdStr = String(productId).trim();
     let list = storeData["gi_products"] || [];
-    storeData["gi_products"] = list.filter((p: any) => p.id !== productId);
+    const targetProd = list.find((p: any) => p && String(p.id).trim() === prodIdStr);
+    storeData["gi_products"] = list.filter((p: any) => p && String(p.id).trim() !== prodIdStr);
+
     let deletedList = storeData["gi_deleted_products"] || [];
-    if (!deletedList.includes(productId)) {
-      deletedList.push(productId);
+    if (!deletedList.map(String).includes(prodIdStr)) {
+      deletedList.push(prodIdStr);
       storeData["gi_deleted_products"] = deletedList;
     }
-    await saveStore(["gi_products", "gi_deleted_products"]);
-    res.json({ success: true });
+
+    // Cascade delete associated investments / purchases in server memory
+    let investments = storeData["gi_investments"] || [];
+    let users = storeData["gi_users"] || [];
+    const matchingInvs = investments.filter((i: any) => 
+      i && (String(i.productId).trim() === prodIdStr || (targetProd && i.productName === targetProd.name))
+    );
+
+    if (matchingInvs.length > 0) {
+      const deletedInvIds = matchingInvs.map((i: any) => String(i.id).trim());
+      let deletedInvs = storeData["gi_deleted_investments"] || [];
+      for (const dId of deletedInvIds) {
+        if (!deletedInvs.map(String).includes(dId)) {
+          deletedInvs.push(dId);
+        }
+      }
+      storeData["gi_deleted_investments"] = deletedInvs;
+
+      investments = investments.filter((i: any) => i && !deletedInvIds.includes(String(i.id).trim()));
+      storeData["gi_investments"] = investments;
+
+      const affectedUserIds = Array.from(new Set(matchingInvs.map((i: any) => String(i.userId).trim())));
+      for (let u = 0; u < users.length; u++) {
+        if (affectedUserIds.includes(String(users[u].id).trim())) {
+          const userRemaining = investments.filter((i: any) => 
+            i && String(i.userId).trim() === String(users[u].id).trim() && i.status === 'active'
+          );
+          users[u].dailyEarnings = userRemaining.reduce((sum: number, i: any) => sum + (Number(i.dailyReturn) || 0), 0);
+          users[u].lastModified = Date.now() + 3000;
+        }
+      }
+      storeData["gi_users"] = users;
+    }
+
+    try {
+      await deleteSupabaseProduct(prodIdStr);
+    } catch (e) {
+      console.warn('[SUPABASE DELETE PRODUCT WARN]', e);
+    }
+
+    saveStoreLocal();
+    await saveStore(["gi_products", "gi_deleted_products", "gi_investments", "gi_deleted_investments", "gi_users"]);
+    res.json({ 
+      success: true, 
+      products: storeData["gi_products"],
+      investments: storeData["gi_investments"],
+      users: storeData["gi_users"]
+    });
   });
 
   app.post("/api/admin/product/delete-all", async (req, res) => {
@@ -5728,7 +5955,35 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
     storeData["gi_deleted_products"] = deletedList;
     storeData["gi_products"] = [];
-    await saveStore(["gi_products", "gi_deleted_products"]);
+
+    // Also clear all investments and reset users daily earnings
+    let investments = storeData["gi_investments"] || [];
+    let deletedInvs = storeData["gi_deleted_investments"] || [];
+    for (const i of investments) {
+      if (i && i.id && !deletedInvs.map(String).includes(String(i.id).trim())) {
+        deletedInvs.push(String(i.id).trim());
+      }
+    }
+    storeData["gi_deleted_investments"] = deletedInvs;
+    storeData["gi_investments"] = [];
+
+    let users = storeData["gi_users"] || [];
+    for (let u = 0; u < users.length; u++) {
+      users[u].dailyEarnings = 0;
+      users[u].lastModified = Date.now() + 3000;
+    }
+    storeData["gi_users"] = users;
+
+    for (const p of list) {
+      if (p && p.id) {
+        try {
+          await deleteSupabaseProduct(String(p.id).trim());
+        } catch (e) {}
+      }
+    }
+
+    saveStoreLocal();
+    await saveStore(["gi_products", "gi_deleted_products", "gi_investments", "gi_deleted_investments", "gi_users"]);
     res.json({ success: true });
   });
 

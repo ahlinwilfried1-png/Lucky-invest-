@@ -1004,7 +1004,6 @@ export default function Dashboard({
 
   const [isSupportPageOpen, setIsSupportPageOpen] = useState<boolean>(false);
   const [isLiveChatOpen, setIsLiveChatOpen] = useState<boolean>(false);
-  const [isSendingChatMessage, setIsSendingChatMessage] = useState<boolean>(false);
   const [chatImageAttachment, setChatImageAttachment] = useState<string | null>(null);
   const [isUploadingChatImage, setIsUploadingChatImage] = useState<boolean>(false);
   const [zoomedChatImage, setZoomedChatImage] = useState<string | null>(null);
@@ -1139,6 +1138,7 @@ export default function Dashboard({
   // Layout states
   const [simulationStatus, setSimulationStatus] = useState<string>('');
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
   const [showAnnouncementDismissible, setShowAnnouncementDismissible] = useState<boolean>(() => {
     try {
       const justReg = sessionStorage.getItem('gi_just_registered') === 'true';
@@ -1494,23 +1494,16 @@ export default function Dashboard({
       }
 
       const oldBal = userStateRef.current.balance;
+      const oldDailyEarnings = userStateRef.current.dailyEarnings;
       const oldUsersLen = allUsersRef.current.length;
-      const oldProductsStr = JSON.stringify(productsRef.current);
-      const oldManualNumsStr = JSON.stringify(manualDepositNumbersRef.current);
-      const oldForumPostsStr = JSON.stringify(forumPostsRef.current);
-      const oldInvsStr = JSON.stringify(activeInvestmentsRef.current);
       DataStore.processAutomaticDailyInstallments();
       
       const fresh = DataStore.getCurrentUser();
       const freshUsers = DataStore.getUsers();
       const freshProducts = DataStore.getProducts();
-      const freshProductsStr = JSON.stringify(freshProducts);
       const freshManualNums = DataStore.getManualDepositNumbers();
-      const freshManualNumsStr = JSON.stringify(freshManualNums);
       const freshForumPosts = DataStore.getForumPosts();
-      const freshForumPostsStr = JSON.stringify(freshForumPosts);
       const freshInvs = DataStore.getInvestments().filter(i => i.userId === currentUser.id);
-      const freshInvsStr = JSON.stringify(freshInvs);
       
       // Pull real-time notifications
       const freshNotifs = DataStore.getNotifications().filter(n => n.userId === undefined || n.userId === currentUser.id);
@@ -1523,12 +1516,12 @@ export default function Dashboard({
         });
         syncDashboardData();
       } else if (
-        (fresh && fresh.balance !== oldBal) || 
+        (fresh && (fresh.balance !== oldBal || fresh.dailyEarnings !== oldDailyEarnings)) || 
         freshUsers.length !== oldUsersLen ||
-        freshProductsStr !== oldProductsStr ||
-        freshManualNumsStr !== oldManualNumsStr ||
-        freshForumPostsStr !== oldForumPostsStr ||
-        freshInvsStr !== oldInvsStr
+        freshProducts.length !== productsRef.current.length ||
+        freshManualNums.length !== manualDepositNumbersRef.current.length ||
+        freshForumPosts.length !== forumPostsRef.current.length ||
+        freshInvs.length !== activeInvestmentsRef.current.length
       ) {
         syncDashboardData();
       }
@@ -1719,6 +1712,7 @@ export default function Dashboard({
         message: `Félicitations ! Vous avez gagné ${rewardAmt.toLocaleString()} F CFA au tirage au sort !`,
         type: 'reward' as const,
         createdAt: new Date().toISOString(),
+        read: false,
         isRead: false
       };
       setNotifications(prev => [newNotif, ...prev]);
@@ -2345,14 +2339,16 @@ export default function Dashboard({
     }
   };
 
-  // Invest Product Purchase
-  const handleBuyProduct = (product: Product) => {
+  // Invest Product Purchase (Paiement direct et rapide sans confirmation intermédiaire, affichage direct de "Achat réussi")
+  const handleBuyProduct = async (product: Product) => {
+    if (buyingProductId) return;
+
     if (product.isBlocked) {
       openAlert('Plan Suspendu', "Ce plan d'investissement VIP est actuellement bloqué ou suspendu temporairement par l'administration.", 'error');
       return;
     }
 
-    // 1. Vérification du solde : si 0 XOF ou insuffisant, afficher le message professionnel sans lancer de confirmation
+    // 1. Vérification du solde : si 0 XOF ou insuffisant, avertir immédiatement
     if (userState.balance <= 0 || userState.balance < product.price) {
       openAlert(
         'Solde Insuffisant',
@@ -2362,20 +2358,7 @@ export default function Dashboard({
       return;
     }
 
-    // 2. Vérification discrète de la disponibilité du produit (état géré discrètement par le système)
-    if (product.category === 'wellbeing') {
-      const scheduleStatus = DataStore.isCategoryOpen('wellbeing');
-      if (!scheduleStatus.isOpen) {
-        openAlert(
-          'Indisponible',
-          'Ce produit est temporairement indisponible pour le moment.',
-          'info'
-        );
-        return;
-      }
-    }
-
-    // 2. Condition d'accès pour Bien-être : Stabilité VIP N payée obligatoire
+    // 2. Condition d'accès pour Bien-être : Stabilité VIP N payée obligatoire & vérification des horaires
     if (product.category === 'wellbeing') {
       const scheduleStatus = DataStore.isCategoryOpen('wellbeing');
       if (!scheduleStatus.isOpen) {
@@ -2399,21 +2382,28 @@ export default function Dashboard({
       }
     }
 
-    // 3. Solde suffisant et conditions validées : Confirmation de souscription
-    openConfirm(
-      "Confirmer la souscription ?",
-      `Voulez-vous souscrire à ce produit pour ${product.price.toLocaleString()} XOF ?`,
-      async () => {
-        const res = await DataStore.buyProduct(userState.id, product.id);
-        if (res.success) {
-          triggerToast('✅ Félicitations ! Votre paiement a été validé. Le produit est en attente d\'activation système.', 'success');
-        } else {
-          openAlert('Achat Échoué', res.message, 'error');
-        }
+    // 3. Paiement direct et ultra-rapide sans confirmation intermédiaire
+    try {
+      setBuyingProductId(product.id);
+      const res = await DataStore.buyProduct(userState.id, product.id);
+      if (res.success) {
+        triggerToast('Achat réussi 🎉', 'success');
+        openPurchaseSuccessAlert(
+          'Achat réussi',
+          `Félicitations ! Votre souscription au plan "${product.name}" (${product.price.toLocaleString()} ${getCurrency()}) a été validée avec succès.\nVos gains quotidiens sont dès à présent activés !`
+        );
         syncDashboardData();
-        setActiveTab('orders'); // Go directly to Commande to see the newly paid product and its evolution!
+        setActiveTab('orders'); // Redirige directement vers Mes Commandes
+      } else {
+        openAlert('Achat Échoué', res.message || "Une erreur est survenue lors de l'achat.", 'error');
+        syncDashboardData();
       }
-    );
+    } catch (err: any) {
+      console.error("Erreur lors de l'achat:", err);
+      openAlert('Erreur', err?.message || "Une erreur est survenue lors de l'achat.", 'error');
+    } finally {
+      setBuyingProductId(null);
+    }
   };
 
   // Select and compress image for customer support chat
@@ -2428,7 +2418,7 @@ export default function Dashboard({
 
     try {
       setIsUploadingChatImage(true);
-      const compressed = await compressImage(file, 800, 0.7);
+      const compressed = await compressImage(file, 650, 0.55);
       setChatImageAttachment(compressed);
       triggerToast("📸 Image attachée avec succès.", "success");
     } catch (err) {
@@ -2445,24 +2435,35 @@ export default function Dashboard({
   // Send support message
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSendingChatMessage) return;
     if (!chatMessageInput.trim() && !chatImageAttachment) return;
 
     const input = chatMessageInput.trim();
     const attachedImage = chatImageAttachment || undefined;
+    
+    // Clear inputs immediately for instant UI feedback
     setChatMessageInput('');
     setChatImageAttachment(null);
-    setIsSendingChatMessage(true);
 
     try {
-      await DataStore.sendMessageToSupport(userState.id, input, 'user', attachedImage);
+      const newMsg = await DataStore.sendMessageToSupport(userState.id, input, 'user', attachedImage);
+      
+      // Update local message list immediately for instantaneous bubble appearance
+      if (newMsg) {
+        setSupportMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      }
       
       // Update ref immediately to prevent triggering unread replies toasts on our own message
       lastSupportMsgsCount.current = DataStore.getSupportMessages().filter(m => m.userId === currentUser.id).length;
       
-      syncDashboardData();
-    } finally {
-      setIsSendingChatMessage(false);
+      // Scroll immediately and smoothly to the bottom
+      setTimeout(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    } catch (err) {
+      console.error("Error sending support message:", err);
     }
   };
 
@@ -5111,7 +5112,7 @@ export default function Dashboard({
                             Programme de Parrainage VIP
                           </h4>
                           <p className="text-xs text-slate-600 leading-relaxed">
-                            Bénéficiez de 30% de commission au niveau 1, 3% au niveau 2 et 1% au niveau 3 sur chaque recharge de vos filleuls.
+                            Bénéficiez de la commission de parrainage (Niveau 1, 2 et 3) sur le premier rechargement validé de vos filleuls.
                           </p>
                         </div>
                       </div>
@@ -5149,7 +5150,7 @@ export default function Dashboard({
                 },
                 {
                   q: "Comment fonctionne le système de parrainage ?",
-                  a: "Partagez votre lien ou code d'invitation avec vos proches. Vous gagnez automatiquement 30% de commission sur les dépôts de vos filleuls directs (Niveau 1), 3% au Niveau 2 et 1% au Niveau 3."
+                  a: "Partagez votre lien ou code d'invitation avec vos proches. Vous gagnez automatiquement votre commission de parrainage sur le premier rechargement validé de chaque filleul (Niveau 1, 2 et 3). À partir du 2ᵉ rechargement, aucune nouvelle commission n'est attribuée."
                 },
                 {
                   q: "Que faire si mon dépôt n'apparaît pas instantanément ?",
@@ -5496,63 +5497,95 @@ export default function Dashboard({
 
           {/* USER SUMMARY CARDS */}
           {!profileSubPage && activeTab === 'dashboard' && (
-            <div className="space-y-4 text-left animate-fadeIn">
+            <div className="space-y-3.5 text-left animate-fadeIn">
 
-              {/* 1. ENLARGED AUTO-PLAYING GOLD SLIDER CAROUSEL (BETTER SCREEN OCCUPATION) */}
-              <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden aspect-[16/9] sm:aspect-[22/9] min-h-[170px] sm:min-h-[220px] w-full shadow-md bg-slate-950 flex flex-col justify-between p-4 sm:p-6 text-left group">
-                {/* Visual Gold Asset Slide with AnimatePresence */}
-                <div className="absolute inset-0 w-full h-full z-0 overflow-hidden select-none pointer-events-none">
-                  <AnimatePresence mode="popLayout">
-                    <motion.img 
-                      key={currentSlide}
-                      src={GOLD_AVENUE_SLIDES[currentSlide].url} 
-                      alt={GOLD_AVENUE_SLIDES[currentSlide].title} 
-                      initial={{ opacity: 0, scale: 1.05 }}
-                      animate={{ opacity: 0.85, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.8, ease: "easeInOut" }}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </AnimatePresence>
-                </div>
+              {/* 1. ENLARGED AUTO-PLAYING GOLD SLIDER CAROUSEL WITH OVERLAID BALANCE */}
+              {(() => {
+                const activeSlide = GOLD_AVENUE_SLIDES[currentSlide] || GOLD_AVENUE_SLIDES[0] || {
+                  url: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=1000',
+                  title: 'Gold Avenue Lingot d\'Or Pur 💎',
+                  desc: 'Bénéficiez de la sécurité absolue d\'un investissement aurifère de premier choix.'
+                };
+                return (
+                  <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden aspect-[16/9] sm:aspect-[22/9] min-h-[175px] sm:min-h-[220px] w-full shadow-md bg-slate-950 flex flex-col justify-between p-3.5 sm:p-5 text-left group">
+                    {/* Visual Gold Asset Slide with AnimatePresence */}
+                    <div className="absolute inset-0 w-full h-full z-0 overflow-hidden select-none pointer-events-none">
+                      <AnimatePresence mode="popLayout">
+                        <motion.img 
+                          key={currentSlide}
+                          src={activeSlide.url} 
+                          alt={activeSlide.title} 
+                          initial={{ opacity: 0, scale: 1.05 }}
+                          animate={{ opacity: 0.85, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.8, ease: "easeInOut" }}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </AnimatePresence>
+                    </div>
 
-                {/* Immersive gold gradient vein overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-slate-950/20 pointer-events-none z-10" />
-                <div className="absolute -bottom-12 -right-12 w-56 h-56 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none z-10" />
-                <div className="absolute -top-12 -left-12 w-56 h-56 bg-amber-600/20 rounded-full blur-3xl pointer-events-none z-10" />
-                
-                {/* Top content - Statut VIP & Sécurité */}
-                <div className="relative z-20 flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400"></span>
-                    </span>
-                    <span className="bg-slate-950/80 border border-yellow-500/30 text-yellow-300 text-[10px] sm:text-xs font-sans font-black px-3 py-1 rounded-full uppercase tracking-wider select-none backdrop-blur-md shadow-xs">
-                      {t('MEMBRE VIP', 'VIP MEMBER')}
-                    </span>
+                    {/* Immersive gold gradient vein overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/45 to-slate-950/25 pointer-events-none z-10" />
+                    <div className="absolute -bottom-12 -right-12 w-56 h-56 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none z-10" />
+                    <div className="absolute -top-12 -left-12 w-56 h-56 bg-amber-600/20 rounded-full blur-3xl pointer-events-none z-10" />
+                    
+                    {/* Top content - Statut VIP & Sécurité */}
+                    <div className="relative z-20 flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400"></span>
+                        </span>
+                        <span className="bg-slate-950/80 border border-yellow-500/30 text-yellow-300 text-[10px] sm:text-xs font-sans font-black px-3 py-1 rounded-full uppercase tracking-wider select-none backdrop-blur-md shadow-xs">
+                          {t('MEMBRE VIP', 'VIP MEMBER')}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 bg-slate-950/70 border border-yellow-500/30 px-3 py-1 rounded-full text-[10px] font-sans font-bold text-yellow-300 backdrop-blur-sm shadow-xs">
+                        <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
+                        <span>{t('SÉCURISÉ 100%', '100% SECURE')}</span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Title on the Left & Solde on the Right directly on the image */}
+                    <div className="relative z-20 flex items-end justify-between gap-3 pb-1">
+                      {/* Left: Dynamic Slide Title & Info */}
+                      <div className="max-w-[55%] sm:max-w-[62%]">
+                        <h1 className="text-xs sm:text-base md:text-lg lg:text-xl font-sans font-extrabold tracking-[0.02em] text-transparent bg-clip-text bg-gradient-to-r from-yellow-100 via-amber-200 to-yellow-400 uppercase leading-tight drop-shadow-[0_2px_12px_rgba(245,158,11,0.35)]">
+                          {t(activeSlide.title, 'Gold Avenue Pure Gold Bullion 💎')}
+                        </h1>
+                        <p className="text-[9px] sm:text-xs font-sans font-bold text-slate-200 uppercase mt-0.5 pl-0.5 select-none leading-tight line-clamp-1">
+                          {t(activeSlide.desc, 'Benefit from the absolute safety of a premium gold investment.')}
+                        </p>
+                      </div>
+
+                      {/* Right: Solde badge directly overlaid on the image - ENLARGED */}
+                      <div className="shrink-0 bg-slate-950/90 backdrop-blur-md border border-amber-400/60 rounded-xl sm:rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 shadow-2xl shadow-black/80 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-[10.5px] sm:text-xs font-sans font-black text-amber-300 uppercase tracking-wider">
+                        💰 {t('Solde', 'Balance')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-end gap-1.5 pt-0.5">
+                      <span className="text-xl sm:text-2xl md:text-3xl font-sans font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-500 font-mono drop-shadow-[0_2px_10px_rgba(245,158,11,0.45)]">
+                        {userState.balance.toLocaleString()}
+                      </span>
+                      <span className="text-xs sm:text-sm font-sans font-black text-yellow-400 uppercase tracking-wide">
+                        F CFA
+                      </span>
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-1.5 bg-slate-950/70 border border-yellow-500/30 px-3 py-1 rounded-full text-[10px] font-sans font-bold text-yellow-300 backdrop-blur-sm shadow-xs">
-                    <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
-                    <span>{t('SÉCURISÉ 100%', '100% SECURE')}</span>
-                  </div>
-                </div>
-
-                {/* Bottom Title & Dynamic Slide Info */}
-                <div className="relative z-20 pr-10">
-                  <h1 className="text-sm sm:text-lg md:text-xl font-sans font-extrabold tracking-[0.02em] text-transparent bg-clip-text bg-gradient-to-r from-yellow-100 via-amber-200 to-yellow-400 uppercase leading-tight drop-shadow-[0_2px_12px_rgba(245,158,11,0.35)]">
-                    {t(GOLD_AVENUE_SLIDES[currentSlide].title, 'Gold Avenue Pure Gold Bullion 💎')}
-                  </h1>
-                  <p className="text-[9.5px] sm:text-xs font-sans font-bold text-slate-200 uppercase mt-0.5 pl-0.5 select-none leading-tight">
-                    {t(GOLD_AVENUE_SLIDES[currentSlide].desc, 'Benefit from the absolute safety of a premium gold investment.')}
-                  </p>
                 </div>
 
                 {/* Slide Indicators / Dots */}
                 {GOLD_AVENUE_SLIDES.length > 1 && (
-                  <div className="absolute bottom-3.5 right-4 z-25 flex gap-1.5">
+                  <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-25 flex gap-1.5">
                     {GOLD_AVENUE_SLIDES.map((_, idx) => (
                       <button
                         key={idx}
@@ -5560,44 +5593,14 @@ export default function Dashboard({
                           e.stopPropagation();
                           setCurrentSlide(idx);
                         }}
-                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer border-none outline-none ${idx === currentSlide ? 'w-4 bg-yellow-400' : 'w-1.5 bg-white/40'}`}
+                        className={`h-1 rounded-full transition-all duration-300 cursor-pointer border-none outline-none ${idx === currentSlide ? 'w-4 bg-yellow-400' : 'w-1 bg-white/40'}`}
                       />
                     ))}
                   </div>
                 )}
               </div>
-
-              {/* SECTION SOLDE ACTUEL - AGRANDIE, VISIBLE, ULTRA-PRO & RESPONSIVE */}
-              <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-[#131d31] via-[#0d1527] to-[#070b14] border border-yellow-500/30 shadow-xl shadow-black/40">
-                <div className="absolute -top-12 -right-12 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
-
-                <div className="relative z-10 text-left">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                      </span>
-                      <span className="text-xs sm:text-sm font-sans font-black text-amber-300 uppercase tracking-widest">
-                        💰 {t('Solde Actuel Disponible', 'Current Available Balance')}
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline gap-2.5 pt-0.5">
-                      <span className="text-3xl sm:text-4xl md:text-5xl font-sans font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-500 font-mono drop-shadow-[0_2px_14px_rgba(245,158,11,0.35)]">
-                        {userState.balance.toLocaleString()}
-                      </span>
-                      <span className="text-base sm:text-xl md:text-2xl font-sans font-black text-yellow-400 uppercase tracking-wide">
-                        F CFA
-                      </span>
-                    </div>
-                    <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
-                      {t('Solde disponible pour vos investissements et retraits instantanés', 'Balance available for your investments and instant withdrawals')}
-                    </p>
-                  </div>
-                </div>
-              </div>
+            );
+          })()}
 
               {/* 2. QUICK ACCESS BUTTONS ROW (4 BUTTONS FLUID & BORDERLESS) */}
               <div className="bg-[#0f1d38]/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-sm grid grid-cols-4 gap-2 sm:gap-4 py-3.5">
@@ -5774,17 +5777,11 @@ export default function Dashboard({
                   </div>
 
                   {/* Summary Metric Cards in Order Page */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3 pt-2.5 border-t border-rose-700/40">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mt-3 pt-2.5 border-t border-rose-700/40">
                     <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
-                      <span className="text-[10px] sm:text-[11px] text-emerald-300 font-bold uppercase tracking-wider block">{t('Produits Actifs ⚡', 'Active ⚡')}</span>
-                      <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono block mt-0.5">
-                        {activeInvs.length}
-                      </span>
-                    </div>
-                    <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
-                      <span className="text-[10px] sm:text-[11px] text-amber-300 font-bold uppercase tracking-wider block">{t('En Attente ⏳', 'Pending ⏳')}</span>
-                      <span className="text-xs sm:text-sm font-black text-amber-300 font-mono block mt-0.5">
-                        {pendingInvs.length}
+                      <span className="text-[10px] sm:text-[11px] text-amber-300 font-bold uppercase tracking-wider block">{t('Produits Souscrits', 'Subscribed Products')}</span>
+                      <span className="text-xs sm:text-sm font-black text-white font-mono block mt-0.5">
+                        {activeInvestments.length}
                       </span>
                     </div>
                     <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40">
@@ -5793,19 +5790,14 @@ export default function Dashboard({
                         {totalInvested.toLocaleString()} F
                       </span>
                     </div>
-                  </div>
-                </div>
-
-                {/* Notice if any pending activations */}
-                {pendingInvs.length > 0 && (
-                  <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-3 sm:p-3.5 flex items-start gap-2.5 text-amber-200 text-xs">
-                    <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold text-amber-300 block">{pendingInvs.length} produit(s) payé(s) en attente d'activation</span>
-                      <p className="text-[11px] text-slate-300 mt-0.5">Le paiement a été débité. Le produit passera actif dès validation des conditions d'activation prévues par le système.</p>
+                    <div className="bg-rose-950/60 rounded-xl p-2 sm:p-2.5 text-center border border-rose-800/40 col-span-2 sm:col-span-1">
+                      <span className="text-[10px] sm:text-[11px] text-emerald-300 font-bold uppercase tracking-wider block">{t('Total Prévu', 'Expected Total')}</span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono block mt-0.5">
+                        {totalExpectedPayout.toLocaleString()} F
+                      </span>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* List of Orders */}
                 <div className="space-y-2.5">
@@ -6029,12 +6021,6 @@ export default function Dashboard({
                                   🏆 VIP {p.vipLevel || 0}
                                 </div>
 
-                                {(activeCount + pendingCount) > 0 ? (
-                                  <div className="absolute top-2 right-2 bg-amber-500 text-slate-950 font-sans font-black text-[8.5px] px-2 py-0.5 rounded-md uppercase tracking-wider shadow-md">
-                                    Payé ({activeCount + pendingCount})
-                                  </div>
-                                ) : null}
-
                                 {/* Display name written directly on the image overlay */}
                                 <div className="absolute bottom-2 left-2.5 right-2.5 text-left">
                                   <h4 className="font-sans font-black text-xs sm:text-sm text-white drop-shadow-md leading-tight tracking-wide">
@@ -6067,8 +6053,8 @@ export default function Dashboard({
                               {/* Elegant Split Button with Rose Rouge Theme */}
                               <button
                                 onClick={() => handleBuyProduct(p)}
-                                disabled={isBlocked}
-                                className={`w-full flex items-stretch rounded-xl overflow-hidden shadow-sm transition-all active:scale-[0.98] cursor-pointer border-none ${isBlocked ? 'opacity-60 cursor-not-allowed' : 'hover:brightness-105'}`}
+                                disabled={isBlocked || buyingProductId === p.id}
+                                className={`w-full flex items-stretch rounded-xl overflow-hidden shadow-sm transition-all active:scale-[0.98] cursor-pointer border-none ${isBlocked || buyingProductId === p.id ? 'opacity-60 cursor-not-allowed' : 'hover:brightness-105'}`}
                               >
                                 <div className={`${theme.buttonLeft} font-black text-xs sm:text-sm px-3.5 py-2.5 flex items-center justify-center flex-1`}>
                                   {p.price.toLocaleString()} {getCurrency()}
@@ -6077,7 +6063,7 @@ export default function Dashboard({
                                   ⚡
                                 </div>
                                 <div className={`${theme.buttonRight} text-white font-black text-xs sm:text-sm px-3 py-2.5 flex items-center justify-center flex-1 text-center uppercase tracking-wider`}>
-                                  Investir
+                                  {buyingProductId === p.id ? 'Paiement...' : 'Investir'}
                                 </div>
                               </button>
                             </div>
@@ -7263,25 +7249,25 @@ export default function Dashboard({
               .reduce((acc, i) => acc + (i.dailyReturn || 0), 0);
 
             return (
-              <div className="bg-transparent -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-6 text-slate-900 text-left animate-fadeIn">
+              <div className="bg-[#070209] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-8 text-rose-100 min-h-screen text-left animate-fadeIn">
                 <div className="max-w-md mx-auto w-full space-y-3">
                   
-                  {/* TOP WALLET / PROFILE STATS CARD - ENLARGED & HIGH CONTRAST */}
-                  <div className="bg-gradient-to-br from-[#0c1629] via-[#0f1d38] to-[#1e293b] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-xl border-2 border-amber-500/40 relative overflow-hidden text-white" id="mon-compte-wallet-card">
+                  {/* TOP WALLET / PROFILE STATS CARD - NOIR & ROSE PRESTIGE */}
+                  <div className="bg-gradient-to-br from-[#0e0312] via-[#1a0522] to-[#2d0739] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-[0_4px_30px_rgba(244,63,94,0.18)] border-2 border-rose-500/40 relative overflow-hidden text-rose-100" id="mon-compte-wallet-card">
                     {/* Glowing background ambiance */}
-                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-rose-500/15 rounded-full blur-2xl pointer-events-none" />
 
                     {/* Header */}
                     <div className="flex items-center justify-between gap-2.5 relative z-10">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center shadow-md font-black shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-500 text-black flex items-center justify-center shadow-md font-black shrink-0">
                           <Wallet className="w-5 h-5 stroke-[2.25]" />
                         </div>
                         <div>
-                          <h3 className="font-sans font-black text-sm sm:text-base text-white tracking-tight uppercase">
+                          <h3 className="font-sans font-black text-sm sm:text-base text-rose-100 tracking-tight uppercase">
                             Mon Portefeuille
                           </h3>
-                          <span className="text-[10.5px] text-amber-300 font-bold uppercase tracking-wider block">
+                          <span className="text-[10.5px] text-rose-400 font-bold uppercase tracking-wider block">
                             Solde & Synthèse
                           </span>
                         </div>
@@ -7290,13 +7276,13 @@ export default function Dashboard({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setActiveTab('deposit')}
-                          className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-black font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer shadow-md shadow-rose-950/40"
                         >
                           + Recharger
                         </button>
                         <button
                           onClick={() => setActiveTab('withdraw')}
-                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/40 font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl bg-[#190621] hover:bg-[#250932] text-rose-300 border border-rose-500/50 font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer"
                         >
                           Retirer
                         </button>
@@ -7304,38 +7290,38 @@ export default function Dashboard({
                     </div>
 
                     {/* Balance - Enlarged */}
-                    <div className="mt-4 pt-3 pb-2 border-t border-slate-700/60 relative z-10">
-                      <span className="text-xs font-black text-amber-400 uppercase tracking-widest block">
+                    <div className="mt-4 pt-3 pb-2 border-t border-rose-900/40 relative z-10">
+                      <span className="text-xs font-black text-rose-400 uppercase tracking-widest block">
                         💰 SOLDE DISPONIBLE
                       </span>
                       <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-3xl sm:text-4xl md:text-5xl font-black text-white font-mono tracking-tight drop-shadow-[0_2px_16px_rgba(245,158,11,0.25)]">
+                        <span className="text-3xl sm:text-4xl md:text-5xl font-black text-rose-100 font-mono tracking-tight drop-shadow-[0_2px_18px_rgba(244,63,94,0.4)]">
                           {userState.balance.toLocaleString()}
                         </span>
-                        <span className="text-base sm:text-xl font-black text-amber-300 font-sans">
+                        <span className="text-base sm:text-xl font-black text-rose-400 font-sans">
                           F CFA
                         </span>
                       </div>
                     </div>
 
                     {/* 6 Statistics in 3 Columns x 2 Rows Grid */}
-                    <div className="grid grid-cols-3 gap-x-2 gap-y-3 mt-3 pt-3 text-center border-t border-slate-700/60 relative z-10">
+                    <div className="grid grid-cols-3 gap-x-2 gap-y-3 mt-3 pt-3 text-center border-t border-rose-900/40 relative z-10">
                       {/* 1. Daily Income */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-emerald-400 font-mono block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-rose-400 font-mono block leading-tight">
                           +{todayEarned.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
                           Revenu aujourd'hui
                         </span>
                       </div>
 
                       {/* 2. Cumulative Income */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-amber-300 font-mono block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-pink-400 font-mono block leading-tight">
                           {totalProductRevenue.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
                           Revenu cumulé
                         </span>
                       </div>
@@ -7345,91 +7331,91 @@ export default function Dashboard({
                         <span className="text-sm sm:text-base font-black text-rose-300 font-mono block leading-tight">
                           {todayWithdrawals.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
                           Retirer aujourd'hui
                         </span>
                       </div>
 
                       {/* 4. Total Withdrawals */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-slate-200 font-mono block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-rose-200 font-mono block leading-tight">
                           {totalApprovedWithdrawals.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
                           Retraits totaux
                         </span>
                       </div>
 
                       {/* 5. Team Size */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-amber-200 font-mono block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-pink-300 font-mono block leading-tight">
                           {totalTeamSize}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
                           Taille de l'équipe
                         </span>
                       </div>
 
                       {/* 6. Team Benefits */}
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-amber-400 font-mono block leading-tight">
+                        <span className="text-sm sm:text-base font-black text-rose-400 font-mono block leading-tight">
                           {totalCommissions.toLocaleString()}
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-300 font-medium block leading-tight">
+                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
                           Commissions d'équipe
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* FEATURE LIST CARDS - INDIVIDUAL WHITE CARDS */}
+                  {/* FEATURE LIST CARDS - NOIR & ROSE PRESTIGE (NO TRACE OF WHITE) */}
                   <div className="space-y-2.5 pt-0.5">
 
                     {/* 0. Mes Commandes */}
                     <button 
                       onClick={() => setProfileSubPage('orders')}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-mes-commandes"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <ShoppingBag className="w-5 h-5 stroke-[2.25]" />
                         </div>
                         <div className="ml-3.5 flex flex-col min-w-0">
-                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Mes Commandes</span>
-                          <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 leading-snug break-words group-hover:text-rose-200">Mes Commandes</span>
+                          <span className="text-[10px] sm:text-[11px] text-rose-300/60 font-medium truncate">
                             {activeInvestments.length > 0 ? `${activeInvestments.length} équipement(s) souscrit(s)` : 'Historique & suivi des équipements'}
                           </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {activeInvestments.filter(i => i.status === 'active').length > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-200/60">
+                          <span className="px-2 py-0.5 rounded-full bg-[#2b0834] text-rose-300 text-[10px] font-black border border-rose-500/40">
                             {activeInvestments.filter(i => i.status === 'active').length} actif{activeInvestments.filter(i => i.status === 'active').length > 1 ? 's' : ''}
                           </span>
                         )}
-                        <ChevronRight className="w-5 h-5 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                        <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     </button>
 
                     {/* Historique des revenus */}
                     <button 
                       onClick={() => setProfileSubPage('revenue-history')}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-historique-revenus"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <Coins className="w-5 h-5 stroke-[2.25]" />
                         </div>
                         <div className="ml-3.5 flex flex-col min-w-0">
-                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Historique des revenus</span>
-                          <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 leading-snug break-words group-hover:text-rose-200">Historique des revenus</span>
+                          <span className="text-[10px] sm:text-[11px] text-rose-300/60 font-medium truncate">
                             Revenus & bénéfices des cycles de produits terminés
                           </span>
                         </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* 1. Carte bancaire */}
@@ -7439,46 +7425,46 @@ export default function Dashboard({
                         setBankCardSuccess('');
                         setProfileSubPage('bank');
                       }}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-carte-bancaire"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <CreditCard className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Carte bancaire</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Carte bancaire</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* 2. Recharger l'enregistrement */}
                     <button 
                       onClick={() => setProfileSubPage('recharge-history')}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-recharger-enregistrement"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <History className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Recharger l'enregistrement</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Recharger l'enregistrement</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* 3. Relevé des renseignements */}
                     <button 
                       onClick={() => setProfileSubPage('withdraw-history')}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-releve-des-renseignements"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <ArrowDownLeft className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Relevé des renseignements</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Relevé des renseignements</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* 4. Modifier le mot de passe */}
@@ -7491,69 +7477,69 @@ export default function Dashboard({
                         setConfirmNewPassword('');
                         setProfileSubPage('password');
                       }}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-modifier-mot-de-passe"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <Lock className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Modifier le mot de passe</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Modifier le mot de passe</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* 5. À propos */}
                     <button 
                       onClick={() => setProfileSubPage('about')}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-a-propos"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <Info className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">À propos</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">À propos</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* 6. Foire Aux Questions (FAQ) */}
                     <button 
                       onClick={() => setProfileSubPage('faq')}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-faq"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
                           <HelpCircle className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-slate-800 ml-3.5 leading-snug break-words">Foire Aux Questions (FAQ)</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Foire Aux Questions (FAQ)</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* 7. Support en ligne */}
                     <button 
                       onClick={() => setIsSupportPageOpen(true)}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group border-none"
+                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-service-client-chat"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform relative">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform relative">
                           <Headphones className="w-5 h-5 stroke-[2.25]" />
                           {unreadSupportCount > 0 && (
                             <span 
                               id="badge-service-client-count"
-                              className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center shadow-md border-2 border-white animate-pulse"
+                              className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-rose-600 text-black text-[10px] font-black flex items-center justify-center shadow-md border-2 border-black animate-pulse"
                             >
                               {unreadSupportCount > 99 ? '99+' : unreadSupportCount}
                             </span>
                           )}
                         </div>
                         <div className="ml-3.5 flex flex-col min-w-0">
-                          <span className="font-bold text-sm sm:text-[15px] text-slate-800 leading-snug break-words">Support en ligne</span>
-                          <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 leading-snug break-words group-hover:text-rose-200">Support en ligne</span>
+                          <span className="text-[10px] sm:text-[11px] text-rose-300/60 font-medium truncate">
                             {unreadSupportCount > 0 
                               ? `${unreadSupportCount} nouveau${unreadSupportCount > 1 ? 'x' : ''} message${unreadSupportCount > 1 ? 's' : ''}` 
                               : 'Recharge non reçue, Canal WhatsApp, Conseiller'}
@@ -7562,11 +7548,11 @@ export default function Dashboard({
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {unreadSupportCount > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] sm:text-[11px] font-black border border-red-200">
+                          <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 text-[10px] sm:text-[11px] font-black border border-rose-700/50">
                             {unreadSupportCount}
                           </span>
                         )}
-                        <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                        <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     </button>
 
@@ -7577,32 +7563,32 @@ export default function Dashboard({
                           setIsAdminMode(true);
                           triggerToast("🔑 Mode Administrateur Activé", "success");
                         }}
-                        className="w-full bg-slate-100/80 rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200 flex items-center justify-between hover:bg-slate-200/80 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
+                        className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/50 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                         id="card-panneau-administratif"
                       >
                         <div className="flex items-center flex-1 min-w-0 pr-2">
-                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
                             <Lock className="w-5 h-5 stroke-[2.25]" />
                           </div>
-                          <span className="font-bold text-sm sm:text-[15px] text-slate-900 ml-3.5 leading-snug break-words">Panneau Administratif</span>
+                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Panneau Administratif</span>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                        <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                       </button>
                     )}
 
                     {/* 9. Déconnexion */}
                     <button 
                       onClick={onLogout}
-                      className="w-full bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200 flex items-center justify-between hover:bg-red-50/40 active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
+                      className="w-full bg-[#130308] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/60 flex items-center justify-between hover:bg-[#1f050d] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
                       id="card-deconnexion"
                     >
                       <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-[#280610] border border-rose-800/40 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                           <LogOut className="w-5 h-5 stroke-[2.25]" />
                         </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-red-600 ml-3.5 leading-snug break-words">Se déconnecter</span>
+                        <span className="font-bold text-sm sm:text-[15px] text-rose-400 ml-3.5 leading-snug break-words">Se déconnecter</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-5 h-5 text-rose-700/60 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                     </button>
                   </div>
 
@@ -7910,22 +7896,21 @@ export default function Dashboard({
                 <input 
                   type="text" 
                   value={chatMessageInput}
-                  disabled={isSendingChatMessage}
                   onChange={(e) => setChatMessageInput(e.target.value)}
-                  placeholder={isSendingChatMessage ? "Envoi en cours..." : (chatImageAttachment ? "Ajouter un commentaire..." : "Posez votre question à l'assistance...")}
-                  className="flex-1 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 font-medium transition-all disabled:opacity-50"
+                  placeholder={chatImageAttachment ? "Ajouter un commentaire..." : "Posez votre question à l'assistance..."}
+                  className="flex-1 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 font-medium transition-all"
                 />
                 <button 
                   type="submit" 
-                  disabled={isSendingChatMessage || (!chatMessageInput.trim() && !chatImageAttachment)}
+                  disabled={!chatMessageInput.trim() && !chatImageAttachment}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                    !isSendingChatMessage && (chatMessageInput.trim() || chatImageAttachment)
+                    (chatMessageInput.trim() || chatImageAttachment)
                       ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 font-bold' 
                       : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                   }`}
                   id="btn-chat-send"
                 >
-                  <Send className={`w-4 h-4 stroke-[2.5] ${isSendingChatMessage ? 'animate-pulse' : ''}`} />
+                  <Send className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </form>
             </div>
@@ -8074,9 +8059,10 @@ export default function Dashboard({
                 <button
                   type="button"
                   onClick={() => {
+                    const cb = customModal.onConfirm;
                     setCustomModal(prev => ({ ...prev, isOpen: false }));
-                    if (customModal.onConfirm) {
-                      customModal.onConfirm();
+                    if (cb) {
+                      cb();
                     }
                   }}
                   className="w-full py-2.5 px-2.5 text-slate-950 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-500 hover:to-amber-400 active:scale-95 transition-all text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer shadow-md shadow-amber-500/25 border border-amber-300 select-none"

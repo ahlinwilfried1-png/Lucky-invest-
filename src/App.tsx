@@ -197,7 +197,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060b14] font-sans tracking-tight leading-normal overflow-x-hidden select-none relative text-slate-100">
+    <div className="min-h-screen bg-[#060b14] font-sans tracking-normal leading-relaxed overflow-x-hidden relative text-slate-100">
       
       {/* Global Midnight Blue & Subtle Gold Glow Atmosphere */}
       <div className="fixed inset-0 -z-20 pointer-events-none overflow-hidden select-none" id="site-global-brand-background">
