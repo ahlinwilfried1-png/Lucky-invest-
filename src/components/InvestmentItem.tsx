@@ -25,11 +25,10 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
 
   const t = (fr: string, en: string) => (lang === 'EN' ? en : fr);
 
-  const isActivity = investment.category === 'activity';
   const isWellbeing = investment.category === 'wellbeing';
-  const isPendingActivation = investment.status === 'pending_activation';
   const isCompleted = investment.status === 'completed' || investment.daysPassed >= investment.durationDays;
   const isActive = investment.status === 'active' && !isCompleted;
+  const isPendingActivation = !isActive && !isCompleted;
 
   // Progression calculations
   const duration = Math.max(1, investment.durationDays || 1);
@@ -49,8 +48,6 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
   // Category badge metadata
   const categoryLabel = isWellbeing
     ? t('Bien-être', 'Well-being')
-    : isActivity
-    ? t('Activité Flash', 'Flash Activity')
     : t('Stabilité VIP', 'Stability VIP');
 
   // Format activation date safely
@@ -80,9 +77,7 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
       <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#18294a]">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#142343] border border-[#1e3663] flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
-            {isActivity ? (
-              <Flame className="w-4.5 h-4.5 text-amber-400" />
-            ) : isWellbeing ? (
+            {isWellbeing ? (
               <Sparkles className="w-4.5 h-4.5 text-yellow-300" />
             ) : (
               <TrendingUp className="w-4.5 h-4.5 text-amber-400" />

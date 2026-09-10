@@ -956,6 +956,24 @@ export const syncWithBackend = async (): Promise<boolean> => {
 
       // If the server *does* have data, sync it down to the client!
       let changed = false;
+
+      // Persist global deletion registries from server so local storage honors them
+      if (Array.isArray(data["gi_deleted_investments"])) {
+        const localDelInvs = getFromStore<string[]>('gi_deleted_investments', []);
+        const mergedDelInvs = Array.from(new Set([...localDelInvs, ...data["gi_deleted_investments"].map(String)]));
+        setToStore('gi_deleted_investments', mergedDelInvs);
+      }
+      if (Array.isArray(data["gi_deleted_forum_posts"])) {
+        const localDelPosts = getFromStore<string[]>('gi_deleted_forum_posts', []);
+        const mergedDelPosts = Array.from(new Set([...localDelPosts, ...data["gi_deleted_forum_posts"].map(String)]));
+        setToStore('gi_deleted_forum_posts', mergedDelPosts);
+      }
+      if (Array.isArray(data["gi_deleted_products"])) {
+        const localDelProds = getFromStore<string[]>('gi_deleted_products', []);
+        const mergedDelProds = Array.from(new Set([...localDelProds, ...data["gi_deleted_products"].map(String)]));
+        setToStore('gi_deleted_products', mergedDelProds);
+      }
+
       for (const key of serverKeys) {
         let localData: any = null;
         try {
@@ -1006,6 +1024,22 @@ export const syncWithBackend = async (): Promise<boolean> => {
                   if (key === "gi_users" && deletedUsers.includes(idStr)) continue;
                   if (key === "gi_forum_posts" && deletedForumPosts.includes(idStr)) continue;
                   if (key === "gi_products" && deletedProducts.includes(idStr)) continue;
+
+                  // Autorité serveur stricte : Ne jamais ressusciter une publication du forum supprimée
+                  if (key === "gi_forum_posts") {
+                    continue;
+                  }
+
+                  // Autorité serveur stricte : Ne jamais ressusciter un produit supprimé du catalogue
+                  if (key === "gi_products") {
+                    continue;
+                  }
+
+                  // Autorité serveur stricte : Ne jamais ressusciter un investissement supprimé par l'administration
+                  if (key === "gi_investments") {
+                    continue;
+                  }
+
                   if (!mergedMap.has(idStr)) {
                     mergedMap.set(idStr, item);
                     localHasNewItems = true;
@@ -1218,9 +1252,9 @@ export class DataStore {
   }
 
   static getWhatsAppChannel(): string {
-    const defaultChannel = 'https://whatsapp.com/channel/0029VbCs5L0J3jurEKVu8x2n';
+    const defaultChannel = 'https://whatsapp.com/channel/0029Vb8HK6s7Noa0xFzIZu1z';
     const val = getFromStore<string>('gi_whatsapp_channel', defaultChannel).trim();
-    if (!val || val.includes('0029Vb80vQ2LdQecfze5qY0k')) {
+    if (!val || val.includes('0029VbCs5L0J3jurEKVu8x2n') || val.includes('0029Vb80vQ2LdQecfze5qY0k')) {
       return defaultChannel;
     }
     return val;
@@ -1821,14 +1855,16 @@ export class DataStore {
       if (resp.ok) {
         const data = await resp.json();
         if (data.success && Array.isArray(data.posts)) {
-          const localPosts = this.getForumPosts();
-          const combined = deduplicateForumPosts([...data.posts, ...localPosts]);
-          setToStore<any[]>('gi_forum_posts', combined);
+          const deletedList = getFromStore<string[]>('gi_deleted_forum_posts', []);
+          const validPosts = deduplicateForumPosts(
+            data.posts.filter((p: any) => p && p.id && !deletedList.includes(String(p.id)))
+          );
+          setToStore<any[]>('gi_forum_posts', validPosts);
           try {
-            localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(combined));
+            localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(validPosts));
           } catch (e) {}
           dispatchStoreUpdated();
-          return combined;
+          return validPosts;
         }
       }
     } catch (err) {

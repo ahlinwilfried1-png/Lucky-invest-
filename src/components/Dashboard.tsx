@@ -163,18 +163,7 @@ const getVipImage = (vipLevel: number, category?: string) => {
   const goldBullionCloseUp = 'https://images.unsplash.com/photo-1614028674026-a65e31bfd27c?auto=format&fit=crop&q=80&w=500'; // Heavy reflective golden bullion close-up
   const goldNugget = 'https://images.unsplash.com/photo-1610375461369-d5108bc471e4?auto=format&fit=crop&q=80&w=500'; // Raw shining gold nugget close-up
 
-  if (category === 'activity') {
-    switch (vipLevel) {
-      case 1:
-        return goldCoins;
-      case 2:
-        return goldNugget;
-      case 3:
-        return goldBarsStack;
-      default:
-        return goldBarsPile;
-    }
-  } else if (category === 'wellbeing') {
+  if (category === 'wellbeing') {
     switch (vipLevel) {
       case 1:
         return goldSingleBar;
@@ -213,31 +202,6 @@ const getVipImage = (vipLevel: number, category?: string) => {
 };
 
 const getVipCropDetails = (level: number, category?: string) => {
-  if (category === 'activity') {
-    switch (level) {
-      case 1:
-        return {
-          name: "Gold Avenue Épargne Express ⚡",
-          desc: "Package spécial court terme basé sur la rotation de micro-lingots d'or."
-        };
-      case 2:
-        return {
-          name: "Gold Avenue Rendement Éclair ⚡",
-          desc: "Plan promotionnel à rotation rapide avec intérêts crédités quotidiennement."
-        };
-      case 3:
-        return {
-          name: "Gold Avenue Option Flash Or ⚡",
-          desc: "Édition limitée à très haut rendement sur un cycle court et ultra-sécurisé."
-        };
-      default:
-        return {
-          name: "Gold Avenue Offre Spéciale ⚡",
-          desc: "Édition spéciale exclusive pour booster vos revenus journaliers de manière sécurisée."
-        };
-    }
-  }
-
   switch (level) {
     case 1:
       return {
@@ -331,7 +295,7 @@ const ProductImage = ({
       <div className="absolute top-2.5 left-2.5 bg-slate-950/65 backdrop-blur-md border border-yellow-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5 z-10 pointer-events-none">
         <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
         <span className="font-sans font-extrabold text-[9px] uppercase tracking-wider text-yellow-400">
-          VIP {vipLevel} • {category === 'wellbeing' ? 'BIEN-ÊTRE' : category === 'activity' ? 'ACTIVITÉ' : 'STABILITÉ'}
+          VIP {vipLevel} • {category === 'wellbeing' ? 'BIEN-ÊTRE' : 'STABILITÉ'}
         </span>
       </div>
     </div>
@@ -445,7 +409,7 @@ export default function Dashboard({
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders' | 'team' | 'profile' | 'deposit' | 'withdraw' | 'proofs' | 'forum'>('dashboard');
   const [referralListTab, setReferralListTab] = useState<'level1' | 'level2' | 'level3'>('level1');
   const [showTeamDetailsPage, setShowTeamDetailsPage] = useState<boolean>(false);
-  const [productSubTab, setProductSubTab] = useState<'stability' | 'wellbeing' | 'activity'>('stability');
+  const [productSubTab, setProductSubTab] = useState<'stability' | 'wellbeing'>('stability');
 
   // Local lists
   const [userState, setUserState] = useState<User>(currentUser);
@@ -459,12 +423,11 @@ export default function Dashboard({
   const hasStabilityActivation = activeInvestments.some(inv => {
     const p = products.find(prod => prod.id === inv.productId || prod.name === inv.productName);
     if (p) {
-      return p.category !== 'activity' && !p.isCyclic;
+      return (p.category === 'stability' || !p.category) && !p.isCyclic;
     }
     const idLower = (inv.productId || '').toLowerCase();
     const nameLower = (inv.productName || '').toLowerCase();
-    return !idLower.includes('cyclic') && !idLower.includes('activity') && 
-           !nameLower.includes('cycle') && !nameLower.includes('promo') && !nameLower.includes('activity');
+    return !idLower.includes('cyclic') && !nameLower.includes('cycle') && !nameLower.includes('promo');
   });
   const hasActiveProduct = activeInvestments.some(inv => inv.status === 'active');
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -479,7 +442,6 @@ export default function Dashboard({
   const [selectedAvisImage, setSelectedAvisImage] = useState<string | null>(null);
   const [bannerImageError, setBannerImageError] = useState<boolean>(false);
   const [showStabilityOrders, setShowStabilityOrders] = useState<boolean>(false);
-  const [showActivityOrders, setShowActivityOrders] = useState<boolean>(false);
   const [showMissionsList, setShowMissionsList] = useState<boolean>(false);
 
   // Wheel of Fortune state variables
@@ -1211,6 +1173,9 @@ export default function Dashboard({
 
   const forumPostsRef = useRef(forumPosts);
   forumPostsRef.current = forumPosts;
+
+  const activeInvestmentsRef = useRef(activeInvestments);
+  activeInvestmentsRef.current = activeInvestments;
   
   const myIdUpper = userState.id.toUpperCase();
   const myCodeUpper = userState.referralCode ? userState.referralCode.trim().toUpperCase() : '';
@@ -1533,6 +1498,7 @@ export default function Dashboard({
       const oldProductsStr = JSON.stringify(productsRef.current);
       const oldManualNumsStr = JSON.stringify(manualDepositNumbersRef.current);
       const oldForumPostsStr = JSON.stringify(forumPostsRef.current);
+      const oldInvsStr = JSON.stringify(activeInvestmentsRef.current);
       DataStore.processAutomaticDailyInstallments();
       
       const fresh = DataStore.getCurrentUser();
@@ -1543,6 +1509,8 @@ export default function Dashboard({
       const freshManualNumsStr = JSON.stringify(freshManualNums);
       const freshForumPosts = DataStore.getForumPosts();
       const freshForumPostsStr = JSON.stringify(freshForumPosts);
+      const freshInvs = DataStore.getInvestments().filter(i => i.userId === currentUser.id);
+      const freshInvsStr = JSON.stringify(freshInvs);
       
       // Pull real-time notifications
       const freshNotifs = DataStore.getNotifications().filter(n => n.userId === undefined || n.userId === currentUser.id);
@@ -1559,7 +1527,8 @@ export default function Dashboard({
         freshUsers.length !== oldUsersLen ||
         freshProductsStr !== oldProductsStr ||
         freshManualNumsStr !== oldManualNumsStr ||
-        freshForumPostsStr !== oldForumPostsStr
+        freshForumPostsStr !== oldForumPostsStr ||
+        freshInvsStr !== oldInvsStr
       ) {
         syncDashboardData();
       }
@@ -2406,14 +2375,24 @@ export default function Dashboard({
       }
     }
 
-    // 2. Condition d'activation pour les catégories spéciales (appliquée automatiquement par le système)
-    const isSpecialCategory = product.category === 'wellbeing';
-    if (isSpecialCategory) {
-      const check = DataStore.checkSpecialProductActivation(userState.id, 'wellbeing');
-      if (!check.canActivate) {
+    // 2. Condition d'accès pour Bien-être : Stabilité VIP N payée obligatoire
+    if (product.category === 'wellbeing') {
+      const scheduleStatus = DataStore.isCategoryOpen('wellbeing');
+      if (!scheduleStatus.isOpen) {
         openAlert(
-          'Activation Non Autorisée',
-          check.reason || 'Activation impossible pour ce produit actuellement.',
+          'Indisponible',
+          scheduleStatus.reason || 'Ce produit est temporairement indisponible pour le moment.',
+          'info'
+        );
+        return;
+      }
+
+      const reqVipLevel = product.vipLevel || 1;
+      const accessCheck = DataStore.canUserAccessWellbeingProduct(userState.id, reqVipLevel);
+      if (!accessCheck.allowed) {
+        openAlert(
+          'Accès Non Autorisé',
+          accessCheck.reason || `Pour accéder au Bien-être VIP ${reqVipLevel}, vous devez obligatoirement avoir payé le plan Stabilité VIP ${reqVipLevel} correspondant.`,
           'error'
         );
         return;
@@ -5593,7 +5572,7 @@ export default function Dashboard({
                 <div className="absolute -top-12 -right-12 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
 
-                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
+                <div className="relative z-10 text-left">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="relative flex h-2.5 w-2.5">
@@ -5602,9 +5581,6 @@ export default function Dashboard({
                       </span>
                       <span className="text-xs sm:text-sm font-sans font-black text-amber-300 uppercase tracking-widest">
                         💰 {t('Solde Actuel Disponible', 'Current Available Balance')}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold uppercase border border-emerald-500/40">
-                        Actif
                       </span>
                     </div>
 
@@ -5619,27 +5595,6 @@ export default function Dashboard({
                     <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
                       {t('Solde disponible pour vos investissements et retraits instantanés', 'Balance available for your investments and instant withdrawals')}
                     </p>
-                  </div>
-
-                  {/* Actions Rapides Solde */}
-                  <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 pt-1 sm:pt-0">
-                    <button
-                      onClick={() => setActiveTab('deposit')}
-                      id="btn-home-recharge"
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-sans font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer"
-                    >
-                      <Wallet className="w-4 h-4 stroke-[2.5]" />
-                      <span>{t('Recharger', 'Recharge')}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('withdraw')}
-                      id="btn-home-withdraw"
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl sm:rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-yellow-500/30 text-yellow-300 hover:text-yellow-200 font-sans font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-md active:scale-95 cursor-pointer"
-                    >
-                      <ArrowUpCircle className="w-4 h-4 stroke-[2.5]" />
-                      <span>{t('Retrait', 'Withdraw')}</span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -5901,7 +5856,6 @@ export default function Dashboard({
           {!profileSubPage && activeTab === 'products' && (() => {
             const stabilityCount = products.filter(p => p.category === 'stability' || !p.category).length;
             const wellbeingCount = products.filter(p => p.category === 'wellbeing').length;
-            const activityCount = products.filter(p => p.category === 'activity').length;
 
             return (
               <div className="space-y-6 animate-fade-in">
@@ -5988,40 +5942,6 @@ export default function Dashboard({
                         </span>
                       </div>
                     </button>
-
-                    {/* Activité */}
-                    <button
-                      type="button"
-                      onClick={() => setProductSubTab('activity')}
-                      className={`group w-full flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-1.5 px-1 sm:px-2 py-1.5 sm:py-2 rounded-xl transition-all duration-300 shrink-0 cursor-pointer text-left ${
-                        productSubTab === 'activity'
-                          ? 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white shadow-md scale-[1.01]'
-                          : 'bg-rose-950/40 hover:bg-rose-900/50 text-rose-200 shadow-xs'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${
-                        productSubTab === 'activity' ? 'bg-white/20 text-white' : 'bg-rose-900/60 text-rose-300'
-                      }`}>
-                        <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.25]" />
-                      </div>
-                      <div className="flex-1 min-w-0 text-center sm:text-left">
-                        <div className="flex items-center justify-between gap-0.5">
-                          <span className="font-sans font-black text-[9px] min-[375px]:text-[10px] sm:text-xs uppercase tracking-wider block truncate">
-                            {t('Activité', 'Activity')}
-                          </span>
-                          <span className={`hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-black rounded-full font-mono leading-none ${
-                            productSubTab === 'activity' ? 'bg-white/20 text-white' : 'bg-rose-900 text-rose-200'
-                          }`}>
-                            {activityCount}
-                          </span>
-                        </div>
-                        <span className={`hidden sm:block text-[9px] font-bold mt-0.5 ${
-                          productSubTab === 'activity' ? 'text-rose-100' : 'text-rose-300/70'
-                        }`}>
-                          {t('Cycles Courts', 'Short Cycles')}
-                        </span>
-                      </div>
-                    </button>
                   </div>
 
                 {/* Right Column: Products List */}
@@ -6078,10 +5998,11 @@ export default function Dashboard({
 
                         const theme = getCardStyle(p.category);
                         const displayName = getVipDisplayName(p, p.vipLevel || (index + 1));
-                        const purchasedCount = activeInvestments.filter(i => i.productName === p.name || i.productId === p.id).length;
-                        const specialCheck = (p.category === 'wellbeing')
-                          ? DataStore.checkSpecialProductActivation(userState.id, 'wellbeing')
-                          : { canActivate: true };
+                        const activeCount = activeInvestments.filter(i => (i.productName === p.name || i.productId === p.id) && i.status === 'active').length;
+                        const pendingCount = activeInvestments.filter(i => (i.productName === p.name || i.productId === p.id) && i.status !== 'active' && i.status !== 'completed').length;
+                        const isWellbeing = p.category === 'wellbeing';
+                        const reqVipLevel = p.vipLevel || (index + 1);
+                        const wellbeingAccess = isWellbeing ? DataStore.canUserAccessWellbeingProduct(userState.id, reqVipLevel) : { allowed: true };
                         const totalExpectedProductPayout = p.totalReturn || (p.price + (p.dailyReturn * p.durationDays));
 
                         return (
@@ -6108,11 +6029,11 @@ export default function Dashboard({
                                   🏆 VIP {p.vipLevel || 0}
                                 </div>
 
-                                {purchasedCount > 0 && (
-                                  <div className="absolute top-2 right-2 bg-emerald-500 text-white font-sans font-black text-[8.5px] px-2 py-0.5 rounded-md uppercase tracking-wider shadow-md">
-                                    Actif ({purchasedCount})
+                                {(activeCount + pendingCount) > 0 ? (
+                                  <div className="absolute top-2 right-2 bg-amber-500 text-slate-950 font-sans font-black text-[8.5px] px-2 py-0.5 rounded-md uppercase tracking-wider shadow-md">
+                                    Payé ({activeCount + pendingCount})
                                   </div>
-                                )}
+                                ) : null}
 
                                 {/* Display name written directly on the image overlay */}
                                 <div className="absolute bottom-2 left-2.5 right-2.5 text-left">

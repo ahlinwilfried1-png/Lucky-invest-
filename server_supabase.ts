@@ -740,6 +740,13 @@ export async function deleteSupabaseInvestment(investmentId: string): Promise<bo
 
   try {
     const { error } = await client.from('investments').delete().eq('id', investmentId);
+    // Also track in gi_deleted_investments store key
+    const { data } = await client.from('store').select('value').eq('key', 'gi_deleted_investments').maybeSingle();
+    let deleted = (data && Array.isArray(data.value)) ? data.value : [];
+    if (!deleted.includes(investmentId)) {
+      deleted.push(investmentId);
+      await client.from('store').upsert({ key: 'gi_deleted_investments', value: deleted, updated_at: new Date().toISOString() });
+    }
     return !error;
   } catch {
     return false;
@@ -773,11 +780,26 @@ export async function deleteSupabaseForumPost(postId: string): Promise<boolean> 
   if (!client || !postId) return false;
 
   try {
+    // Delete from possible dedicated table
+    try {
+      await client.from('forum_posts').delete().eq('id', postId);
+    } catch {}
+
+    // Delete from store gi_forum_posts
     const { data } = await client.from('store').select('value').eq('key', 'gi_forum_posts').maybeSingle();
     if (data && Array.isArray(data.value)) {
       const filtered = data.value.filter((p: any) => String(p.id) !== String(postId));
       await client.from('store').upsert({ key: 'gi_forum_posts', value: filtered, updated_at: new Date().toISOString() });
     }
+
+    // Also track in gi_deleted_forum_posts
+    const { data: delData } = await client.from('store').select('value').eq('key', 'gi_deleted_forum_posts').maybeSingle();
+    let delPosts = (delData && Array.isArray(delData.value)) ? delData.value : [];
+    if (!delPosts.includes(String(postId))) {
+      delPosts.push(String(postId));
+      await client.from('store').upsert({ key: 'gi_deleted_forum_posts', value: delPosts, updated_at: new Date().toISOString() });
+    }
+
     return true;
   } catch {
     return false;

@@ -586,7 +586,7 @@ const SERVER_DEFAULT_PRODUCTS = [
       "gi_withdrawals_blocked_global": false,
       "gi_referral_domain": "",
       "gi_whatsapp_group": "https://chat.whatsapp.com/FjYdljjkYOt7815rT1UZ8q?s=cl&p=i&ilr=0&amv=0",
-      "gi_whatsapp_channel": "https://whatsapp.com/channel/0029VbCs5L0J3jurEKVu8x2n",
+      "gi_whatsapp_channel": "https://whatsapp.com/channel/0029Vb8HK6s7Noa0xFzIZu1z",
       "gi_withdrawal_proofs": [],
       "gi_forum_posts": [],
       "gi_deleted_forum_posts": [],
@@ -623,7 +623,7 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     // Force correct WhatsApp links to prevent any resetting or loss of these connections
     const targetGroup = "https://chat.whatsapp.com/FjYdljjkYOt7815rT1UZ8q?s=cl&p=i&ilr=0&amv=0";
-    const targetChannel = "https://whatsapp.com/channel/0029VbCs5L0J3jurEKVu8x2n";
+    const targetChannel = "https://whatsapp.com/channel/0029Vb8HK6s7Noa0xFzIZu1z";
 
     if (storeData["gi_whatsapp_group"] !== targetGroup) {
       console.log(`[STARTUP] Setting WhatsApp group link to: ${targetGroup}`);
@@ -963,7 +963,7 @@ const SERVER_DEFAULT_PRODUCTS = [
 
         // Force correct WhatsApp links even after merging Supabase keys
         const targetGroup = "https://chat.whatsapp.com/FjYdljjkYOt7815rT1UZ8q?s=cl&p=i&ilr=0&amv=0";
-        const targetChannel = "https://whatsapp.com/channel/0029VbCs5L0J3jurEKVu8x2n";
+        const targetChannel = "https://whatsapp.com/channel/0029Vb8HK6s7Noa0xFzIZu1z";
         let linksModified = false;
 
         if (storeData["gi_whatsapp_group"] !== targetGroup) {
@@ -2283,6 +2283,22 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
     }
 
+    // Ensure deleted investments are strictly filtered out
+    const deletedInvs = storeData["gi_deleted_investments"] || [];
+    if (Array.isArray(storeData["gi_investments"])) {
+      storeData["gi_investments"] = storeData["gi_investments"].filter(
+        (i: any) => i && i.id && !deletedInvs.includes(String(i.id))
+      );
+    }
+
+    // Ensure deleted forum posts are strictly filtered out
+    const deletedForumPosts = storeData["gi_deleted_forum_posts"] || [];
+    if (Array.isArray(storeData["gi_forum_posts"])) {
+      storeData["gi_forum_posts"] = storeData["gi_forum_posts"].filter(
+        (p: any) => p && p.id && !deletedForumPosts.includes(String(p.id))
+      );
+    }
+
     res.json(storeData);
   });
 
@@ -2472,7 +2488,14 @@ const SERVER_DEFAULT_PRODUCTS = [
             if (item && typeof item === "object") {
               const id = item.id || item.code;
               if (id) {
-                mergedMap.set(String(id), item);
+                const idStr = String(id);
+                if (key === "gi_investments" && (storeData["gi_deleted_investments"] || []).includes(idStr)) {
+                  continue;
+                }
+                if (key === "gi_forum_posts" && (storeData["gi_deleted_forum_posts"] || []).includes(idStr)) {
+                  continue;
+                }
+                mergedMap.set(idStr, item);
               }
             }
           }
@@ -2483,6 +2506,12 @@ const SERVER_DEFAULT_PRODUCTS = [
               const id = item.id || item.code;
               if (id) {
                 const idStr = String(id);
+                if (key === "gi_investments" && (storeData["gi_deleted_investments"] || []).includes(idStr)) {
+                  continue;
+                }
+                if (key === "gi_forum_posts" && (storeData["gi_deleted_forum_posts"] || []).includes(idStr)) {
+                  continue;
+                }
                 if (!mergedMap.has(idStr)) {
                   let newUser = item;
                   if (newUser && newUser.role === 'admin' && !isPrincipalAdmin) {
@@ -2514,10 +2543,13 @@ const SERVER_DEFAULT_PRODUCTS = [
                     }
                     newUser.status = 'pending'; // force pending status
                   }
-                  if (!isGenuineAdmin && key === "gi_investments" && newUser) {
-                    if (newUser.userId !== (headerUser?.id || clientUserId)) {
-                      continue; // reject!
-                    }
+                  if (!isGenuineAdmin && key === "gi_investments") {
+                    // Non-admin clients must never inject investments through save-store
+                    continue;
+                  }
+                  if (!isGenuineAdmin && key === "gi_forum_posts") {
+                    // Non-admin clients must never inject forum posts through save-store
+                    continue;
                   }
                   if (!isGenuineAdmin && key === "gi_support_messages" && newUser) {
                     if (newUser.userId !== (headerUser?.id || clientUserId) && newUser.senderId !== (headerUser?.id || clientUserId)) {

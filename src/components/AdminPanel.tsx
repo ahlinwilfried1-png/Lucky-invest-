@@ -135,7 +135,7 @@ export default function AdminPanel({
     setForumPosts(DataStore.getForumPosts());
   }, [proofsSubTab]);
 
-  // Category & Operations Schedules Management (Bien-être, Activités & Retraits)
+  // Category & Operations Schedules Management (Bien-être & Retraits)
   const [categorySchedules, setCategorySchedules] = useState<CategorySchedules>(() => DataStore.getCategorySchedules());
   const [currentSystemTime, setCurrentSystemTime] = useState<Date>(new Date());
   const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'withdrawals' | null>(null);
@@ -2862,7 +2862,7 @@ export default function AdminPanel({
       {/* 4. PRODUCTS MANAGEMENT */}
       {activeAdminTab === 'products' && (
         <div className="space-y-6">
-          {/* HORAIRES D'OUVERTURE ET DE FERMETURE (BIEN-ÊTRE & ACTIVITÉS) */}
+          {/* HORAIRES D'OUVERTURE ET DE FERMETURE (BIEN-ÊTRE) */}
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-800/80">
               <div className="space-y-1">
@@ -2875,7 +2875,7 @@ export default function AdminPanel({
                   </h3>
                 </div>
                 <p className="text-xs text-slate-400">
-                  Contrôlez l'accès aux achats pour les catégories Bien-être et Activités séparément. La fermeture bloque uniquement les nouveaux achats. Les cycles déjà commencés continuent jusqu'à leur terme avec versement automatique des gains.
+                  Contrôlez l'accès aux achats pour la catégorie Bien-être. La fermeture bloque uniquement les nouveaux achats. Les cycles déjà commencés continuent jusqu'à leur terme avec versement automatique des gains.
                 </p>
               </div>
 
