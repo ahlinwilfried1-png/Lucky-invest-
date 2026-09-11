@@ -80,7 +80,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
           <div className="flex items-center space-x-3.5 mb-1 pt-1">
             <button 
               onClick={() => setShowTeamDetailsPage(false)}
-              className="w-10 h-10 rounded-2xl bg-white border border-[#E8D8B0] flex items-center justify-center text-[#D49A22] hover:bg-[#FFF5D9]/50 transition-all cursor-pointer shadow-xs active:scale-95"
+              className="w-10 h-10 rounded-2xl bg-white border border-[#E8D8B0]/30 flex items-center justify-center text-[#D49A22] hover:bg-[#FFF5D9]/50 transition-all cursor-pointer shadow-xs active:scale-95"
               id="btn-back-to-team-overview"
               title="Retour"
             >
@@ -98,7 +98,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
 
           {/* Level Tabs Selector (🥇 Niv 1 | 🥈 Niv 2 | 🥉 Niv 3) */}
           <div 
-            className="grid grid-cols-3 gap-2 bg-white p-1.5 rounded-2xl border border-[#E8D8B0]/80 shadow-xs"
+            className="grid grid-cols-3 gap-2 bg-white p-1.5 rounded-2xl border border-[#E8D8B0]/20 shadow-xs"
             id="team-level-tabs-container"
           >
             <button
@@ -138,7 +138,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
 
           {/* Key Stats for the Selected Level (Membres Actifs & Total Investi) */}
           <div className="grid grid-cols-2 gap-3" id="team-stats-summary-grid">
-            <div className="bg-white p-4 rounded-2xl sm:rounded-3xl border border-[#E8D8B0]/80 shadow-xs text-left">
+            <div className="bg-white p-4 rounded-2xl sm:rounded-3xl border border-[#E8D8B0]/20 shadow-xs text-left">
               <span className="text-[9px] text-[#B8790B] font-black uppercase tracking-wider block">
                 {t('Membres Actifs', 'Active Members')}
               </span>
@@ -150,7 +150,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
                     : getActiveUsersCount(level3Users)}
               </span>
             </div>
-            <div className="bg-white p-4 rounded-2xl sm:rounded-3xl border border-[#E8D8B0]/80 shadow-xs text-left">
+            <div className="bg-white p-4 rounded-2xl sm:rounded-3xl border border-[#E8D8B0]/20 shadow-xs text-left">
               <span className="text-[9px] text-[#B8790B] font-black uppercase tracking-wider block">
                 {t('Total Investi', 'Total Invested')}
               </span>
@@ -166,14 +166,14 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
 
           {/* Detailed List of Members Card */}
           <div 
-            className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-[#E8D8B0]/80 shadow-xs space-y-4 text-slate-900"
+            className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-[#E8D8B0]/20 shadow-xs space-y-4 text-slate-900"
             id="members-list-card"
           >
-            <div className="flex items-center justify-between border-b border-[#E8D8B0]/50 pb-3">
+            <div className="flex items-center justify-between border-b border-[#E8D8B0]/20 pb-3">
               <span className="text-[11px] text-[#B8790B] font-black uppercase tracking-wider block pl-0.5">
                 {t('LISTE DES FILLEULS', 'REFERRAL LIST')} : {referralListTab === 'level1' ? t('Niveau 1', 'Level 1') : referralListTab === 'level2' ? t('Niveau 2', 'Level 2') : t('Niveau 3', 'Level 3')}
               </span>
-              <span className="text-[9px] bg-[#FFF5D9] text-[#B8790B] font-bold font-mono px-2.5 py-1 rounded-full border border-[#E8D8B0] uppercase tracking-wide">
+              <span className="text-[9px] bg-[#FFF5D9] text-[#B8790B] font-bold font-mono px-2.5 py-1 rounded-full border border-[#E8D8B0]/25 uppercase tracking-wide">
                 {currentList.length} {t('membres', 'members')}
               </span>
             </div>
@@ -181,7 +181,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
             {/* Member Items */}
             <div className="space-y-2.5 pt-1">
               {currentList.length === 0 ? (
-                <div className="text-center py-8 bg-[#FAF8F2] rounded-2xl border border-[#E8D8B0]/70 p-4">
+                <div className="text-center py-8 bg-[#FAF8F2] rounded-2xl border border-[#E8D8B0]/20 p-4">
                   <p className="text-xs text-[#607D9A] font-semibold max-w-xs mx-auto leading-relaxed">
                     {referralListTab === 'level1'
                       ? t("Vous n'avez pas encore de filleuls inscrits directement (Niveau 1) dans votre équipe.", "You don't have any direct referrals (Level 1) registered in your team yet.")
@@ -195,7 +195,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
                   {currentList.map(u => (
                     <div 
                       key={u.id} 
-                      className="p-3.5 bg-[#FAF8F2] border border-[#E8D8B0]/70 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-[#D49A22] transition-colors text-slate-900"
+                      className="p-3.5 bg-[#FAF8F2] border border-[#E8D8B0]/20 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-[#D49A22]/50 transition-colors text-slate-900"
                     >
                       <div className="flex flex-col text-left">
                         <span className="text-[10px] text-[#B8790B] font-extrabold uppercase tracking-wider">
@@ -242,7 +242,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
         <div className="flex items-center space-x-3 mb-1 pt-1">
           <button 
             onClick={() => setActiveTab('dashboard')}
-            className="w-10 h-10 rounded-2xl bg-white border border-[#E8D8B0] flex items-center justify-center text-[#D49A22] hover:bg-[#FFF5D9]/50 transition-all cursor-pointer shadow-xs active:scale-95"
+            className="w-10 h-10 rounded-2xl bg-white border border-[#E8D8B0]/30 flex items-center justify-center text-[#D49A22] hover:bg-[#FFF5D9]/50 transition-all cursor-pointer shadow-xs active:scale-95"
             id="btn-back-to-home"
             title="Retour à l'accueil"
           >
@@ -270,7 +270,7 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
                 {t("Investissez ensemble, enrichissez-vous ensemble", "Invest together, grow rich together")}
               </p>
             </div>
-            <div className="w-10 h-10 sm:w-11 sm:h-11 bg-[#FFF5D9] rounded-2xl flex items-center justify-center text-[#D49A22] border border-[#E8D8B0] text-xl sm:text-2xl shadow-xs">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 bg-[#FFF5D9] rounded-2xl flex items-center justify-center text-[#D49A22] border border-[#E8D8B0]/25 text-xl sm:text-2xl shadow-xs">
               🌟
             </div>
           </div>
@@ -280,11 +280,11 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
             
             {/* Card 1: Invitation Code */}
             <div 
-              className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-[#E8D8B0]/80 shadow-xs transition-transform hover:scale-[1.01] text-slate-900"
+              className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-[#E8D8B0]/20 shadow-xs transition-transform hover:scale-[1.01] text-slate-900"
               id="card-referral-code"
             >
               <div className="flex items-center space-x-3 sm:space-x-4">
-                <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0] flex items-center justify-center text-[#D49A22] shrink-0">
+                <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0]/25 flex items-center justify-center text-[#D49A22] shrink-0">
                   <Copy className="w-5 h-5 stroke-[2.25]" />
                 </div>
                 <div>
@@ -307,11 +307,11 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
 
             {/* Card 2: Invitation Link */}
             <div 
-              className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-[#E8D8B0]/80 shadow-xs transition-transform hover:scale-[1.01] text-slate-900"
+              className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-[#E8D8B0]/20 shadow-xs transition-transform hover:scale-[1.01] text-slate-900"
               id="card-referral-link"
             >
               <div className="flex items-center space-x-3 sm:space-x-4 overflow-hidden mr-2">
-                <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0] flex items-center justify-center text-[#D49A22] shrink-0">
+                <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0]/25 flex items-center justify-center text-[#D49A22] shrink-0">
                   <Share className="w-5 h-5 stroke-[2.25]" />
                 </div>
                 <div className="overflow-hidden">
@@ -365,12 +365,12 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
               className={`bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer shadow-xs ${
                 referralListTab === 'level1' 
                   ? 'border-[#D49A22] ring-2 ring-[#D49A22]/30 scale-[1.01]' 
-                  : 'border-[#E8D8B0]/80 hover:border-[#D49A22]'
+                  : 'border-[#E8D8B0]/20 hover:border-[#D49A22]/50'
               }`}
               id="team-level-card-1"
             >
               <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0] flex items-center justify-center text-2xl filter drop-shadow-xs shrink-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0]/25 flex items-center justify-center text-2xl filter drop-shadow-xs shrink-0">
                   🥇
                 </div>
                 
@@ -415,12 +415,12 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
               className={`bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer shadow-xs ${
                 referralListTab === 'level2' 
                   ? 'border-[#D49A22] ring-2 ring-[#D49A22]/30 scale-[1.01]' 
-                  : 'border-[#E8D8B0]/80 hover:border-[#D49A22]'
+                  : 'border-[#E8D8B0]/20 hover:border-[#D49A22]/50'
               }`}
               id="team-level-card-2"
             >
               <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FAF8F2] border border-[#E8D8B0] flex items-center justify-center text-2xl filter drop-shadow-xs shrink-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FAF8F2] border border-[#E8D8B0]/25 flex items-center justify-center text-2xl filter drop-shadow-xs shrink-0">
                   🥈
                 </div>
                 
@@ -465,12 +465,12 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
               className={`bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer shadow-xs ${
                 referralListTab === 'level3' 
                   ? 'border-[#D49A22] ring-2 ring-[#D49A22]/30 scale-[1.01]' 
-                  : 'border-[#E8D8B0]/80 hover:border-[#D49A22]'
+                  : 'border-[#E8D8B0]/20 hover:border-[#D49A22]/50'
               }`}
               id="team-level-card-3"
             >
               <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0] flex items-center justify-center text-2xl filter drop-shadow-xs shrink-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FFF5D9] border border-[#E8D8B0]/25 flex items-center justify-center text-2xl filter drop-shadow-xs shrink-0">
                   🥉
                 </div>
                 
@@ -511,11 +511,11 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
 
         {/* 3. COMMISSIONS SUMMARY CARD */}
         <div 
-          className="bg-white border border-[#E8D8B0]/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex items-center justify-between shadow-xs text-slate-900"
+          className="bg-white border border-[#E8D8B0]/20 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex items-center justify-between shadow-xs text-slate-900"
           id="card-commissions-summary"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#FFF5D9] text-[#D49A22] flex items-center justify-center font-bold text-base sm:text-lg border border-[#E8D8B0]">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#FFF5D9] text-[#D49A22] flex items-center justify-center font-bold text-base sm:text-lg border border-[#E8D8B0]/25">
               💰
             </div>
             <div>
@@ -539,11 +539,11 @@ export const TeamTabView: React.FC<TeamTabViewProps> = ({
 
         {/* 4. 5-LINE EXPLANATION OF REFERRAL & COMMISSIONS */}
         <div 
-          className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-[#E8D8B0]/80 shadow-xs space-y-3 text-slate-800"
+          className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-[#E8D8B0]/20 shadow-xs space-y-3 text-slate-800"
           id="card-referral-explanation"
         >
-          <div className="flex items-center gap-2.5 border-b border-[#E8D8B0]/50 pb-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#FFF5D9] text-[#D49A22] flex items-center justify-center text-sm sm:text-base shrink-0 border border-[#E8D8B0]">
+          <div className="flex items-center gap-2.5 border-b border-[#E8D8B0]/20 pb-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#FFF5D9] text-[#D49A22] flex items-center justify-center text-sm sm:text-base shrink-0 border border-[#E8D8B0]/25">
               ℹ️
             </div>
             <div>

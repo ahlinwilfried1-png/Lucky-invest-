@@ -78,6 +78,9 @@ import { ProductsTabView } from './ProductsTabView';
 import { HomeTabView } from './HomeTabView';
 import { TeamTabView } from './TeamTabView';
 import { ForumTabView } from './ForumTabView';
+import { RechargeTabView } from './RechargeTabView';
+import { WithdrawTabView } from './WithdrawTabView';
+import { PointageView } from './PointageView';
 import AdminPanel from './AdminPanel';
 import CountdownTimer from './CountdownTimer';
 import { InvestmentItem } from './InvestmentItem';
@@ -1557,11 +1560,26 @@ export default function Dashboard({
     window.addEventListener('gi_store_updated', handleStoreUpdated);
     window.addEventListener('gi_category_schedules_updated', handleStoreUpdated);
 
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('gi_schedules_sync');
+        bc.onmessage = (ev) => {
+          if (ev.data && ev.data.type === 'SCHEDULES_UPDATED') {
+            syncDashboardData();
+          }
+        };
+      }
+    } catch (e) {}
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('gi_new_message', handleNewMessage);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
       window.removeEventListener('gi_category_schedules_updated', handleStoreUpdated);
+      if (bc) {
+        try { bc.close(); } catch (e) {}
+      }
     };
   }, [currentUser.id]);
 
@@ -2374,9 +2392,10 @@ export default function Dashboard({
     if (product.category === 'wellbeing') {
       const scheduleStatus = DataStore.isCategoryOpen('wellbeing');
       if (!scheduleStatus.isOpen) {
+        triggerToast('Ce produit est actuellement indisponible à l’achat', 'info');
         openAlert(
-          'Indisponible',
-          scheduleStatus.reason || 'Ce produit est temporairement indisponible pour le moment.',
+          'Information',
+          'Ce produit est actuellement indisponible à l’achat',
           'info'
         );
         return;
@@ -3635,353 +3654,18 @@ export default function Dashboard({
 
             // 2. PAGE: POINTAGE (DÉDIÉE - SANS BARÈME, AVEC EXPLICATION ET SOLDE GÉNÉRÉ)
             if (profileSubPage === 'point' || profileSubPage === 'pointage' || profileSubPage === 'missions') {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const isCheckedInToday = userState.lastCheckInDate === todayStr;
-
-              // Calculate user's real VIP level from active investments & product catalogue
-              const userActiveInvs = activeInvestments.filter(i => i.status === 'active');
-              let userVipLevel = 0;
-              let userVipName = 'Aucun VIP Actif';
-
-              for (const inv of userActiveInvs) {
-                const prod = products.find(p => p.id === inv.productId || p.name === inv.productName);
-                let v = prod?.vipLevel || 0;
-                if (!v && inv.productId.startsWith('stab-')) {
-                  v = parseInt(inv.productId.replace('stab-', ''), 10) || 0;
-                }
-                if (v > userVipLevel) {
-                  userVipLevel = v;
-                  userVipName = prod?.tag || prod?.name || `VIP ${v}`;
-                }
-              }
-
-              if (userVipLevel === 0 && userActiveInvs.length > 0) {
-                const maxPrice = Math.max(...userActiveInvs.map(i => i.price));
-                if (maxPrice >= 50000) userVipLevel = 5;
-                else if (maxPrice >= 25000) userVipLevel = 4;
-                else if (maxPrice >= 10000) userVipLevel = 3;
-                else if (maxPrice >= 5000) userVipLevel = 2;
-                else if (maxPrice >= 2000) userVipLevel = 1;
-                if (userVipLevel > 0) {
-                  userVipName = `VIP ${userVipLevel}`;
-                }
-              }
-
-              // Automatic VIP calculation
-              const getVipPointAmount = (vip: number): number => {
-                if (vip >= 5) return 300;
-                if (vip === 4) return 50;
-                if (vip === 3) return 50;
-                if (vip === 2) return 20;
-                if (vip === 1) return 10;
-                return 0; // VIP 0
-              };
-
-              const currentVipReward = getVipPointAmount(userVipLevel);
-              const totalPointsGenerated = userState.totalCheckInEarnings || 0;
-
-              const handleDailyCheckIn = () => {
-                if (isCheckedInToday) {
-                  triggerToast("Vous avez déjà effectué votre pointage aujourd'hui ! Revenez demain.", "info");
-                  return;
-                }
-
-                if (userVipLevel === 0) {
-                  triggerToast("Aucun pack VIP actif. Activez au moins un pack VIP 1 (2 000 FCFA) pour débloquer votre pointage quotidien !", "error");
-                  return;
-                }
-
-                const reward = currentVipReward;
-                const newBalance = (userState.balance || 0) + reward;
-                const newTotalCheckInEarnings = totalPointsGenerated + reward;
-                
-                // Calculate streak
-                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                const newStreak = (userState.lastCheckInDate === yesterday) 
-                  ? (userState.checkInStreak || 0) + 1 
-                  : 1;
-
-                const updatedUser: User = {
-                  ...userState,
-                  balance: newBalance,
-                  lastCheckInDate: todayStr,
-                  checkInStreak: newStreak,
-                  totalCheckInEarnings: newTotalCheckInEarnings
-                };
-
-                DataStore.saveCurrentUser(updatedUser);
-                const allUsers = DataStore.getUsers();
-                const idx = allUsers.findIndex(u => u.id === updatedUser.id);
-                if (idx !== -1) {
-                  allUsers[idx] = updatedUser;
-                  DataStore.saveUsers(allUsers);
-                }
-
-                setUserState(updatedUser);
-                if (onRefreshUser) {
-                  onRefreshUser(updatedUser);
-                }
-
-                DataStore.addNotification({
-                  id: 'vip-point-' + Date.now(),
-                  userId: updatedUser.id,
-                  title: `Pointage validé ! 🌟`,
-                  message: `Félicitations ! Vous avez reçu ${reward} FCFA pour votre pointage quotidien correspondant à votre statut VIP ${userVipLevel}.`,
-                  createdAt: new Date().toISOString(),
-                  isRead: false
-                });
-
-                triggerToast(`Pointage validé ! +${reward} FCFA ajoutés à votre solde 🎉`, "success");
-              };
-
               return (
-                <div className="bg-transparent -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-3.5 pb-6 text-slate-900 text-left animate-fadeIn">
-                  {/* Clean Slate & Amber Header */}
-                  <div className="bg-slate-900 text-white pt-6 pb-14 px-4 rounded-b-[2.5rem] relative shadow-md overflow-hidden border-b border-slate-800">
-                    <div className="max-w-xl mx-auto flex items-center justify-between relative z-10 mb-6">
-                      <button 
-                        onClick={() => setProfileSubPage(null)}
-                        className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all cursor-pointer outline-none shrink-0"
-                        id="btn-back-point"
-                      >
-                        <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
-                      </button>
-                      
-                      <h2 className="font-sans font-black text-white text-base tracking-tight uppercase">
-                        {t("Pointage", "Check-in")}
-                      </h2>
-
-                      <button 
-                        onClick={() => setIsMissionsRulesOpen(true)}
-                        className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all cursor-pointer outline-none shrink-0"
-                      >
-                        <HelpCircle className="w-5 h-5 stroke-[2.5]" />
-                      </button>
-                    </div>
-
-                    {/* Stats summary banner */}
-                    <div className="max-w-xl mx-auto grid grid-cols-2 gap-3 relative z-10 pb-2">
-                      <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700">
-                        <span className="text-[9.5px] text-slate-400 uppercase font-black tracking-wider block">
-                          Gains de Pointage Générés
-                        </span>
-                        <div className="flex items-baseline gap-1 mt-1">
-                          <span className="text-2xl font-black font-sans text-amber-400">
-                            {totalPointsGenerated.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-slate-400 font-bold">
-                            FCFA
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700">
-                        <span className="text-[9.5px] text-slate-400 uppercase font-black tracking-wider block">
-                          Niveau VIP Actuel
-                        </span>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Award className="w-4 h-4 text-amber-400 shrink-0" />
-                          <span className="text-lg font-black font-sans text-white">
-                            {userVipLevel > 0 ? `VIP ${userVipLevel}` : 'VIP 0'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Main Container Overlapping Header */}
-                  <div className="max-w-xl mx-auto -mt-8 px-4 relative z-10 space-y-4">
-                    
-                    {/* EXPLICATION DU SYSTÈME DE POINTAGE */}
-                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-100 text-slate-800 space-y-2">
-                      <div className="flex items-center gap-2 text-slate-900 font-sans font-black text-xs sm:text-sm uppercase tracking-tight">
-                        <Info className="w-4 h-4 text-amber-500 stroke-[2.5]" />
-                        <span>Fonctionnement du Pointage</span>
-                      </div>
-                      <p className="text-xs sm:text-[13px] text-slate-600 font-medium leading-relaxed">
-                        Le pointage permet de recevoir un gain quotidien selon votre niveau VIP stable. Plus votre niveau VIP est élevé, plus le montant attribué au pointage peut être important. Le gain est ajouté à votre solde lorsque le pointage est effectué selon les conditions prévues.
-                      </p>
-                    </div>
-
-                    {/* ACTION CARD: POINTAGE DU JOUR */}
-                    <div className="bg-white rounded-[2rem] p-5 sm:p-6 shadow-xl border border-slate-100 space-y-5 text-slate-800">
-                      
-                      {/* Header Status */}
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-base font-sans font-black text-slate-800 uppercase tracking-tight">
-                            Pointage du jour
-                          </h3>
-                          <p className="text-xs text-slate-400 font-bold mt-0.5">
-                            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                          </p>
-                        </div>
-                        
-                        <div className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
-                          isCheckedInToday 
-                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/60' 
-                            : 'bg-amber-50 text-amber-600 border border-amber-200/60 animate-pulse'
-                        }`}>
-                          {isCheckedInToday ? (
-                            <>
-                              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                              <span>Effectué</span>
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="w-4 h-4 stroke-[2.5]" />
-                              <span>En attente</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Main Action Box */}
-                      <div className="text-center py-2 space-y-3.5">
-                        <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20 border-2 border-amber-300">
-                          {isCheckedInToday ? (
-                            <Check className="w-8 h-8 stroke-[3]" />
-                          ) : (
-                            <CalendarCheck className="w-8 h-8 stroke-[2.25] animate-bounce" />
-                          )}
-                        </div>
-
-                        <div>
-                          <h4 className="text-lg sm:text-xl font-sans font-black text-slate-800">
-                            {isCheckedInToday 
-                              ? "Pointage du jour déjà validé !" 
-                              : userVipLevel > 0 
-                                ? "Validez votre pointage du jour"
-                                : "Activez un Pack VIP pour pointer"}
-                          </h4>
-                          <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto mt-1 leading-relaxed">
-                            {isCheckedInToday 
-                              ? "Votre pointage a été enregistré avec succès pour aujourd'hui. Revenez demain pour le prochain pointage !" 
-                              : userVipLevel > 0
-                                ? `Votre niveau VIP ${userVipLevel} vous donne droit à une récompense quotidienne créditée directement sur votre solde.`
-                                : "Vous n'avez pas de pack VIP actif. Activez au moins un pack VIP 1 pour débloquer votre pointage quotidien."}
-                          </p>
-                        </div>
-
-                        {/* Check-In CTA Button */}
-                        {userVipLevel === 0 ? (
-                          <button
-                            onClick={() => {
-                              setProfileSubPage(null);
-                              setActiveTab('products');
-                            }}
-                            className="w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-sans font-black uppercase tracking-wider bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white shadow-lg shadow-slate-900/20 border-0 flex items-center justify-center gap-2 cursor-pointer transition-all"
-                            id="btn-buy-vip-point"
-                          >
-                            <Sparkles className="w-4 h-4 stroke-[2.5] text-amber-400" />
-                            <span>Débloquer mon statut VIP</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleDailyCheckIn}
-                            disabled={isCheckedInToday}
-                            className={`w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-sans font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-lg border-0 flex items-center justify-center gap-2 ${
-                              isCheckedInToday
-                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
-                                : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-105 active:scale-[0.98] text-slate-950 shadow-amber-500/25 animate-pulse'
-                            }`}
-                            id="btn-submit-point"
-                          >
-                            {isCheckedInToday ? (
-                              <>
-                                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                                <span>Pointage Déjà Effectué ✓</span>
-                              </>
-                            ) : (
-                              <>
-                                <CalendarCheck className="w-5 h-5 stroke-[2.5]" />
-                                <span>Effectuer le Pointage</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-
-                      {/* 7 Days Streak Visual */}
-                      <div className="pt-2 border-t border-slate-100">
-                        <div className="flex items-center justify-between mb-2.5">
-                          <span className="text-xs font-black text-slate-700 uppercase tracking-tight">
-                            Série de pointage consécutive
-                          </span>
-                          <span className="text-[11px] font-bold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">
-                            {userState.checkInStreak || 0} Jour(s) d'affilée
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                          {[1, 2, 3, 4, 5, 6, 7].map((dayNum) => {
-                            const currentStreak = userState.checkInStreak || 0;
-                            const isCompletedDay = dayNum <= (currentStreak % 7 === 0 && currentStreak > 0 ? 7 : currentStreak % 7);
-
-                            return (
-                              <div 
-                                key={dayNum}
-                                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all ${
-                                  isCompletedDay 
-                                    ? 'bg-amber-500/10 border-amber-300 text-amber-700 shadow-xs' 
-                                    : 'bg-slate-50 border-slate-100 text-slate-400'
-                                }`}
-                              >
-                                <span className="text-[10px] font-black uppercase tracking-tight block">
-                                  J{dayNum}
-                                </span>
-                                <div className="mt-1">
-                                  {isCompletedDay ? (
-                                    <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3] mx-auto" />
-                                  ) : (
-                                    <div className="w-2 h-2 rounded-full bg-slate-200 mx-auto" />
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* Rules Modal Overlay */}
-                  {isMissionsRulesOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-                      <div className="bg-white rounded-[2rem] max-w-lg w-full p-6 space-y-4 animate-scaleUp shadow-2xl relative text-left text-slate-800">
-                        <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                          <h3 className="font-sans font-black text-slate-900 text-base uppercase tracking-tight">
-                            Règles du Pointage VIP 📋
-                          </h3>
-                          <button
-                            onClick={() => setIsMissionsRulesOpen(false)}
-                            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-all border-none outline-none cursor-pointer"
-                          >
-                            <X className="w-4 h-4 stroke-[2.5]" />
-                          </button>
-                        </div>
-                        <div className="text-[11.5px] text-slate-500 font-bold leading-relaxed space-y-3">
-                          <p>
-                            1. <span className="text-slate-800">Principe</span> : Le pointage permet de recevoir un gain quotidien selon votre niveau VIP stable. Plus votre niveau VIP est élevé, plus le montant attribué au pointage peut être important.
-                          </p>
-                          <p>
-                            2. <span className="text-slate-800">Fréquence</span> : Le pointage s'effectue une seule fois par jour calendaire (réinitialisation à minuit).
-                          </p>
-                          <p>
-                            3. <span className="text-slate-800">Attribution</span> : Le gain est ajouté directement à votre solde lorsque le pointage est effectué selon les conditions prévues.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setIsMissionsRulesOpen(false)}
-                          className="w-full bg-slate-900 text-white py-3 rounded-2xl text-xs font-sans font-black uppercase tracking-wider hover:bg-slate-800 transition-all border-none outline-none cursor-pointer shadow-md"
-                        >
-                          J'ai compris
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <PointageView
+                  userState={userState}
+                  setUserState={setUserState}
+                  activeInvestments={activeInvestments}
+                  products={products}
+                  onRefreshUser={onRefreshUser}
+                  triggerToast={triggerToast}
+                  t={t}
+                  setProfileSubPage={setProfileSubPage}
+                  setActiveTab={setActiveTab}
+                />
               );
             }
 
@@ -5632,397 +5316,47 @@ export default function Dashboard({
           )}
 
           {/* DEPOSIT FORM TAB */}
-          {!profileSubPage && activeTab === 'deposit' && (() => {
-            const currentUssdCode = manualOperator.includes('Orange')
-              ? (manualDepositNumbers['CM_42'] || '#150*688969868*montant#')
-              : (manualDepositNumbers['CM_41'] || '*126*9*677451289*montant #');
-            
-            const formattedUssdCode = formatDepositCode(currentUssdCode);
-
-            return (
-              <div className="max-w-xl mx-auto bg-gradient-to-br from-[#9f1239] via-[#881337] to-[#4c0519] border border-rose-700/50 p-6 md:p-8 rounded-3xl shadow-2xl text-white animate-fade-in animate-duration-300 font-sans">
-                {/* DEPOSIT HEADER */}
-                <div className="text-center mb-6">
-                  <span className="text-xs font-black text-amber-300 tracking-widest uppercase block mb-1">
-                    💸 RECHARGE EN LIGNE SÉCURISÉE
-                  </span>
-                  <p className="text-xs text-rose-200 font-bold mt-1">
-                    Saisissez les détails de paiement pour effectuer votre recharge instantanée par Carte Bancaire ou Mobile Money.
-                  </p>
-                </div>
-
-                {depositError && (
-                  <div className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-500/60 text-xs text-rose-200 font-bold flex items-center space-x-2">
-                    <span className="text-base">⚠️</span>
-                    <span>{depositError}</span>
-                  </div>
-                )}
-                {depositSuccess && (
-                  <div className="mb-4 p-4 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-xs text-emerald-200 font-bold leading-normal space-y-1.5 animate-fade-in text-center">
-                    <div className="flex items-center justify-center space-x-2 text-emerald-400">
-                      <span className="text-base">✅</span>
-                      <span className="text-sm font-black uppercase tracking-wide">Demande enregistrée</span>
-                    </div>
-                    <p className="text-xs text-emerald-100 font-medium">
-                      {depositSuccess}
-                    </p>
-                  </div>
-                )}
-
-                  {/* ----------------- SOCCOPAY FORM ----------------- */}
-                  <form onSubmit={submitDeposit} className="space-y-5 text-left animate-fade-in font-sans">
-                    <div className="space-y-5">
-                      {/* AMOUNT PRESETS */}
-                      <div>
-                        <label className="block text-xs font-black text-rose-200 uppercase tracking-wider mb-2 font-mono">
-                          Étape 1 : Choisissez un montant rapide 💵
-                        </label>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
-                          {[2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000].map((amt) => {
-                            const isSelected = parseInt(depositAmount) === amt;
-                            return (
-                              <button
-                                type="button"
-                                key={amt}
-                                onClick={() => setDepositAmount(amt.toString())}
-                                className={`py-2 px-1 text-center rounded-xl border text-[11px] font-black font-mono transition-all duration-200 cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-rose-900 border-amber-300 text-amber-300 shadow-md'
-                                    : 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-200 border-rose-700/40'
-                                }`}
-                              >
-                                {amt.toLocaleString()} F
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* AMOUNT INPUT */}
-                      <div>
-                        <label className="block text-xs font-black text-rose-200 uppercase tracking-wider mb-2 font-mono">
-                          Ou saisissez votre propre montant ({getCurrency()})
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          placeholder={`Minimum 2 500 ${getCurrency()}`}
-                          value={depositAmount}
-                          onChange={(e) => setDepositAmount(e.target.value)}
-                          className="w-full bg-rose-950/60 border-2 border-rose-700/50 focus:border-rose-400 rounded-2xl py-3.5 px-4 text-sm text-amber-300 font-black focus:outline-none shadow-sm placeholder:text-rose-400"
-                        />
-                        <span className="text-[10px] text-rose-300 font-semibold block mt-1">Note : Montant minimum autorisé de 2 500 {getCurrency()}.</span>
-                      </div>
-
-                      <div className="p-4 bg-rose-950/60 border border-rose-700/50 rounded-2xl space-y-4 animate-fade-in">
-                        <div>
-                          <label className="block text-[10px] font-black text-rose-300 uppercase tracking-wider mb-2 font-mono flex items-center gap-1">
-                            <span>🌍 Pays de paiement</span>
-                            <span className="text-amber-400">*</span>
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={depositCountry}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setDepositCountry(val);
-                                const matched = DEPOSIT_COUNTRIES.find(c => c.name === val);
-                                if (matched) {
-                                  setDepositCountryCode(matched.code);
-                                }
-                              }}
-                              className="w-full bg-rose-900/60 border border-rose-700/60 focus:border-rose-400 rounded-xl py-2.5 px-3 text-xs font-bold text-white focus:outline-none shadow-sm appearance-none cursor-pointer"
-                            >
-                              {DEPOSIT_COUNTRIES.map((c) => (
-                                <option key={c.name} value={c.name} className="text-slate-900 bg-white">
-                                  {c.flag} {c.name} ({c.code})
-                                </option>
-                              ))}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-rose-300">
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-black text-rose-300 uppercase tracking-wider mb-2 font-mono flex items-center gap-1">
-                            <span>📞 Numéro de paiement</span>
-                            <span className="text-amber-400">*</span>
-                          </label>
-                          <div className="flex items-center">
-                            <div className="bg-rose-900/80 border border-r-0 border-rose-700/60 rounded-l-xl py-2.5 px-3 text-xs font-mono font-black text-rose-200 shrink-0 select-none">
-                              {depositCountryCode}
-                            </div>
-                            <input
-                              type="tel"
-                              required
-                              placeholder="Ex: 699999999"
-                              value={depositPhone}
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/[^0-9]/g, '');
-                                setDepositPhone(val);
-                              }}
-                              className="w-full bg-rose-900/40 border border-l-0 border-rose-700/60 focus:border-rose-400 rounded-r-xl py-2.5 px-3 text-xs text-white font-bold focus:outline-none shadow-sm placeholder:text-rose-400/70 font-mono"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* SUBMIT BUTTON */}
-                      <div className="space-y-3 pt-2">
-                        <button
-                          type="submit"
-                          disabled={isSubmittingDeposit}
-                          className="w-full py-4 text-white font-sans font-black text-xs uppercase tracking-widest rounded-xl hover:opacity-95 transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48]"
-                        >
-                          {isSubmittingDeposit ? (
-                            <div className="flex items-center space-x-2">
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span>Traitement en cours...</span>
-                            </div>
-                          ) : (
-                            <span>💳 Payer maintenant</span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-              </div>
-            );
-          })()}
+          {!profileSubPage && activeTab === 'deposit' && (
+            <RechargeTabView
+              userState={userState}
+              depositAmount={depositAmount}
+              setDepositAmount={setDepositAmount}
+              depositCountry={depositCountry}
+              setDepositCountry={setDepositCountry}
+              depositCountryCode={depositCountryCode}
+              setDepositCountryCode={setDepositCountryCode}
+              depositPhone={depositPhone}
+              setDepositPhone={setDepositPhone}
+              depositError={depositError}
+              depositSuccess={depositSuccess}
+              isSubmittingDeposit={isSubmittingDeposit}
+              submitDeposit={submitDeposit}
+              getCurrency={getCurrency}
+              depositCountries={DEPOSIT_COUNTRIES}
+              setActiveTab={setActiveTab}
+              setProfileSubPage={setProfileSubPage}
+              onNavigate={onNavigate}
+              t={t}
+            />
+          )}
 
           {/* WITHDRAW FORM TAB */}
           {!profileSubPage && activeTab === 'withdraw' && (
-            <div className="max-w-xl mx-auto bg-gradient-to-br from-[#0c1629] via-[#0f1d38] to-[#080d19] border border-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl text-white">
-              <div className="flex items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-800">
-                <div className="text-left flex-1 min-w-0 pr-1">
-                  <span className="text-[10px] sm:text-xs font-black text-amber-400 tracking-widest uppercase block mb-0.5">CASH OUT DÉTECTÉ</span>
-                  <h3 className="text-lg sm:text-2xl font-display font-black text-white uppercase tracking-tight leading-tight truncate">Demande de Retrait</h3>
-                  <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-0.5 hidden xs:block truncate">Saisissez vos paramètres de transfert de solde.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onNavigate) {
-                      onNavigate('/historique#retrait');
-                    }
-                  }}
-                  className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-400/30 text-[11px] sm:text-xs font-bold uppercase tracking-wide shadow-sm transition-all active:scale-95 cursor-pointer ml-auto"
-                  title="Relevé des renseignements"
-                >
-                  <History className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="whitespace-nowrap">Relevé des renseignements</span>
-                </button>
-              </div>
-
-              {/* WITHDRAWAL SCHEDULE & GLOBAL RESTRICTION ALERTS */}
-              {(() => {
-                const wthSched = DataStore.isWithdrawalOpen();
-                if (!wthSched.isOpen) {
-                  return (
-                    <div className="mb-4 p-4 rounded-xl bg-amber-950/90 border border-amber-500/60 text-xs md:text-sm text-amber-200 font-bold flex items-center gap-3 shadow-md">
-                      <Clock className="w-5 h-5 text-amber-400 shrink-0" />
-                      <div>
-                        <span className="font-black uppercase tracking-wider block text-amber-300">
-                          Horaires de Retrait Fermés
-                        </span>
-                        <span className="text-[11px] text-amber-200/90 font-medium block mt-0.5">
-                          {wthSched.reason || "Les retraits sont actuellement fermés par l'administration."}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {(DataStore.areWithdrawalsBlocked() || userState.withdrawBlocked) && (
-                <div className="mb-4 p-4 rounded-xl bg-slate-900/90 border border-amber-500/50 text-xs md:text-sm text-amber-200 font-black text-center uppercase tracking-wide flex flex-col gap-1 shadow-sm">
-                  <span>⚠️ RETRAITS SUSPENDUS TEMPORAIREMENT</span>
-                  <span>Les retraits sont restreints sur votre compte.</span>
-                </div>
-              )}
-
-              {withdrawError && (
-                <div className="mb-4 p-3.5 rounded-xl bg-red-950/80 border border-red-500 text-sm text-red-200 font-bold">{withdrawError}</div>
-              )}
-              {withdrawSuccess && (
-                <div className="mb-4 p-4 rounded-xl bg-emerald-950/80 border border-emerald-500 text-sm text-emerald-200 font-bold">{withdrawSuccess}</div>
-              )}
-
-              <div className="mb-6 bg-gradient-to-r from-[#ffe082] via-[#d4af37] to-[#aa7c11] border-2 border-[#c5a133] rounded-2xl p-5 text-center shadow-lg">
-                <span className="text-slate-950 font-black uppercase text-xs tracking-wider block">Solde Actuel Disponible</span>
-                <div className="text-3xl sm:text-4xl font-black text-slate-950 mt-2 font-mono leading-none animate-pulse">{userState.balance.toLocaleString()} {getCurrency()}</div>
-              </div>
-
-              <form onSubmit={submitWithdrawal} className="space-y-5 text-left">
-                {/* Operator select and Number inputs, or Linked Card display */}
-                {(() => {
-                  const hasLinkedCard = !!(userState.bankCardNumber || localStorage.getItem('mdb_saved_number'));
-                  const cardNum = userState.bankCardNumber || localStorage.getItem('mdb_saved_number') || '';
-                  const cardOp = userState.bankCardOperator || localStorage.getItem('mdb_saved_operator') || '';
-                  const cardHolder = userState.bankCardName || localStorage.getItem('mdb_saved_name') || '';
-
-                  if (hasLinkedCard) {
-                    return (
-                      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 relative overflow-hidden shadow-sm text-white">
-                        <div className="absolute -top-3 -right-3 p-3 text-amber-400/5">
-                          <CreditCard className="w-24 h-24 transform rotate-12" />
-                        </div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider block">
-                            Ref : 💳 COMPTE DE RÉCEPTION LIÉ
-                          </span>
-                        </div>
-                        <div className="space-y-2 relative z-10 text-white">
-                          <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">Titulaire :</span>
-                            <span className="font-extrabold uppercase text-white">{cardHolder || 'Non spécifié'}</span>
-                          </div>
-                          <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">Réseau / Opérateur :</span>
-                            <span className="font-black text-amber-300">{cardOp}</span>
-                          </div>
-                          <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">Numéro de Réception :</span>
-                            <span className="font-mono font-black text-white tracking-wider bg-slate-950/80 px-2 py-0.5 rounded border border-slate-700">{cardNum}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
-                          <span className="text-[10px] text-slate-400 font-extrabold">
-                            Les fonds seront versés automatiquement sur ce compte.
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setIsBankCardModalOpen(true)}
-                            className="text-xs font-black text-amber-400 hover:text-amber-300 underline focus:outline-none cursor-pointer"
-                          >
-                            Modifier le compte
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="bg-amber-950/50 border-2 border-dashed border-amber-500/60 rounded-2xl p-5 text-center space-y-3">
-                      <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                        <CreditCard className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h4 className="font-sans font-black text-white text-sm uppercase tracking-wider">
-                          Compte de Retrait Non Lié
-                        </h4>
-                        <p className="text-xs text-amber-200/90 font-medium mt-1 max-w-sm mx-auto">
-                          Un retrait est impossible si vous n'avez pas encore lié votre compte de retrait. Veuillez enregistrer vos coordonnées pour débloquer les retraits.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsBankCardModalOpen(true)}
-                        className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md hover:scale-105 transition-all cursor-pointer inline-flex items-center gap-2"
-                      >
-                        <CreditCard className="w-4 h-4" />
-                        <span>Lier mon compte de retrait maintenant</span>
-                      </button>
-                    </div>
-                  );
-                })()}
-
-                {/* Withdraw value */}
-                <div>
-                  <label className="block text-xs md:text-sm font-black text-rose-200 uppercase tracking-wider mb-2">Montant à extraire ({getCurrency()})</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder={`Montant à retirer en ${getCurrency()}`}
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    className="w-full bg-rose-950/70 border border-rose-700/60 hover:border-rose-500 focus:border-rose-400 rounded-xl py-3 px-4 text-sm text-white font-black focus:outline-none transition-colors placeholder:text-rose-400/50"
-                  />
-                </div>
-
-                {/* Real-time fee summary */}
-                {!isNaN(parseInt(withdrawAmount)) && parseInt(withdrawAmount) > 0 && (
-                  <div className="bg-rose-950/80 p-4 rounded-xl border border-rose-700/60 text-xs md:text-sm font-bold text-rose-100 space-y-2 animate-fade-in shadow-sm">
-                    <span className="font-extrabold text-rose-300 text-[11px] uppercase tracking-wider block">Calcul automatique (12% Frais) :</span>
-                    <div className="flex justify-between border-b border-rose-700/40 pb-1">
-                      <span className="text-rose-200/80 font-semibold">Montant brut :</span>
-                      <span className="font-mono text-white">{parseInt(withdrawAmount).toLocaleString()} {getCurrency()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-rose-700/40 pb-1 text-rose-400">
-                      <span className="font-semibold">Frais (12%) :</span>
-                      <span className="font-mono">-{Math.round(parseInt(withdrawAmount) * 0.12).toLocaleString()} {getCurrency()}</span>
-                    </div>
-                    <div className="pt-1 flex justify-between text-emerald-400 text-sm md:text-base font-black">
-                      <span>Montant net crédité :</span>
-                      <span className="font-mono">{Math.max(0, parseInt(withdrawAmount) - Math.round(parseInt(withdrawAmount) * 0.12)).toLocaleString()} {getCurrency()}</span>
-                    </div>
-                  </div>
-                )}
-
-                {(() => {
-                  const hasLinkedCard = !!(userState.bankCardNumber || localStorage.getItem('mdb_saved_number'));
-                  const wthSched = DataStore.isWithdrawalOpen();
-                  const isDisabled = isSubmittingWithdrawal || !hasLinkedCard || !wthSched.isOpen || DataStore.areWithdrawalsBlocked() || userState.withdrawBlocked;
-
-                  let buttonText = "Envoyer la demande de Retrait";
-                  if (isSubmittingWithdrawal) buttonText = "Traitement en cours...";
-                  else if (!hasLinkedCard) buttonText = "Lier un compte de retrait d'abord";
-                  else if (!wthSched.isOpen) buttonText = "Horaires de retraits fermés";
-
-                  return (
-                    <button
-                      type={hasLinkedCard ? "submit" : "button"}
-                      onClick={() => {
-                        if (!hasLinkedCard) {
-                          setIsBankCardModalOpen(true);
-                        }
-                      }}
-                      disabled={isDisabled && hasLinkedCard}
-                      className="w-full py-4 text-white font-sans font-black text-sm uppercase tracking-widest bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] rounded-xl transition-all shadow-lg active:scale-95 text-center flex items-center justify-center border-none cursor-pointer disabled:opacity-50"
-                    >
-                      {buttonText}
-                    </button>
-                  );
-                })()}
-              </form>
-
-              {/* RÈGLES ET CONDITIONS DE RETRAIT EN TIRÉ/BULLETS */}
-              <div className="mt-8 pt-6 border-t border-rose-700/50 text-rose-100 text-left">
-                <span className="text-xs md:text-sm font-black text-white uppercase tracking-widest block mb-4">
-                  📋 CONDITIONS ET PARAMÈTRES DE RETRAIT
-                </span>
-                <ul className="space-y-3 text-xs md:text-sm font-bold leading-relaxed text-rose-200">
-                  <li className="flex items-start gap-2.5">
-                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Compte de retrait obligatoire :</strong> Un retrait est strictement impossible si votre compte de retrait (Carte bancaire ou Mobile Money) n'est pas encore lié.</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Horaires et créneaux autorisés :</strong> Les retraits respectent automatiquement les heures d'ouverture et de fermeture définies par l'administration.</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Montant minimum autorisé :</strong> Le seuil minimal par transaction est fixé à <strong className="text-white">1 000 {getCurrency()}</strong>.</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Montant maximum autorisé :</strong> Le plafond maximal par transaction est de <strong className="text-white">1 000 000 {getCurrency()}</strong>.</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Frais de traitement administratifs :</strong> Une retenue automatique de <strong className="text-white">12%</strong> est appliquée sur chaque montant brut.</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <span className="text-rose-400 font-black shrink-0 mt-0.5">•</span>
-                    <span><strong className="text-white">Délai de traitement :</strong> Vos fonds seront crédités sous un délai allant de <strong className="text-white">10 minutes à 24 heures maximum</strong>.</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+            <WithdrawTabView
+              userState={userState}
+              withdrawAmount={withdrawAmount}
+              setWithdrawAmount={setWithdrawAmount}
+              withdrawError={withdrawError}
+              withdrawSuccess={withdrawSuccess}
+              isSubmittingWithdrawal={isSubmittingWithdrawal}
+              submitWithdrawal={submitWithdrawal}
+              setIsBankCardModalOpen={setIsBankCardModalOpen}
+              getCurrency={getCurrency}
+              setActiveTab={setActiveTab}
+              setProfileSubPage={setProfileSubPage}
+              onNavigate={onNavigate}
+              t={t}
+            />
           )}
 
           {/* FORUM / COMMUNICATION TAB */}

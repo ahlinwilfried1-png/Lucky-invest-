@@ -61,7 +61,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
           <div className="flex items-center justify-between">
             {/* Brand Logo & Name */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-amber-950 flex items-center justify-center font-black shadow-xs border border-amber-200 shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-amber-950 flex items-center justify-center font-black shadow-xs border border-amber-200/30 shrink-0">
                 <Crown className="w-4 h-4 stroke-[2.25]" />
               </div>
               <div>
@@ -78,7 +78,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
             <div className="flex items-center gap-1.5">
               <button 
                 onClick={() => setIsSupportPageOpen(true)}
-                className="w-7.5 h-7.5 rounded-full bg-white hover:bg-slate-50 text-slate-600 flex items-center justify-center shadow-xs border border-slate-200/80 transition-all cursor-pointer relative"
+                className="w-7.5 h-7.5 rounded-full bg-white hover:bg-slate-50 text-slate-600 flex items-center justify-center shadow-xs border border-slate-200/30 transition-all cursor-pointer relative"
                 title="Assistance & Notifications"
                 id="btn-profile-notif"
               >
@@ -91,7 +91,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               </button>
 
               <div 
-                className="w-7.5 h-7.5 rounded-full bg-gradient-to-tr from-amber-200 to-amber-100 border border-amber-300 text-amber-900 flex items-center justify-center font-black text-xs shadow-xs"
+                className="w-7.5 h-7.5 rounded-full bg-gradient-to-tr from-amber-200 to-amber-100 border border-amber-200/30 text-amber-900 flex items-center justify-center font-black text-xs shadow-xs"
                 title={userState.name || 'Profil'}
               >
                 <UserIcon className="w-4 h-4 stroke-[2.2] text-amber-800" />
@@ -128,7 +128,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
         </div>
 
         {/* GOLD AVENUE HERO BANNER - Compact Version */}
-        <div className="bg-gradient-to-r from-[#fff9eb] via-[#fef3cd] to-[#fdebb8] rounded-2xl p-3 sm:p-3.5 border border-amber-200/70 shadow-xs relative overflow-hidden">
+        <div className="bg-gradient-to-r from-[#fff9eb] via-[#fef3cd] to-[#fdebb8] rounded-2xl p-3 sm:p-3.5 border border-amber-200/20 shadow-xs relative overflow-hidden">
           {/* Ambient glow */}
           <div className="absolute -top-6 -right-6 w-32 h-32 bg-amber-300/25 rounded-full blur-xl pointer-events-none" />
 
@@ -155,12 +155,12 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
           {/* 3D Gold Bars Graphic Representation - Scaled Compact */}
           <div className="absolute right-2.5 bottom-2 top-2 w-24 flex items-center justify-center pointer-events-none">
             <div className="relative w-full h-full flex items-center justify-center">
-              <div className="w-18 h-11 rounded-lg bg-gradient-to-br from-[#ffd978] via-[#e6a827] to-[#b87311] shadow-md transform rotate-[-6deg] border border-amber-200 flex flex-col items-center justify-center p-0.5 text-center">
+              <div className="w-18 h-11 rounded-lg bg-gradient-to-br from-[#ffd978] via-[#e6a827] to-[#b87311] shadow-xs transform rotate-[-6deg] border border-amber-200/20 flex flex-col items-center justify-center p-0.5 text-center">
                 <Crown className="w-3 h-3 text-amber-950 mb-0.2" />
                 <span className="text-[5.5px] tracking-widest text-amber-950 font-black uppercase">FINE GOLD</span>
                 <span className="text-[9px] font-serif font-black text-amber-950 leading-none">999.9</span>
               </div>
-              <div className="absolute -bottom-1 -left-1 w-14 h-8 rounded-lg bg-gradient-to-br from-[#ffe29a] via-[#eeb53a] to-[#9e620c] shadow-xs transform rotate-[8deg] border border-amber-100 flex flex-col items-center justify-center p-0.5 opacity-95">
+              <div className="absolute -bottom-1 -left-1 w-14 h-8 rounded-lg bg-gradient-to-br from-[#ffe29a] via-[#eeb53a] to-[#9e620c] shadow-2xs transform rotate-[8deg] border border-amber-100/20 flex flex-col items-center justify-center p-0.5 opacity-95">
                 <span className="text-[5px] tracking-widest text-amber-950 font-black">GOLD</span>
                 <span className="text-[7.5px] font-black text-amber-950 leading-none">999.9</span>
               </div>
@@ -177,7 +177,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
         </div>
 
         {/* TOP 4 QUICK ACTIONS CARD - Compact Heights */}
-        <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-100">
+        <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-100/40">
           <div className="grid grid-cols-4 gap-1.5 text-center">
             {/* 1. Recharger */}
             <button
@@ -230,7 +230,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
         </div>
 
         {/* SECTION 1: MON ACTIVITÉ (No Équipe as ordered) - Compact */}
-        <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-100 space-y-1.5">
+        <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-100/40 space-y-1.5">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-slate-900 text-xs sm:text-sm tracking-tight leading-none">
               Mon activité
@@ -251,7 +251,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none py-0.5"
               id="act-solde"
             >
-              <div className="w-9.5 h-9.5 rounded-full bg-[#fef8e7] border border-amber-200/60 text-[#d48817] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9.5 h-9.5 rounded-full bg-[#fef8e7] border border-amber-200/20 text-[#d48817] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <Coins className="w-4.5 h-4.5 stroke-[2.2]" />
               </div>
               <span className="text-[11px] font-bold text-slate-700 mt-1 block leading-none">Solde</span>
@@ -263,7 +263,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none py-0.5"
               id="act-recompenses"
             >
-              <div className="w-9.5 h-9.5 rounded-full bg-[#fff0f4] border border-pink-200/60 text-[#e93f77] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9.5 h-9.5 rounded-full bg-[#fff0f4] border border-pink-200/20 text-[#e93f77] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <Gift className="w-4.5 h-4.5 stroke-[2.2]" />
               </div>
               <span className="text-[11px] font-bold text-slate-700 mt-1 block leading-none">Récompenses</span>
@@ -275,7 +275,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none py-0.5"
               id="act-releve"
             >
-              <div className="w-9.5 h-9.5 rounded-full bg-[#f3f0ff] border border-purple-200/60 text-[#7c4dff] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9.5 h-9.5 rounded-full bg-[#f3f0ff] border border-purple-200/20 text-[#7c4dff] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <History className="w-4.5 h-4.5 stroke-[2.2]" />
               </div>
               <span className="text-[11px] font-bold text-slate-700 mt-1 block leading-none">Relevé</span>
@@ -284,7 +284,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
         </div>
 
         {/* SECTION 2: PLUS DE SERVICES - Compact Grid */}
-        <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-100 space-y-2">
+        <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-100/40 space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-slate-900 text-xs sm:text-sm tracking-tight leading-none">
               Plus de services
@@ -305,7 +305,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
               id="service-aide"
             >
-              <div className="w-9 h-9 rounded-full bg-[#ecf9f2] text-[#1aa369] border border-emerald-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform relative">
+              <div className="w-9 h-9 rounded-full bg-[#ecf9f2] text-[#1aa369] border border-emerald-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform relative">
                 <Headphones className="w-4 h-4 stroke-[2.2]" />
                 {unreadSupportCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
@@ -322,7 +322,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
               id="service-missions"
             >
-              <div className="w-9 h-9 rounded-full bg-[#fef8e7] text-[#e08e1a] border border-amber-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-full bg-[#fef8e7] text-[#e08e1a] border border-amber-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <Crown className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-tight">Missions</span>
@@ -336,7 +336,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none no-underline"
               id="service-telegram"
             >
-              <div className="w-9 h-9 rounded-full bg-[#eaf5ff] text-[#2997ff] border border-sky-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-full bg-[#eaf5ff] text-[#2997ff] border border-sky-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <Send className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-none">Telegram</span>
@@ -353,7 +353,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
               id="service-langue"
             >
-              <div className="w-9 h-9 rounded-full bg-[#f4edff] text-[#8644e2] border border-purple-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-full bg-[#f4edff] text-[#8644e2] border border-purple-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <Globe className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-tight">Langue</span>
@@ -367,7 +367,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
               id="service-securite"
             >
-              <div className="w-9 h-9 rounded-full bg-[#fff0f4] text-[#e83d73] border border-rose-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-full bg-[#fff0f4] text-[#e83d73] border border-rose-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-none">Sécurité</span>
@@ -381,7 +381,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
               id="service-carte"
             >
-              <div className="w-9 h-9 rounded-full bg-[#eaf3ff] text-[#2b72ee] border border-blue-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-full bg-[#eaf3ff] text-[#2b72ee] border border-blue-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <CreditCard className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-tight">Carte banq.</span>
@@ -395,7 +395,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
               id="service-installer"
             >
-              <div className="w-9 h-9 rounded-full bg-[#e6f8f8] text-[#0ea5a8] border border-teal-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-full bg-[#e6f8f8] text-[#0ea5a8] border border-teal-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <Smartphone className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-tight">Installer</span>
@@ -407,7 +407,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
               id="service-deconnexion"
             >
-              <div className="w-9 h-9 rounded-full bg-[#f6edff] text-[#9354e8] border border-purple-100 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-full bg-[#f6edff] text-[#9354e8] border border-purple-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                 <LogOut className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-none">Quitter</span>
@@ -431,7 +431,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
         </div>
 
         {/* BOTTOM PROMOTIONAL BANNER - Compact */}
-        <div className="bg-gradient-to-r from-[#fef3cd] via-[#fce69a] to-[#f9d76c] rounded-xl p-2.5 px-3 border border-amber-300/60 shadow-xs flex items-center justify-between gap-2 relative overflow-hidden">
+        <div className="bg-gradient-to-r from-[#fef3cd] via-[#fce69a] to-[#f9d76c] rounded-xl p-2.5 px-3 border border-amber-200/20 shadow-xs flex items-center justify-between gap-2 relative overflow-hidden">
           <div className="relative z-10 min-w-0">
             <span className="text-[8.5px] font-black text-amber-800 uppercase tracking-widest block leading-none">
               GOLD AVENUE

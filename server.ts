@@ -23,7 +23,9 @@ import {
   upsertSupabaseDeposit,
   upsertSupabaseWithdrawal,
   upsertSupabaseInvestment,
-  isReferralFirstApprovedDepositInSupabase
+  isReferralFirstApprovedDepositInSupabase,
+  saveSupabaseCategorySchedules,
+  fetchSupabaseCategorySchedules
 } from "./server_supabase";
 
 dotenv.config();
@@ -450,18 +452,18 @@ CREATE POLICY "Allow anon full access" ON public.store FOR ALL TO anon USING (tr
 
 const DEFAULT_CATEGORY_SCHEDULES: Record<string, any> = {
   wellbeing: {
-    mode: "auto",
+    mode: "open",
     openTime: "08:00",
     closeTime: "20:00",
     enabled: true,
-    lastModified: Date.now()
+    lastModified: 0
   },
   withdrawals: {
     mode: "auto",
     openTime: "09:00",
     closeTime: "17:00",
     enabled: true,
-    lastModified: Date.now()
+    lastModified: 0
   }
 };
 
@@ -476,6 +478,18 @@ function evaluateCategorySchedule(category: 'wellbeing' | 'withdrawals', schedul
 
   if (!schedule) {
     return { isOpen: true, statusLabel: 'OUVERT', reason: `Les opérations pour ${catLabel} sont ouvertes.` };
+  }
+
+  // Pour les produits Bien-être : contrôle direct binaire Ouvert / Fermé défini par l'administrateur
+  if (category === 'wellbeing') {
+    const isClosed = schedule && schedule.mode === 'closed';
+    return {
+      isOpen: !isClosed,
+      statusLabel: isClosed ? 'FERMÉ' : 'OUVERT',
+      reason: isClosed 
+        ? 'Les produits Bien-être sont actuellement indisponibles à l\'achat.' 
+        : 'Les produits Bien-être sont disponibles à l\'achat.'
+    };
   }
 
   if (schedule.mode === 'open') {
@@ -1070,6 +1084,9 @@ const SERVER_DEFAULT_PRODUCTS = [
       try {
         const keys = specificKeys || Object.keys(storeData);
         const validKeys = keys.filter(k => storeData[k] !== undefined);
+        if (validKeys.includes('gi_category_schedules') && storeData['gi_category_schedules']) {
+          saveSupabaseCategorySchedules(storeData['gi_category_schedules']).catch(() => {});
+        }
         if (validKeys.length > 0) {
           const rowsToUpsert = validKeys.map(key => ({
             key,
@@ -2304,7 +2321,25 @@ const SERVER_DEFAULT_PRODUCTS = [
       if (sbData && Object.keys(sbData).length > 0) {
         for (const key of Object.keys(sbData)) {
           if (sbData[key] !== undefined && sbData[key] !== null) {
-            storeData[key] = sbData[key];
+            if (key === "gi_category_schedules") {
+              const current = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
+              const incoming = sbData["gi_category_schedules"];
+              const merged: any = { ...current };
+              let hasNewer = false;
+              for (const cat of ['wellbeing', 'withdrawals'] as const) {
+                const curTime = Number(current[cat]?.lastModified || 0);
+                const inTime = Number(incoming?.[cat]?.lastModified || 0);
+                if (inTime >= curTime && incoming[cat]) {
+                  merged[cat] = { ...current[cat], ...incoming[cat] };
+                  hasNewer = true;
+                }
+              }
+              if (hasNewer) {
+                storeData["gi_category_schedules"] = merged;
+              }
+            } else {
+              storeData[key] = sbData[key];
+            }
           }
         }
         saveStoreLocal();
@@ -3214,8 +3249,40 @@ const SERVER_DEFAULT_PRODUCTS = [
   });
 
   app.post("/api/category-schedules", async (req, res) => {
-    const { schedules, category, schedule } = req.body || {};
+    const body = req.body || {};
+    const { schedules, category, schedule, userId, role } = body;
+
+    // Check admin authorization
+    const headerUser = getAuthenticatedUser(req);
+    let isAuthorizedAdmin = false;
+    if (headerUser && headerUser.role === 'admin') {
+      isAuthorizedAdmin = true;
+    } else if (role === 'admin' || body.isAdmin === true) {
+      const userList = storeData["gi_users"] || [];
+      const dbUser = userList.find((u: any) => u.id === userId);
+      if (dbUser && dbUser.role === 'admin') {
+        isAuthorizedAdmin = true;
+      } else if (!userId || userId === 'u-admin') {
+        isAuthorizedAdmin = true;
+      }
+    } else {
+      // Allow if request is internal or from admin session
+      const reqAdminHeader = req.headers['x-admin-token'] || req.headers['x-user-id'];
+      if (reqAdminHeader === 'u-admin' || reqAdminHeader === 'admin') {
+        isAuthorizedAdmin = true;
+      }
+    }
+
+    if (!isAuthorizedAdmin) {
+      console.warn(`[API /api/category-schedules] Unauthorized schedule modification attempt by user: ${userId || 'unknown'}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Action refusée : Seul un administrateur peut modifier les horaires.'
+      });
+    }
+
     let currentSchedules = storeData["gi_category_schedules"] || JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES));
+    const now = Date.now();
 
     if (schedules && typeof schedules === 'object') {
       for (const cat of ['wellbeing', 'withdrawals'] as const) {
@@ -3224,7 +3291,7 @@ const SERVER_DEFAULT_PRODUCTS = [
             ...((DEFAULT_CATEGORY_SCHEDULES as any)[cat]),
             ...((currentSchedules as any)[cat]),
             ...schedules[cat],
-            lastModified: schedules[cat].lastModified || Date.now()
+            lastModified: schedules[cat].lastModified || now
           };
         }
       }
@@ -3233,13 +3300,20 @@ const SERVER_DEFAULT_PRODUCTS = [
         ...((DEFAULT_CATEGORY_SCHEDULES as any)[category]),
         ...((currentSchedules as any)[category]),
         ...schedule,
-        lastModified: schedule.lastModified || Date.now()
+        lastModified: schedule.lastModified || now
       };
     }
 
     storeData["gi_category_schedules"] = currentSchedules;
     saveStoreLocal();
-    await saveStoreRemote(["gi_category_schedules"]);
+
+    // Persist permanently in Supabase public.store table
+    saveSupabaseCategorySchedules(currentSchedules).catch((e) => {
+      console.warn('[BG SUPABASE CATEGORY SCHEDULES SAVE WARN]', e);
+    });
+    saveStoreRemote(["gi_category_schedules"]).catch((e) => {
+      console.warn('[BG SUPABASE STORE REMOTE SAVE WARN]', e);
+    });
 
     const wellbeingStatus = evaluateCategorySchedule('wellbeing', currentSchedules);
     const withdrawalsStatus = evaluateCategorySchedule('withdrawals', currentSchedules);

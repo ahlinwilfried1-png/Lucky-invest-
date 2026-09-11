@@ -28,7 +28,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
 
         {/* 1. HERO BANNER: GOLD AVENUE LINGOT D'OR PUR (Exact Match to Mockup) */}
         <div 
-          className="relative rounded-3xl overflow-hidden shadow-xs border border-amber-200/70 bg-gradient-to-r from-[#fff9ee] via-[#f7ecd3] to-[#eed7a4] p-4 sm:p-5 min-h-[160px] sm:min-h-[185px] flex flex-col justify-between select-none"
+          className="relative rounded-3xl overflow-hidden shadow-xs border border-amber-200/20 bg-gradient-to-r from-[#fff9ee] via-[#f7ecd3] to-[#eed7a4] p-4 sm:p-5 min-h-[160px] sm:min-h-[185px] flex flex-col justify-between select-none"
           id="hero-banner-gold-avenue"
         >
           {/* Subtle Ambient Light Reflections */}
@@ -44,7 +44,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
             </div>
 
             {/* SÉCURISÉ 100% Badge */}
-            <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-xs text-[#b45309] font-sans font-black text-[10px] sm:text-[11px] px-3 py-1 rounded-full uppercase tracking-wider border border-amber-300/70 shadow-2xs">
+            <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-xs text-[#b45309] font-sans font-black text-[10px] sm:text-[11px] px-3 py-1 rounded-full uppercase tracking-wider border border-amber-200/20 shadow-2xs">
               <ShieldCheck className="w-3.5 h-3.5 text-[#b45309] stroke-[2.5]" />
               <span>{t('SÉCURISÉ 100%', '100% SECURE')}</span>
             </div>
@@ -70,7 +70,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
               <img 
                 src="https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=800" 
                 alt="Lingot d'or pur"
-                className="w-full h-full object-cover rounded-2xl shadow-xs border border-amber-300/60"
+                className="w-full h-full object-cover rounded-2xl shadow-xs border border-amber-200/20"
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent rounded-2xl pointer-events-none" />
@@ -80,7 +80,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
 
         {/* 2. QUICK ACTIONS: RECHARGER, RETIRER, MON ÉQUIPE, POINTAGE (Exact Match to Mockup) */}
         <div 
-          className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-100/90 grid grid-cols-4 gap-2 sm:gap-3 text-center"
+          className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-100/40 grid grid-cols-4 gap-2 sm:gap-3 text-center"
           id="quick-actions-row"
         >
           {/* Action 1: Recharger */}
@@ -89,7 +89,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
             className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none select-none"
             id="btn-quick-recharger"
           >
-            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/80 transition-transform group-hover:scale-105 group-active:scale-95">
+            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/30 transition-transform group-hover:scale-105 group-active:scale-95">
               <Wallet className="w-6 h-6 stroke-[2] text-[#d97706]" />
             </div>
             <span className="font-sans font-bold text-xs sm:text-[13px] text-[#0f2444] mt-2 block leading-none">
@@ -103,7 +103,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
             className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none select-none"
             id="btn-quick-retirer"
           >
-            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/80 transition-transform group-hover:scale-105 group-active:scale-95">
+            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/30 transition-transform group-hover:scale-105 group-active:scale-95">
               <ArrowUp className="w-6 h-6 stroke-[2.2] text-[#d97706]" />
             </div>
             <span className="font-sans font-bold text-xs sm:text-[13px] text-[#0f2444] mt-2 block leading-none">
@@ -117,7 +117,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
             className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none select-none"
             id="btn-quick-team"
           >
-            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/80 transition-transform group-hover:scale-105 group-active:scale-95">
+            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/30 transition-transform group-hover:scale-105 group-active:scale-95">
               <Users className="w-6 h-6 stroke-[2] text-[#d97706]" />
             </div>
             <span className="font-sans font-bold text-xs sm:text-[13px] text-[#0f2444] mt-2 block leading-none">
@@ -131,7 +131,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
             className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none select-none"
             id="btn-quick-pointage"
           >
-            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/80 transition-transform group-hover:scale-105 group-active:scale-95">
+            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-[#fdf8ee] text-[#d97706] flex items-center justify-center shadow-xs border border-amber-100/30 transition-transform group-hover:scale-105 group-active:scale-95">
               <Calendar className="w-6 h-6 stroke-[2] text-[#d97706]" />
             </div>
             <span className="font-sans font-bold text-xs sm:text-[13px] text-[#0f2444] mt-2 block leading-none">
@@ -142,7 +142,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
 
         {/* 3. CARD: RÉCOMPENSES D'INVITATION (Exact Match to Mockup) */}
         <div 
-          className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-100/90 space-y-3 relative text-left"
+          className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-100/40 space-y-3 relative text-left"
           id="invitation-rewards-card"
         >
           {/* Header row with Gift Badge */}
@@ -157,15 +157,15 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
             </div>
 
             {/* Circular Gift Icon */}
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#fdf8ee] text-[#d97706] border border-amber-100/80 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#fdf8ee] text-[#d97706] border border-amber-100/30 flex items-center justify-center shrink-0">
               <Gift className="w-5 h-5 stroke-[2] text-[#d97706]" />
             </div>
           </div>
 
           {/* Inner Card Row: Icon + Title + ALLEZ Button */}
-          <div className="bg-[#fcfaf7] rounded-2xl p-3 sm:p-3.5 border border-amber-100/70 flex items-center justify-between gap-3">
+          <div className="bg-[#fcfaf7] rounded-2xl p-3 sm:p-3.5 border border-amber-100/30 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-11 h-11 rounded-full bg-[#fdf8ee] border border-amber-200/70 text-[#d97706] flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-full bg-[#fdf8ee] border border-amber-200/30 text-[#d97706] flex items-center justify-center shrink-0">
                 <Users className="w-5 h-5 stroke-[2] text-[#d97706]" />
               </div>
               <div className="min-w-0">
@@ -191,7 +191,7 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
 
         {/* 4. CARD: TÂCHES & RÉCOMPENSES / RÉCOMPENSES DES TÂCHES (Exact Match to Mockup) */}
         <div 
-          className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-100/90 space-y-3 text-left"
+          className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-100/40 space-y-3 text-left"
           id="task-rewards-card"
         >
           {/* Header */}
@@ -205,9 +205,9 @@ export const HomeTabView: React.FC<HomeTabViewProps> = ({
           </div>
 
           {/* Inner Card: Tâches Info + Full Width TÂCHES Button */}
-          <div className="bg-[#fcfaf7] rounded-2xl p-3.5 sm:p-4 border border-amber-100/70 space-y-3">
+          <div className="bg-[#fcfaf7] rounded-2xl p-3.5 sm:p-4 border border-amber-100/30 space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-[#fdf8ee] border border-amber-200/70 text-[#d97706] flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-full bg-[#fdf8ee] border border-amber-200/30 text-[#d97706] flex items-center justify-center shrink-0">
                 <Gift className="w-5 h-5 stroke-[2] text-[#d97706]" />
               </div>
               <div>

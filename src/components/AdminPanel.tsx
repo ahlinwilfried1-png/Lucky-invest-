@@ -161,21 +161,21 @@ export default function AdminPanel({
 
     const handleSchedulesUpdate = (e?: any) => {
       // Guard against periodic sync overriding recently saved times or active edits
-      if (Date.now() - lastSaveScheduleTimeRef.current < 6000) {
+      if (Date.now() - lastSaveScheduleTimeRef.current < 8000) {
         return;
       }
       const fresh = (e && (e as any).detail) ? (e as any).detail : DataStore.getCategorySchedules();
       setCategorySchedules(fresh);
       setTimeInputs(prev => ({
         wellbeing: editingCategoryRef.current === 'wellbeing' ? prev.wellbeing : {
-          openTime: fresh.wellbeing?.openTime || '08:00',
-          closeTime: fresh.wellbeing?.closeTime || '20:00',
-          enabled: fresh.wellbeing?.enabled ?? true
+          openTime: fresh.wellbeing?.openTime || prev.wellbeing.openTime,
+          closeTime: fresh.wellbeing?.closeTime || prev.wellbeing.closeTime,
+          enabled: fresh.wellbeing?.enabled ?? prev.wellbeing.enabled
         },
         withdrawals: editingCategoryRef.current === 'withdrawals' ? prev.withdrawals : {
-          openTime: fresh.withdrawals?.openTime || '09:00',
-          closeTime: fresh.withdrawals?.closeTime || '17:00',
-          enabled: fresh.withdrawals?.enabled ?? true
+          openTime: fresh.withdrawals?.openTime || prev.withdrawals.openTime,
+          closeTime: fresh.withdrawals?.closeTime || prev.withdrawals.closeTime,
+          enabled: fresh.withdrawals?.enabled ?? prev.withdrawals.enabled
         }
       }));
     };
@@ -183,10 +183,25 @@ export default function AdminPanel({
     window.addEventListener('gi_category_schedules_updated', handleSchedulesUpdate);
     window.addEventListener('gi_store_updated', handleSchedulesUpdate);
 
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('gi_schedules_sync');
+        bc.onmessage = (ev) => {
+          if (ev.data && ev.data.type === 'SCHEDULES_UPDATED') {
+            handleSchedulesUpdate({ detail: ev.data.schedules });
+          }
+        };
+      }
+    } catch (e) {}
+
     return () => {
       clearInterval(timer);
       window.removeEventListener('gi_category_schedules_updated', handleSchedulesUpdate);
       window.removeEventListener('gi_store_updated', handleSchedulesUpdate);
+      if (bc) {
+        try { bc.close(); } catch (e) {}
+      }
     };
   }, []);
 
@@ -1929,7 +1944,7 @@ export default function AdminPanel({
       {/* Editing product modal overlay */}
       {editingProduct && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[99] flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-yellow-500/30 rounded-3xl p-6 md:p-8 relative max-h-[90vh] flex flex-col">
+          <div className="w-full max-w-md bg-slate-900 rounded-3xl p-6 md:p-8 relative max-h-[90vh] flex flex-col shadow-2xl shadow-black/60">
             <button 
               onClick={() => setEditingProduct(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white z-10"
@@ -1945,11 +1960,9 @@ export default function AdminPanel({
                   type="number"
                   value={editProductVipLevel}
                   onChange={(e) => setEditProductVipLevel(parseInt(e.target.value) || 1)}
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-white font-mono focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-white font-mono focus:outline-none shadow-inner"
                 />
               </div>
-
-
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nom du Plan d'investissement</label>
@@ -1958,7 +1971,7 @@ export default function AdminPanel({
                   value={editProductName}
                   onChange={(e) => setEditProductName(e.target.value)}
                   placeholder="Ex: VIP Platine 5"
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -1968,7 +1981,7 @@ export default function AdminPanel({
                   type="number"
                   value={editProductPrice}
                   onChange={(e) => setEditProductPrice(parseInt(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-yellow-300 font-mono focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-yellow-300 font-mono focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -1980,7 +1993,7 @@ export default function AdminPanel({
                   type="number"
                   value={editProductDailyReturn}
                   onChange={(e) => setEditProductDailyReturn(parseInt(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-green-400 font-mono focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-green-400 font-mono focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -1992,7 +2005,7 @@ export default function AdminPanel({
                   type="number"
                   value={editProductDuration}
                   onChange={(e) => setEditProductDuration(parseInt(e.target.value) || 1)}
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-white font-mono focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-white font-mono focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -2003,7 +2016,7 @@ export default function AdminPanel({
                   value={editProductTag}
                   onChange={(e) => setEditProductTag(e.target.value)}
                   placeholder="Ex: Populaire, Offre Spéciale"
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -2014,7 +2027,7 @@ export default function AdminPanel({
                   value={editProductImageUrl}
                   onChange={(e) => setEditProductImageUrl(e.target.value)}
                   placeholder="Saisissez l'URL de l'image de votre choix pour ce produit"
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -2023,7 +2036,7 @@ export default function AdminPanel({
                 <select
                   value={editVipCategory}
                   onChange={(e) => setEditVipCategory(e.target.value as 'stability' | 'wellbeing')}
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-white focus:outline-none shadow-inner"
                 >
                   <option value="stability">Stabilité (Plans standard)</option>
                   <option value="wellbeing">Bien-être (Plans bien-être)</option>
@@ -2032,16 +2045,16 @@ export default function AdminPanel({
 
              </div>
  
-             <div className="pt-4 flex gap-3 border-t border-slate-800 shrink-0 mt-2">
+             <div className="pt-4 flex gap-3 border-t border-white/[0.04] shrink-0 mt-2">
               <button
                 onClick={() => setEditingProduct(null)}
-                className="flex-1 py-3 text-xs font-bold border border-slate-800 rounded-xl text-slate-400 hover:bg-slate-800"
+                className="flex-1 py-3 text-xs font-bold rounded-xl text-slate-400 bg-slate-800/60 hover:bg-slate-800 transition-all cursor-pointer"
               >
                 Annuler
               </button>
               <button
                 onClick={handleSaveProduct}
-                className="flex-1 py-3 text-xs font-bold rounded-xl gold-bg-gradient text-slate-950 shadow-md shadow-yellow-500/10"
+                className="flex-1 py-3 text-xs font-bold rounded-xl gold-bg-gradient text-slate-950 shadow-md shadow-amber-950/20 cursor-pointer"
               >
                 Enregistrer les modifications
               </button>
@@ -2426,6 +2439,170 @@ export default function AdminPanel({
               </div>
             </div>
           </div>
+
+          {/* HORAIRES PROGRAMMÉS DES DEMANDES DE RETRAIT */}
+          {(() => {
+            const sched = categorySchedules.withdrawals || DEFAULT_CATEGORY_SCHEDULES.withdrawals;
+            const status = DataStore.isCategoryOpen('withdrawals', currentSystemTime);
+            const isSaving = isSavingSchedule === 'withdrawals';
+
+            return (
+              <div className="bg-slate-900/60 rounded-2xl p-5 space-y-4 shadow-lg shadow-black/25 text-left">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-white/[0.04]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shadow-xs">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-display font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>Horaires des Demandes de Retrait</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider ${
+                          status.isOpen
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : 'bg-amber-500/20 text-amber-300'
+                        }`}>
+                          {status.isOpen ? '🟢 OUVERT' : '🔒 FERMÉ'}
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Définissez la plage horaire quotidienne durant laquelle les utilisateurs sont autorisés à soumettre des demandes de retrait.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/70 text-xs text-slate-300 shrink-0 shadow-inner">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-slate-400">Heure actuelle :</span>
+                    <span className="font-mono font-bold text-amber-300">
+                      {currentSystemTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Mode Buttons */}
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                      Mode de fonctionnement
+                    </label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateCategorySchedule('withdrawals', { mode: 'auto' })}
+                        className={`py-2 px-1.5 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer shadow-xs ${
+                          sched.mode === 'auto'
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/30'
+                            : 'bg-slate-950/70 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Auto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateCategorySchedule('withdrawals', { mode: 'open' })}
+                        className={`py-2 px-1.5 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer shadow-xs ${
+                          sched.mode === 'open'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/30'
+                            : 'bg-slate-950/70 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Ouvrir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateCategorySchedule('withdrawals', { mode: 'closed' })}
+                        className={`py-2 px-1.5 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer shadow-xs ${
+                          sched.mode === 'closed'
+                            ? 'bg-amber-600 text-white shadow-md shadow-amber-950/30'
+                            : 'bg-slate-950/70 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Fermer
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Hours Inputs */}
+                  <div className="lg:col-span-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Heure d'ouverture des retraits
+                        </label>
+                        <input
+                          type="time"
+                          value={timeInputs.withdrawals.openTime}
+                          onFocus={() => { editingCategoryRef.current = 'withdrawals'; }}
+                          onBlur={() => { editingCategoryRef.current = null; }}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setTimeInputs(prev => ({
+                              ...prev,
+                              withdrawals: { ...prev.withdrawals, openTime: val }
+                            }));
+                          }}
+                          className="w-full bg-slate-950/80 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono shadow-inner focus:outline-none focus:bg-slate-950"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Heure de fermeture des retraits
+                        </label>
+                        <input
+                          type="time"
+                          value={timeInputs.withdrawals.closeTime}
+                          onFocus={() => { editingCategoryRef.current = 'withdrawals'; }}
+                          onBlur={() => { editingCategoryRef.current = null; }}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setTimeInputs(prev => ({
+                              ...prev,
+                              withdrawals: { ...prev.withdrawals, closeTime: val }
+                            }));
+                          }}
+                          className="w-full bg-slate-950/80 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono shadow-inner focus:outline-none focus:bg-slate-950"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={timeInputs.withdrawals.enabled}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setTimeInputs(prev => ({
+                              ...prev,
+                              withdrawals: { ...prev.withdrawals, enabled: val }
+                            }));
+                          }}
+                          className="rounded bg-slate-900 border-0 text-emerald-500 focus:ring-0 cursor-pointer"
+                        />
+                        <span className="text-[11px] text-slate-300 font-medium">Activer la règle horaire sur les retraits</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => {
+                          handleUpdateCategorySchedule('withdrawals', {
+                            openTime: timeInputs.withdrawals.openTime,
+                            closeTime: timeInputs.withdrawals.closeTime,
+                            enabled: timeInputs.withdrawals.enabled
+                          });
+                        }}
+                        className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/20 disabled:opacity-50"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{isSaving ? 'Enregistrement...' : 'Enregistrer Horaires Retraits'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 overflow-hidden text-left">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
@@ -2940,245 +3117,112 @@ export default function AdminPanel({
       {/* 4. PRODUCTS MANAGEMENT */}
       {activeAdminTab === 'products' && (
         <div className="space-y-6">
-          {/* HORAIRES D'OUVERTURE ET DE FERMETURE (BIEN-ÊTRE) */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-800/80">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                  <h3 className="font-display font-bold text-base text-white uppercase tracking-wider">
-                    Gestion des Horaires d'Ouverture et Fermeture
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-400">
-                  Contrôlez l'accès aux achats pour la catégorie Bien-être. La fermeture bloque uniquement les nouveaux achats. Les cycles déjà commencés continuent jusqu'à leur terme avec versement automatique des gains.
-                </p>
-              </div>
+          {/* CONTRÔLE DE DISPONIBILITÉ DES PRODUITS BIEN-ÊTRE (OUVERT / FERMÉ) */}
+          {(() => {
+            const sched = categorySchedules.wellbeing || DEFAULT_CATEGORY_SCHEDULES.wellbeing;
+            const isOpen = sched.mode !== 'closed';
+            const isSaving = isSavingSchedule === 'wellbeing';
 
-              {/* Current System Time Live Badge */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700/60 text-slate-200 text-xs shrink-0">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-slate-400">Heure système :</span>
-                <span className="font-mono font-black text-amber-300">
-                  {currentSystemTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
-              </div>
-            </div>
-
-            {/* Category & Operations Columns: Wellbeing and Withdrawals */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {(['wellbeing', 'withdrawals'] as const).map((cat) => {
-                const sched = categorySchedules[cat] || DEFAULT_CATEGORY_SCHEDULES[cat];
-                const catLabel = cat === 'wellbeing' ? 'Bien-être' : 'Retraits';
-                const isWellbeing = cat === 'wellbeing';
-                const status = DataStore.isCategoryOpen(cat, currentSystemTime);
-                const isSaving = isSavingSchedule === cat;
-
-                return (
-                  <div 
-                    key={cat}
-                    className={`rounded-xl p-4 border transition-all ${
-                      status.isOpen 
-                        ? 'bg-slate-900/80 border-emerald-500/30 shadow-emerald-950/20' 
-                        : 'bg-slate-900/80 border-amber-500/30 shadow-amber-950/20'
-                    }`}
-                  >
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                      <div className="flex items-center gap-2">
-                        {isWellbeing ? (
-                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                            <Sparkles className="w-4 h-4" />
-                          </div>
-                        ) : (
-                          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                            <Clock className="w-4 h-4" />
-                          </div>
-                        )}
-                        <div>
-                          <h4 className="font-sans font-black text-white text-sm uppercase tracking-wide">
-                            {cat === 'withdrawals' ? 'Horaires Retraits' : `Catégorie ${catLabel}`}
-                          </h4>
-                          <span className="text-[10px] text-slate-400 block">
-                            {isWellbeing ? 'Produits Cycles Bien-être' : 'Demandes de retraits d\'argent'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Live Status Badge: OUVERT / FERMÉ */}
-                      <div className="flex items-center gap-1.5">
-                        {status.isOpen ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            OUVERT
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            FERMÉ
-                          </span>
-                        )}
-                      </div>
+            return (
+              <div className="bg-slate-900/60 rounded-2xl p-5 sm:p-6 space-y-4 shadow-lg shadow-black/25">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-white/[0.04]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center shadow-xs">
+                      <Sparkles className="w-5 h-5" />
                     </div>
-
-                    {/* Mode Information & Quick Action Buttons */}
-                    <div className="mt-3 space-y-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                          Mode de Contrôle Actuel
-                        </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateCategorySchedule(cat, { mode: 'open' })}
-                            className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                              sched.mode === 'open'
-                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-950/40 ring-1 ring-emerald-400'
-                                : 'bg-slate-800/80 hover:bg-emerald-950/40 text-slate-300 hover:text-emerald-300 border-slate-700'
-                            }`}
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Ouvrir</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateCategorySchedule(cat, { mode: 'closed' })}
-                            className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                              sched.mode === 'closed'
-                                ? 'bg-slate-700 text-amber-300 border-amber-400/60 shadow-md ring-1 ring-amber-400'
-                                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
-                            }`}
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Fermer</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateCategorySchedule(cat, { mode: 'auto' })}
-                            className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                              sched.mode === 'auto'
-                                ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-950/40 ring-1 ring-indigo-400'
-                                : 'bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-indigo-300 border-slate-700'
-                            }`}
-                          >
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>Auto</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Time Scheduling Configuration */}
-                      <div className="bg-slate-950/40 rounded-xl p-3 border border-slate-800/80 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            Plage Horaire Programmée
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-400">
-                            {sched.openTime} ➔ {sched.closeTime}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                              Heure d'ouverture
-                            </label>
-                            <input
-                              type="time"
-                              value={timeInputs[cat].openTime}
-                              onFocus={() => { editingCategoryRef.current = cat; }}
-                              onBlur={() => { editingCategoryRef.current = null; }}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setTimeInputs(prev => ({
-                                  ...prev,
-                                  [cat]: { ...prev[cat], openTime: val }
-                                }));
-                              }}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-amber-400 focus:outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                              Heure de fermeture
-                            </label>
-                            <input
-                              type="time"
-                              value={timeInputs[cat].closeTime}
-                              onFocus={() => { editingCategoryRef.current = cat; }}
-                              onBlur={() => { editingCategoryRef.current = null; }}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setTimeInputs(prev => ({
-                                  ...prev,
-                                  [cat]: { ...prev[cat], closeTime: val }
-                                }));
-                              }}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-amber-400 focus:outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1">
-                          <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={timeInputs[cat].enabled}
-                              onChange={(e) => {
-                                const val = e.target.checked;
-                                setTimeInputs(prev => ({
-                                  ...prev,
-                                  [cat]: { ...prev[cat], enabled: val }
-                                }));
-                              }}
-                              className="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0 cursor-pointer"
-                            />
-                            <span className="text-[11px] text-slate-300 font-medium">Activer la règle horaire</span>
-                          </label>
-
-                          <button
-                            type="button"
-                            disabled={isSaving}
-                            onClick={() => {
-                              handleUpdateCategorySchedule(cat, {
-                                openTime: timeInputs[cat].openTime,
-                                closeTime: timeInputs[cat].closeTime,
-                                enabled: timeInputs[cat].enabled
-                              });
-                            }}
-                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                          >
-                            <Save className="w-3.5 h-3.5" />
-                            <span>{isSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Current Status Message displayed to users */}
-                      <div className="text-[11px] text-slate-400 bg-slate-950/60 rounded-lg p-2 border border-slate-800/60">
-                        <span className="text-slate-500 font-bold block uppercase text-[9px] tracking-wider mb-0.5">Message utilisateur si fermé :</span>
-                        <span className="text-amber-300 font-medium italic">
-                          {cat === 'withdrawals' 
-                            ? "Les retraits sont actuellement fermés par l'administration." 
-                            : `Les achats pour les produits ${catLabel} sont actuellement fermés.`}
+                    <div>
+                      <h3 className="font-display font-black text-base text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>Produits Bien-être</span>
+                        <span className={`text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full ${
+                          isOpen ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                        }`}>
+                          {isOpen ? 'Disponible' : 'Indisponible'}
                         </span>
-                      </div>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Définir la disponibilité des produits Bien-être à l'achat pour les utilisateurs.
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+
+                  {isSaving && (
+                    <span className="text-xs text-amber-300 font-mono animate-pulse">
+                      Synchronisation Supabase...
+                    </span>
+                  )}
+                </div>
+
+                {/* Main Action Buttons: Ouvert / Fermé */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => handleUpdateCategorySchedule('wellbeing', { mode: 'open' })}
+                    className={`py-3 px-4 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all cursor-pointer outline-none border-none ${
+                      isOpen
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-400/40'
+                        : 'bg-slate-950/60 text-slate-400 hover:text-emerald-300 hover:bg-slate-950/90'
+                    }`}
+                    id="admin-btn-wellbeing-ouvert"
+                  >
+                    <Unlock className="w-4 h-4" />
+                    <span>Ouvert</span>
+                    {isOpen && <CheckCircle className="w-4 h-4 ml-1 text-white" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => handleUpdateCategorySchedule('wellbeing', { mode: 'closed' })}
+                    className={`py-3 px-4 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all cursor-pointer outline-none border-none ${
+                      !isOpen
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-950/40 ring-2 ring-red-400/40'
+                        : 'bg-slate-950/60 text-slate-400 hover:text-red-300 hover:bg-slate-950/90'
+                    }`}
+                    id="admin-btn-wellbeing-ferme"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Fermé</span>
+                    {!isOpen && <CheckCircle className="w-4 h-4 ml-1 text-white" />}
+                  </button>
+                </div>
+
+                {/* Status Explanation Card */}
+                <div className={`p-3.5 rounded-xl flex items-center gap-3 text-xs shadow-xs ${
+                  isOpen ? 'bg-emerald-950/25 text-emerald-200' : 'bg-red-950/25 text-red-200'
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    isOpen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {isOpen ? <CheckCircle className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="font-bold block">
+                      {isOpen ? 'Les produits Bien-être sont disponibles à l’achat.' : 'Les produits Bien-être sont indisponibles à l’achat.'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block">
+                      {isOpen 
+                        ? 'Les utilisateurs peuvent voir et souscrire aux forfaits Bien-être.'
+                        : 'L’accès aux nouveaux achats de forfaits Bien-être est suspendu.'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Information Card confirming investments guarantee */}
+                <div className="bg-slate-950/35 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-slate-400 shadow-xs">
+                  <span className="text-amber-400 text-sm leading-none mt-0.5">ℹ️</span>
+                  <p className="text-[11.5px] leading-relaxed">
+                    <strong className="text-slate-200">Continuité garantie :</strong> Les produits déjà achetés restent actifs jusqu’à la fin de leur cycle, même si l’administrateur met les nouveaux achats sur Fermé. À la fin du cycle, les revenus prévus sont versés automatiquement au solde de l’utilisateur. Le statut est synchronisé avec Supabase et la page Produit.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* New VIP creator Form */}
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <div className="bg-slate-900/40 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
               <h3 className="font-display font-bold text-sm text-white uppercase tracking-wider flex items-center space-x-2">
                 <Plus className="w-4 h-4 text-yellow-500" />
                 <span>Créer une nouvelle Offre VIP</span>
@@ -3186,7 +3230,7 @@ export default function AdminPanel({
               <button
                 type="button"
                 onClick={handleDeleteAllProducts}
-                className="px-3.5 py-1.5 bg-red-600/10 hover:bg-red-650 border border-red-500/20 hover:border-red-600 text-red-400 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider duration-150 flex items-center gap-1.5 cursor-pointer shadow-sm shadow-red-950/20"
+                className="px-3.5 py-1.5 bg-red-600/15 hover:bg-red-600 text-red-400 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider duration-150 flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Supprimer tous les produits d'un coup</span>
@@ -3201,7 +3245,7 @@ export default function AdminPanel({
                   required
                   value={newVipLevel}
                   onChange={(e) => setNewVipLevel(parseInt(e.target.value) || 1)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -3213,7 +3257,7 @@ export default function AdminPanel({
                   placeholder="Ex: VIP Gold Rubis 5"
                   value={newVipName}
                   onChange={(e) => setNewVipName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -3224,7 +3268,7 @@ export default function AdminPanel({
                   required
                   value={newVipPrice}
                   onChange={(e) => setNewVipPrice(parseInt(e.target.value) || 3000)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-yellow-400 font-mono focus:outline-none"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-yellow-400 font-mono focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -3237,7 +3281,7 @@ export default function AdminPanel({
                   required
                   value={newVipDaily}
                   onChange={(e) => setNewVipDaily(parseInt(e.target.value) || 600)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-green-400 font-mono focus:outline-none"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-green-400 font-mono focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -3250,7 +3294,7 @@ export default function AdminPanel({
                   required
                   value={newVipDuration}
                   onChange={(e) => setNewVipDuration(parseInt(e.target.value) || 10)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -3261,7 +3305,7 @@ export default function AdminPanel({
                   placeholder="Ex: Populaire, Offre Spéciale"
                   value={newVipTag}
                   onChange={(e) => setNewVipTag(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -3272,7 +3316,7 @@ export default function AdminPanel({
                   placeholder="Saisissez l'URL de l'image de votre choix pour ce produit"
                   value={newVipImageUrl}
                   onChange={(e) => setNewVipImageUrl(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none shadow-inner"
                 />
               </div>
 
@@ -3281,7 +3325,7 @@ export default function AdminPanel({
                 <select
                   value={newVipCategory}
                   onChange={(e) => setNewVipCategory(e.target.value as 'stability' | 'wellbeing')}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-yellow-500/40"
+                  className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none shadow-inner"
                 >
                   <option value="stability">Stabilité (Plans standard)</option>
                   <option value="wellbeing">Bien-être (Plans bien-être)</option>
@@ -3290,10 +3334,10 @@ export default function AdminPanel({
 
 
 
-              <div className="md:col-span-3 pt-3">
+              <div className="md:col-span-3 pt-2">
                 <button
                   type="submit"
-                  className="px-6 py-3 rounded-xl gold-bg-gradient text-slate-950 font-display font-bold text-xs uppercase tracking-wider hover:opacity-90 flex items-center space-x-1"
+                  className="px-6 py-3 rounded-xl gold-bg-gradient text-slate-950 font-display font-bold text-xs uppercase tracking-wider hover:opacity-90 flex items-center space-x-1 shadow-md shadow-amber-950/20"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Enregistrer et Publier le Produit</span>
@@ -3303,7 +3347,7 @@ export default function AdminPanel({
           </div>
 
           {/* List of custom VIP packages */}
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* 1. Plans Stabilité VIP */}
             <div>
               <h4 className="text-sm font-display font-bold text-yellow-500 uppercase tracking-widest mb-4">
@@ -3317,16 +3361,16 @@ export default function AdminPanel({
                     : null;
 
                   return (
-                    <div key={p.id} className={`p-5 rounded-xl border flex flex-col justify-between ${isCurrentlyBlocked ? 'bg-red-950/20 border-red-900/40' : 'bg-slate-950 border-slate-800'}`}>
+                    <div key={p.id} className={`p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${isCurrentlyBlocked ? 'bg-red-950/25' : 'bg-slate-950/60'}`}>
                       <div>
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="flex items-center space-x-2 flex-wrap gap-1.5">
                               <span className="text-[10px] text-yellow-500 font-mono uppercase font-bold">Niveau {p.vipLevel}</span>
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-sans font-bold uppercase tracking-wider ${
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-sans font-bold uppercase tracking-wider ${
                                 p.category === 'wellbeing'
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                  ? 'bg-amber-500/15 text-amber-300'
+                                  : 'bg-blue-500/15 text-blue-300'
                               }`}>
                                 {p.category === 'wellbeing' ? '🌸 Bien-être' : '💎 Stabilité'}
                               </span>
@@ -3337,14 +3381,14 @@ export default function AdminPanel({
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => openEditProductModal(p)}
-                              className="text-slate-350 hover:text-yellow-400 p-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded duration-150"
+                              className="text-slate-350 hover:text-yellow-400 p-1.5 bg-slate-900/80 hover:bg-slate-800 rounded-lg duration-150 shadow-xs"
                               title="Modifier"
                             >
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => setProductToDelete(p)}
-                              className="text-red-400 hover:text-red-500 p-1.5 bg-red-500/10 rounded duration-150"
+                              className="text-red-400 hover:text-red-500 p-1.5 bg-red-500/10 rounded-lg duration-150 shadow-xs"
                               title="Supprimer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -3352,7 +3396,7 @@ export default function AdminPanel({
                           </div>
                         </div>
 
-                        <div className="space-y-1 mt-4 text-xs font-mono">
+                        <div className="space-y-1.5 mt-4 text-xs font-mono">
                           <div className="flex justify-between text-slate-400">
                             <span>Prix d'achat :</span>
                             <span className="text-white font-bold">{p.price.toLocaleString()} XOF</span>
@@ -3365,13 +3409,13 @@ export default function AdminPanel({
                             <span>Durée :</span>
                             <span className="text-yellow-400">{p.durationDays} Jours</span>
                           </div>
-                          <div className="flex justify-between text-slate-400 font-bold border-t border-slate-900 pt-1.5 mt-1.5 font-mono">
+                          <div className="flex justify-between text-slate-400 font-bold pt-1.5 mt-1.5 font-mono">
                             <span>Retour brut :</span>
                             <span className="text-white">{(p.dailyReturn * p.durationDays).toLocaleString()} XOF</span>
                           </div>
 
                           {isCurrentlyBlocked && (
-                            <div className="bg-red-950/35 border border-red-900/30 rounded-lg p-2.5 mt-3 font-sans">
+                            <div className="bg-red-950/35 rounded-xl p-2.5 mt-3 font-sans shadow-xs">
                               <p className="text-[10px] text-red-400 font-bold flex items-center gap-1.5">
                                 <Lock className="w-3 h-3" />
                                 <span>INVESTISSEMENT BLOQUÉ</span>
@@ -3386,28 +3430,28 @@ export default function AdminPanel({
                         </div>
                       </div>
 
-                      <div className="mt-5 pt-3 border-t border-slate-900">
+                      <div className="mt-5 pt-3">
                         {schedulingBlockProductId === p.id ? (
-                          <div className="space-y-3 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                          <div className="space-y-3 bg-slate-900/80 p-3 rounded-xl shadow-xs">
                             <div>
                               <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">HEURE DE RÉOUVERTURE (OPTIONNELLE)</label>
                               <input
                                 type="datetime-local"
                                 value={blockReopenTime}
                                 onChange={(e) => setBlockReopenTime(e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 text-xs text-yellow-400 p-1.5 rounded focus:outline-none focus:border-yellow-500/40"
+                                className="w-full bg-slate-950/80 text-xs text-yellow-400 p-2 rounded-lg focus:outline-none shadow-inner"
                               />
                             </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleConfirmProductBlock(p.id, false)}
-                                className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold uppercase transition-all"
+                                className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold uppercase transition-all shadow-xs"
                               >
                                 Bloquer à vie
                               </button>
                               <button
                                 onClick={() => handleConfirmProductBlock(p.id, true)}
-                                className="flex-1 py-1.5 gold-bg-gradient text-slate-950 rounded text-[10px] font-bold uppercase transition-all"
+                                className="flex-1 py-1.5 gold-bg-gradient text-slate-950 rounded-lg text-[10px] font-bold uppercase transition-all shadow-xs"
                                 disabled={!blockReopenTime}
                               >
                                 Planifier Heure
@@ -3423,7 +3467,7 @@ export default function AdminPanel({
                         ) : (
                           <button
                             onClick={() => handleToggleBlockProduct(p.id, isCurrentlyBlocked)}
-                            className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition-all ${isCurrentlyBlocked ? 'bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'}`}
+                            className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-xs ${isCurrentlyBlocked ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-red-500/15 text-red-400 hover:bg-red-500/25'}`}
                           >
                             {isCurrentlyBlocked ? (
                               <>

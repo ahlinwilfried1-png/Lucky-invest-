@@ -23,18 +23,18 @@ import {
 
 export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
   wellbeing: {
-    mode: 'auto',
+    mode: 'open',
     openTime: '08:00',
     closeTime: '20:00',
     enabled: true,
-    lastModified: Date.now()
+    lastModified: 0
   },
   withdrawals: {
     mode: 'auto',
     openTime: '09:00',
     closeTime: '17:00',
     enabled: true,
-    lastModified: Date.now()
+    lastModified: 0
   }
 };
 
@@ -1116,7 +1116,6 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
             const localSched = (typeof localData === 'object' && localData) ? localData : {};
             const remoteSched = remoteData;
             const mergedSched: any = { ...remoteSched };
-            let localHadNewer = false;
 
             for (const cat of ['wellbeing', 'withdrawals'] as const) {
               const locCat = (localSched as any)[cat];
@@ -1126,26 +1125,18 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
                 const remTime = Number(remCat.lastModified || 0);
                 if (locTime > remTime) {
                   mergedSched[cat] = locCat;
-                  localHadNewer = true;
                 } else {
                   mergedSched[cat] = remCat;
                 }
-              } else if (locCat && !remCat) {
-                mergedSched[cat] = locCat;
-                localHadNewer = true;
               } else if (remCat) {
                 mergedSched[cat] = remCat;
+              } else if (locCat) {
+                mergedSched[cat] = locCat;
               }
             }
             mergedVal = mergedSched;
-
-            if (localHadNewer) {
-              apiFetch(getApiUrl('/api/category-schedules'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ schedules: mergedSched })
-              }).catch(err => console.warn('Failed to push newer category schedules:', err));
-            }
+            // Note: Standard background sync must never push schedules to the server.
+            // Only explicit administrator actions in the Admin Panel can modify schedules.
           }
           
           const remoteStr = JSON.stringify(mergedVal);
@@ -1664,7 +1655,7 @@ export class DataStore {
           openTime: '09:00',
           closeTime: '17:00',
           enabled: true,
-          lastModified: Date.now()
+          lastModified: 0
         }),
         ...(data && data.withdrawals ? data.withdrawals : {})
       }
@@ -1677,17 +1668,54 @@ export class DataStore {
       window.dispatchEvent(new CustomEvent('gi_category_schedules_updated', { detail: schedules }));
     } catch (e) {}
 
+    // Broadcast update across open tabs immediately
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('gi_schedules_sync');
+        bc.postMessage({ type: 'SCHEDULES_UPDATED', schedules });
+        bc.close();
+      }
+    } catch (e) {}
+
+    // Direct client sync to Supabase public.store table if keys are available
+    try {
+      if (SUPABASE_URL && SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY) {
+        fetch(`${SUPABASE_URL}/rest/v1/store`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify([{ key: 'gi_category_schedules', value: schedules, updated_at: new Date().toISOString() }])
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
     if (pushToServer) {
       try {
+        const activeUser = this.getCurrentUser();
         const response = await apiFetch(getApiUrl('/api/category-schedules'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ schedules })
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(activeUser?.id ? { 'x-user-id': activeUser.id } : {})
+          },
+          body: JSON.stringify({ 
+            schedules,
+            userId: activeUser?.id,
+            role: activeUser?.role || 'admin',
+            isAdmin: true
+          })
         });
         if (response.ok) {
           const resData = await response.json();
           if (resData && resData.schedules) {
             setToStore<CategorySchedules>('gi_category_schedules', resData.schedules);
+            try {
+              window.dispatchEvent(new CustomEvent('gi_category_schedules_updated', { detail: resData.schedules }));
+            } catch (e) {}
           }
           return true;
         }
@@ -1796,6 +1824,21 @@ export class DataStore {
 
     const openTime = schedule.openTime || '08:00';
     const closeTime = schedule.closeTime || '20:00';
+
+    // Pour les produits Bien-être : contrôle direct binaire Ouvert / Fermé défini par l'administrateur
+    if (category === 'wellbeing') {
+      const isClosed = schedule && schedule.mode === 'closed';
+      return {
+        isOpen: !isClosed,
+        statusLabel: isClosed ? 'FERMÉ' : 'OUVERT',
+        reason: isClosed 
+          ? 'Ce produit est actuellement indisponible à l’achat'
+          : 'Les produits Bien-être sont disponibles à l\'achat.',
+        mode: isClosed ? 'closed' : 'open',
+        openTime,
+        closeTime
+      };
+    }
 
     if (schedule.mode === 'open') {
       return {
@@ -2911,7 +2954,7 @@ export class DataStore {
       if (!scheduleStatus.isOpen) {
         return {
           success: false,
-          message: scheduleStatus.reason || 'Les achats pour les produits Bien-être sont actuellement fermés.'
+          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat'
         };
       }
 

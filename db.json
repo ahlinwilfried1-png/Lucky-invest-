@@ -5,23 +5,23 @@
       "name": "Administrateur Principal",
       "role": "admin",
       "bonus": 5000,
-      "balance": 955050,
+      "balance": 955060,
       "country": "Cameroun",
       "password": "agro777",
       "whatsapp": "+237600000000",
       "createdAt": "2026-09-04T07:23:51.262Z",
       "isBlocked": false,
-      "lastModified": 1789110332728,
+      "lastModified": 1789116603242,
       "referralCode": "72AGR",
       "checkInStreak": 1,
       "dailyEarnings": 180,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
-      "lastCheckInDate": "2026-09-05",
+      "lastCheckInDate": "2026-09-11",
       "withdrawBlocked": false,
       "referralEarnings": 0,
-      "totalCheckInEarnings": 50
+      "totalCheckInEarnings": 60
     },
     {
       "id": "u-1788685653386",
@@ -1468,6 +1468,15 @@
       "lastModified": 1789068504530,
       "createdAt": "2026-09-10T19:28:24.530Z",
       "read": false
+    },
+    {
+      "id": "vip-point-1789116603246",
+      "userId": "u-admin",
+      "title": "Pointage validé ! 🌟",
+      "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
+      "createdAt": "2026-09-11T08:50:03.246Z",
+      "isRead": false,
+      "lastModified": 1789116603247
     }
   ],
   "gi_bonus_codes": [
@@ -1821,7 +1830,8 @@
       "category": "stability",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "stab-2",
@@ -1835,7 +1845,8 @@
       "category": "stability",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "stab-3",
@@ -1849,7 +1860,8 @@
       "category": "stability",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "stab-4",
@@ -1863,7 +1875,8 @@
       "category": "stability",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "stab-5",
@@ -1877,7 +1890,8 @@
       "category": "stability",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "stab-6",
@@ -1891,7 +1905,8 @@
       "category": "stability",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "stab-7",
@@ -1905,7 +1920,8 @@
       "category": "stability",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "well-1",
@@ -1919,7 +1935,8 @@
       "category": "wellbeing",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "well-2",
@@ -1933,7 +1950,8 @@
       "category": "wellbeing",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "well-3",
@@ -1947,7 +1965,8 @@
       "category": "wellbeing",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "well-4",
@@ -1961,7 +1980,8 @@
       "category": "wellbeing",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "well-5",
@@ -1975,7 +1995,8 @@
       "category": "wellbeing",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "well-6",
@@ -1989,7 +2010,8 @@
       "category": "wellbeing",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     },
     {
       "id": "well-7",
@@ -2003,7 +2025,8 @@
       "category": "wellbeing",
       "isBlocked": false,
       "isCyclic": true,
-      "generatedProductIds": []
+      "generatedProductIds": [],
+      "lastModified": 1789117270368
     }
   ],
   "gi_deleted_products": [],
@@ -2042,10 +2065,10 @@
   "gi_category_schedules": {
     "wellbeing": {
       "mode": "auto",
-      "openTime": "08:00",
-      "closeTime": "20:00",
+      "openTime": "09:30",
+      "closeTime": "19:30",
       "enabled": true,
-      "lastModified": 1789114936979
+      "lastModified": 1789116766283
     },
     "withdrawals": {
       "mode": "auto",

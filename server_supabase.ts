@@ -1191,3 +1191,57 @@ export async function isReferralFirstApprovedDepositInSupabase(
     };
   }
 }
+
+/**
+ * Permanently saves category schedules (Bien-être & Retraits) to Supabase public.store table
+ */
+export async function saveSupabaseCategorySchedules(schedules: any): Promise<boolean> {
+  const client = getSupabaseAdminClient();
+  if (!client || !schedules) return false;
+
+  try {
+    const payload = {
+      key: 'gi_category_schedules',
+      value: schedules,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await client
+      .from('store')
+      .upsert([payload], { onConflict: 'key' });
+
+    if (error) {
+      console.warn('[SUPABASE CATEGORY SCHEDULES SAVE WARN]', error.message);
+      return false;
+    }
+
+    console.log('[SUPABASE CATEGORY SCHEDULES] Successfully persisted category schedules to Supabase public.store.');
+    return true;
+  } catch (err: any) {
+    console.warn('[SUPABASE CATEGORY SCHEDULES EXCEPTION]', err?.message || err);
+    return false;
+  }
+}
+
+/**
+ * Fetches category schedules (Bien-être & Retraits) from Supabase public.store table
+ */
+export async function fetchSupabaseCategorySchedules(): Promise<any | null> {
+  const client = getSupabaseAdminClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('store')
+      .select('value')
+      .eq('key', 'gi_category_schedules')
+      .maybeSingle();
+
+    if (!error && data && data.value) {
+      return data.value;
+    }
+  } catch (err: any) {
+    console.warn('[SUPABASE FETCH CATEGORY SCHEDULES WARN]', err?.message || err);
+  }
+  return null;
+}
