@@ -11,7 +11,7 @@
       "whatsapp": "+237600000000",
       "createdAt": "2026-09-04T07:23:51.262Z",
       "isBlocked": false,
-      "lastModified": 1789066269159,
+      "lastModified": 1789110332728,
       "referralCode": "72AGR",
       "checkInStreak": 1,
       "dailyEarnings": 180,
@@ -1448,6 +1448,26 @@
       "lastModified": 1789034277212,
       "createdAt": "2026-09-10T09:57:57.212Z",
       "read": false
+    },
+    {
+      "id": "not-plan-1789068539725",
+      "userId": "u-admin",
+      "title": "Plan souscrit avec succès",
+      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
+      "type": "plan",
+      "lastModified": 1789068539725,
+      "createdAt": "2026-09-10T19:28:59.725Z",
+      "read": false
+    },
+    {
+      "id": "not-plan-1789068504514",
+      "userId": "u-admin",
+      "title": "Plan souscrit avec succès",
+      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
+      "type": "plan",
+      "lastModified": 1789068504530,
+      "createdAt": "2026-09-10T19:28:24.530Z",
+      "read": false
     }
   ],
   "gi_bonus_codes": [
@@ -2022,10 +2042,17 @@
   "gi_category_schedules": {
     "wellbeing": {
       "mode": "auto",
-      "enabled": true,
       "openTime": "08:00",
-      "closeTime": "06:28",
-      "lastModified": 1788848875873
+      "closeTime": "20:00",
+      "enabled": true,
+      "lastModified": 1789114936979
+    },
+    "withdrawals": {
+      "mode": "auto",
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "enabled": true,
+      "lastModified": 1789114930673
     }
   },
   "userId": "",

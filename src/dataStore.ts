@@ -1112,6 +1112,42 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
             }
           }
           
+          if (key === "gi_category_schedules" && typeof remoteData === 'object' && remoteData) {
+            const localSched = (typeof localData === 'object' && localData) ? localData : {};
+            const remoteSched = remoteData;
+            const mergedSched: any = { ...remoteSched };
+            let localHadNewer = false;
+
+            for (const cat of ['wellbeing', 'withdrawals'] as const) {
+              const locCat = (localSched as any)[cat];
+              const remCat = (remoteSched as any)[cat];
+              if (locCat && remCat) {
+                const locTime = Number(locCat.lastModified || 0);
+                const remTime = Number(remCat.lastModified || 0);
+                if (locTime > remTime) {
+                  mergedSched[cat] = locCat;
+                  localHadNewer = true;
+                } else {
+                  mergedSched[cat] = remCat;
+                }
+              } else if (locCat && !remCat) {
+                mergedSched[cat] = locCat;
+                localHadNewer = true;
+              } else if (remCat) {
+                mergedSched[cat] = remCat;
+              }
+            }
+            mergedVal = mergedSched;
+
+            if (localHadNewer) {
+              apiFetch(getApiUrl('/api/category-schedules'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ schedules: mergedSched })
+              }).catch(err => console.warn('Failed to push newer category schedules:', err));
+            }
+          }
+          
           const remoteStr = JSON.stringify(mergedVal);
           let currentLocalStr = null;
           try {
@@ -1635,21 +1671,31 @@ export class DataStore {
     };
   }
 
-  static saveCategorySchedules(schedules: CategorySchedules, pushToServer: boolean = true): void {
+  static async saveCategorySchedules(schedules: CategorySchedules, pushToServer: boolean = true): Promise<boolean> {
     setToStore<CategorySchedules>('gi_category_schedules', schedules);
     try {
       window.dispatchEvent(new CustomEvent('gi_category_schedules_updated', { detail: schedules }));
     } catch (e) {}
 
     if (pushToServer) {
-      apiFetch(getApiUrl('/api/category-schedules'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schedules })
-      }).catch(err => {
+      try {
+        const response = await apiFetch(getApiUrl('/api/category-schedules'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ schedules })
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData && resData.schedules) {
+            setToStore<CategorySchedules>('gi_category_schedules', resData.schedules);
+          }
+          return true;
+        }
+      } catch (err) {
         console.warn('Failed to save category schedules to server:', err);
-      });
+      }
     }
+    return false;
   }
 
   static isWithdrawalOpen(targetDate: Date = new Date()): {

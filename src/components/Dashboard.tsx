@@ -65,10 +65,19 @@ import {
   Award,
   Flame,
   UserCheck,
-  ExternalLink
+  ExternalLink,
+  Crown,
+  Globe,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, Investment, Commission, SystemNotification, SupportMessage, WithdrawalProof, RevenueRecord } from '../types';
 import { DataStore, syncWithBackend, getApiUrl, apiFetch } from '../dataStore';
+import { ProfileTabView } from './ProfileTabView';
+import { ProductsTabView } from './ProductsTabView';
+import { HomeTabView } from './HomeTabView';
+import { TeamTabView } from './TeamTabView';
+import { ForumTabView } from './ForumTabView';
 import AdminPanel from './AdminPanel';
 import CountdownTimer from './CountdownTimer';
 import { InvestmentItem } from './InvestmentItem';
@@ -466,6 +475,9 @@ export default function Dashboard({
   const [forumCommentInputs, setForumCommentInputs] = useState<Record<string, string>>({});
   const [forumImage1, setForumImage1] = useState<string | null>(null);
   const [forumImage2, setForumImage2] = useState<string | null>(null);
+  const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>(() => {
+    return (localStorage.getItem('gold_avenue_lang') as 'fr' | 'en') || 'fr';
+  });
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
@@ -5497,253 +5509,12 @@ export default function Dashboard({
 
           {/* USER SUMMARY CARDS */}
           {!profileSubPage && activeTab === 'dashboard' && (
-            <div className="space-y-3.5 text-left animate-fadeIn">
-
-              {/* 1. ENLARGED AUTO-PLAYING GOLD SLIDER CAROUSEL WITH OVERLAID BALANCE */}
-              {(() => {
-                const activeSlide = GOLD_AVENUE_SLIDES[currentSlide] || GOLD_AVENUE_SLIDES[0] || {
-                  url: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=1000',
-                  title: 'Gold Avenue Lingot d\'Or Pur 💎',
-                  desc: 'Bénéficiez de la sécurité absolue d\'un investissement aurifère de premier choix.'
-                };
-                return (
-                  <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden aspect-[16/9] sm:aspect-[22/9] min-h-[175px] sm:min-h-[220px] w-full shadow-md bg-slate-950 flex flex-col justify-between p-3.5 sm:p-5 text-left group">
-                    {/* Visual Gold Asset Slide with AnimatePresence */}
-                    <div className="absolute inset-0 w-full h-full z-0 overflow-hidden select-none pointer-events-none">
-                      <AnimatePresence mode="popLayout">
-                        <motion.img 
-                          key={currentSlide}
-                          src={activeSlide.url} 
-                          alt={activeSlide.title} 
-                          initial={{ opacity: 0, scale: 1.05 }}
-                          animate={{ opacity: 0.85, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ duration: 0.8, ease: "easeInOut" }}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </AnimatePresence>
-                    </div>
-
-                    {/* Immersive gold gradient vein overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/45 to-slate-950/25 pointer-events-none z-10" />
-                    <div className="absolute -bottom-12 -right-12 w-56 h-56 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none z-10" />
-                    <div className="absolute -top-12 -left-12 w-56 h-56 bg-amber-600/20 rounded-full blur-3xl pointer-events-none z-10" />
-                    
-                    {/* Top content - Statut VIP & Sécurité */}
-                    <div className="relative z-20 flex items-center justify-between gap-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400"></span>
-                        </span>
-                        <span className="bg-slate-950/80 border border-yellow-500/30 text-yellow-300 text-[10px] sm:text-xs font-sans font-black px-3 py-1 rounded-full uppercase tracking-wider select-none backdrop-blur-md shadow-xs">
-                          {t('MEMBRE VIP', 'VIP MEMBER')}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 bg-slate-950/70 border border-yellow-500/30 px-3 py-1 rounded-full text-[10px] font-sans font-bold text-yellow-300 backdrop-blur-sm shadow-xs">
-                        <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
-                        <span>{t('SÉCURISÉ 100%', '100% SECURE')}</span>
-                      </div>
-                    </div>
-
-                    {/* Bottom Row: Title on the Left & Solde on the Right directly on the image */}
-                    <div className="relative z-20 flex items-end justify-between gap-3 pb-1">
-                      {/* Left: Dynamic Slide Title & Info */}
-                      <div className="max-w-[55%] sm:max-w-[62%]">
-                        <h1 className="text-xs sm:text-base md:text-lg lg:text-xl font-sans font-extrabold tracking-[0.02em] text-transparent bg-clip-text bg-gradient-to-r from-yellow-100 via-amber-200 to-yellow-400 uppercase leading-tight drop-shadow-[0_2px_12px_rgba(245,158,11,0.35)]">
-                          {t(activeSlide.title, 'Gold Avenue Pure Gold Bullion 💎')}
-                        </h1>
-                        <p className="text-[9px] sm:text-xs font-sans font-bold text-slate-200 uppercase mt-0.5 pl-0.5 select-none leading-tight line-clamp-1">
-                          {t(activeSlide.desc, 'Benefit from the absolute safety of a premium gold investment.')}
-                        </p>
-                      </div>
-
-                      {/* Right: Solde badge directly overlaid on the image - ENLARGED */}
-                      <div className="shrink-0 bg-slate-950/90 backdrop-blur-md border border-amber-400/60 rounded-xl sm:rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 shadow-2xl shadow-black/80 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                      </span>
-                      <span className="text-[10.5px] sm:text-xs font-sans font-black text-amber-300 uppercase tracking-wider">
-                        💰 {t('Solde', 'Balance')}
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline justify-end gap-1.5 pt-0.5">
-                      <span className="text-xl sm:text-2xl md:text-3xl font-sans font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-500 font-mono drop-shadow-[0_2px_10px_rgba(245,158,11,0.45)]">
-                        {userState.balance.toLocaleString()}
-                      </span>
-                      <span className="text-xs sm:text-sm font-sans font-black text-yellow-400 uppercase tracking-wide">
-                        F CFA
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Slide Indicators / Dots */}
-                {GOLD_AVENUE_SLIDES.length > 1 && (
-                  <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-25 flex gap-1.5">
-                    {GOLD_AVENUE_SLIDES.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCurrentSlide(idx);
-                        }}
-                        className={`h-1 rounded-full transition-all duration-300 cursor-pointer border-none outline-none ${idx === currentSlide ? 'w-4 bg-yellow-400' : 'w-1 bg-white/40'}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-              {/* 2. QUICK ACCESS BUTTONS ROW (4 BUTTONS FLUID & BORDERLESS) */}
-              <div className="bg-[#0f1d38]/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-sm grid grid-cols-4 gap-2 sm:gap-4 py-3.5">
-                {/* Recharger */}
-                <button
-                  onClick={() => setActiveTab('deposit')}
-                  className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
-                >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-amber-500 to-yellow-500 text-slate-950 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-amber-500/20 shrink-0">
-                    <Wallet className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
-                  </div>
-                  <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
-                    {t('Recharger', 'Deposit')}
-                  </span>
-                </button>
-
-                {/* Retirer */}
-                <button
-                  onClick={() => setActiveTab('withdraw')}
-                  className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
-                >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-amber-600 to-amber-700 text-white flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-amber-600/30 shrink-0">
-                    <ArrowUpCircle className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
-                  </div>
-                  <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
-                    {t('Retirer', 'Withdraw')}
-                  </span>
-                </button>
-
-                {/* Mon Équipe */}
-                <button
-                  onClick={() => {
-                    setActiveTab('team');
-                    setShowTeamDetailsPage(false);
-                  }}
-                  className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
-                >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-slate-800 to-slate-900 border border-slate-700 text-amber-400 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-slate-950/40 shrink-0">
-                    <Users className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
-                  </div>
-                  <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
-                    {t('Mon Équipe', 'My Team')}
-                  </span>
-                </button>
-
-                {/* Pointage */}
-                <button
-                  onClick={() => setProfileSubPage('pointage')}
-                  className="flex flex-col items-center justify-center text-center group cursor-pointer border-none bg-transparent outline-none focus:outline-none"
-                  id="btn-quick-pointage"
-                >
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all group-hover:scale-105 shadow-md shadow-amber-500/20 shrink-0">
-                    <CalendarCheck className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 stroke-[2.25]" />
-                  </div>
-                  <span className="font-sans font-black text-[11px] sm:text-xs text-white mt-1.5 block tracking-wide truncate max-w-full">
-                    {t('Pointage', 'Check-in')}
-                  </span>
-                </button>
-              </div>
-
-              {/* 3. CARD: RÉCOMPENSES D'INVITATION (FLUID & BORDERLESS) */}
-              <div className="bg-[#0f1d38]/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
-                <div className="flex justify-between items-center">
-                  <div className="space-y-0.5">
-                    <h3 className="font-sans font-black text-white text-xs sm:text-sm uppercase tracking-tight">
-                      {t("Récompenses d'invitation", "Invitation Rewards")}
-                    </h3>
-                    <p className="text-[11px] sm:text-xs text-slate-300 font-bold leading-none">
-                      {t("Investissez ensemble, enrichissez-vous ensemble", "Invest together, grow rich together")}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 bg-amber-500/20 text-amber-300 rounded-xl flex items-center justify-center shrink-0">
-                    <Gift className="w-4.5 h-4.5 stroke-[2.25]" />
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl sm:rounded-2xl p-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 bg-amber-500/20 text-amber-400 rounded-lg flex items-center justify-center shrink-0">
-                      <Users className="w-3.5 h-3.5 stroke-[2.25]" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-xs sm:text-sm text-white font-sans font-black block leading-none uppercase tracking-tight">
-                        {t("Inviter des amis", "Invite Friends")}
-                      </span>
-                      <span className="text-[9.5px] sm:text-[11px] text-slate-400 font-bold block mt-0.5 leading-tight truncate">
-                        {t("Obtenez votre lien et vos commissions d'invitation", "Get your invitation link and referral commissions")}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setProfileSubPage(null);
-                      setActiveTab('team');
-                    }}
-                    className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-105 text-slate-950 py-1.5 px-4 rounded-full text-[11px] sm:text-xs font-sans font-black tracking-wide transition-all active:scale-95 cursor-pointer shadow-sm border-0 shrink-0 uppercase"
-                  >
-                    {t('Allez', 'Go')}
-                  </button>
-                </div>
-              </div>
-
-              {/* 4. CARD: RÉCOMPENSES DES TÂCHES (REPLACES ROUE DE LA CHANCE) */}
-              <div className="bg-[#0f1d38]/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
-                <div className="space-y-0.5">
-                  <span className="text-[9.5px] text-amber-400 font-extrabold uppercase tracking-widest block leading-none">
-                    {t("Tâches & Récompenses", "Tasks & Rewards")}
-                  </span>
-                  <h3 className="font-sans font-black text-white text-xs sm:text-sm uppercase tracking-tight">
-                    {t("Récompenses des tâches", "Task Rewards")}
-                  </h3>
-                </div>
-
-                <div className="space-y-2.5 pt-0.5">
-                  {/* Tâches row */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all duration-300">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center shrink-0 shadow-xs">
-                        <Gift className="w-5 h-5 stroke-[2.25]" />
-                      </div>
-                      <div>
-                        <h4 className="font-sans font-black text-xs sm:text-sm text-white leading-snug">
-                          {t("Tâches", "Tasks")}
-                        </h4>
-                        <span className="text-[11px] sm:text-xs text-slate-300 font-bold block mt-0.5 leading-normal">
-                          {t("Activez vos amis et recevez jusqu'à 20 000 FCFA", "Activate friends and receive up to 20,000 FCFA")}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => setProfileSubPage('tasks')}
-                      className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 hover:brightness-105 py-2 px-5 rounded-xl text-[11px] sm:text-xs font-sans font-black tracking-wide transition-all active:scale-95 cursor-pointer shadow-sm border-0 shrink-0 text-center uppercase"
-                      id="btn-open-tasks-card"
-                    >
-                      {t("Tâches", "Tasks")}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            </div>
+            <HomeTabView
+              userState={userState}
+              setActiveTab={setActiveTab}
+              setProfileSubPage={setProfileSubPage}
+              t={t}
+            />
           )}
 
           {/* DEDICATED COMMANDE / ORDERS TRACKING TAB */}
@@ -5845,265 +5616,20 @@ export default function Dashboard({
           })()}
 
           {/* CATALOGUE PRODUCTS TAB */}
-          {!profileSubPage && activeTab === 'products' && (() => {
-            const stabilityCount = products.filter(p => p.category === 'stability' || !p.category).length;
-            const wellbeingCount = products.filter(p => p.category === 'wellbeing').length;
-
-            return (
-              <div className="space-y-6 animate-fade-in">
-                {/* TWO-COLUMN PRODUCT CATALOG WITH COMPACT SIDEBAR TABS */}
-                <div className="max-w-7xl mx-auto pt-2 text-left flex flex-row gap-2.5 sm:gap-5 items-start">
-                  
-                  {/* Left Column: Compact Sidebar Tabs */}
-                  <div className="w-[66px] min-[375px]:w-[72px] min-[410px]:w-[78px] sm:w-36 md:w-40 shrink-0 flex flex-col gap-2 border-r border-rose-800/30 pr-1 sm:pr-2 select-none">
-                    
-                    {/* Header for categories on larger screens */}
-                    <div className="hidden sm:block mb-0.5 px-1">
-                      <span className="text-[8.5px] text-rose-300/70 font-extrabold uppercase tracking-widest block leading-none">
-                        {t('Catégories', 'Categories')}
-                      </span>
-                      <span className="text-[10.5px] text-white font-black block mt-0.5">
-                        {t('Équipements', 'Equipment')}
-                      </span>
-                    </div>
-
-                    {/* Stabilité */}
-                    <button
-                      type="button"
-                      onClick={() => setProductSubTab('stability')}
-                      className={`group w-full flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-1.5 px-1 sm:px-2 py-1.5 sm:py-2 rounded-xl transition-all duration-300 shrink-0 cursor-pointer text-left ${
-                        productSubTab === 'stability'
-                          ? 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white shadow-md scale-[1.01]'
-                          : 'bg-rose-950/40 hover:bg-rose-900/50 text-rose-200 shadow-xs'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${
-                        productSubTab === 'stability' ? 'bg-white/20 text-white' : 'bg-rose-900/60 text-rose-300'
-                      }`}>
-                        <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.25]" />
-                      </div>
-                      <div className="flex-1 min-w-0 text-center sm:text-left">
-                        <div className="flex items-center justify-between gap-0.5">
-                          <span className="font-sans font-black text-[9px] min-[375px]:text-[10px] sm:text-xs uppercase tracking-wider block truncate">
-                            {t('Stabilité', 'Stability')}
-                          </span>
-                          <span className={`hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-black rounded-full font-mono leading-none ${
-                            productSubTab === 'stability' ? 'bg-white/20 text-white' : 'bg-rose-900 text-rose-200'
-                          }`}>
-                            {stabilityCount}
-                          </span>
-                        </div>
-                        <span className={`hidden sm:block text-[9px] font-bold mt-0.5 ${
-                          productSubTab === 'stability' ? 'text-rose-100' : 'text-rose-300/70'
-                        }`}>
-                          {t('Standard', 'Standard')}
-                        </span>
-                      </div>
-                    </button>
-
-                    {/* Bien-être */}
-                    <button
-                      type="button"
-                      onClick={() => setProductSubTab('wellbeing')}
-                      className={`group w-full flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-1.5 px-1 sm:px-2 py-1.5 sm:py-2 rounded-xl transition-all duration-300 shrink-0 cursor-pointer text-left ${
-                        productSubTab === 'wellbeing'
-                          ? 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white shadow-md scale-[1.01]'
-                          : 'bg-rose-950/40 hover:bg-rose-900/50 text-rose-200 shadow-xs'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${
-                        productSubTab === 'wellbeing' ? 'bg-white/20 text-white' : 'bg-rose-900/60 text-rose-300'
-                      }`}>
-                        <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.25]" />
-                      </div>
-                      <div className="flex-1 min-w-0 text-center sm:text-left">
-                        <div className="flex items-center justify-between gap-0.5">
-                          <span className="font-sans font-black text-[9px] min-[375px]:text-[10px] sm:text-xs uppercase tracking-wider block truncate">
-                            {t('Bien-être', 'Well-being')}
-                          </span>
-                          <span className={`hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[9px] font-black rounded-full font-mono leading-none ${
-                            productSubTab === 'wellbeing' ? 'bg-white/20 text-white' : 'bg-rose-900 text-rose-200'
-                          }`}>
-                            {wellbeingCount}
-                          </span>
-                        </div>
-                        <span className={`hidden sm:block text-[9px] font-bold mt-0.5 ${
-                          productSubTab === 'wellbeing' ? 'text-rose-100' : 'text-rose-300/70'
-                        }`}>
-                          {t('Santé', 'Health')}
-                        </span>
-                      </div>
-                    </button>
-                  </div>
-
-                {/* Right Column: Products List */}
-                <div className="flex-1 w-full space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {products
-                      .filter(p => {
-                        if (productSubTab === 'stability') {
-                          return p.category === 'stability' || !p.category;
-                        }
-                        return p.category === productSubTab;
-                      })
-                      .sort((a, b) => (a.price || 0) - (b.price || 0))
-                      .map((p, index) => {
-                        const isBlocked = p.isBlocked === true;
-                        const formattedReopenTime = p.reopenDateTime 
-                          ? new Date(p.reopenDateTime).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-                          : null;
-
-                        const getVipDisplayName = (prod: Product, defaultVipLevel: number) => {
-                          if (prod.category === 'wellbeing') {
-                            return `Gold Avenue Bien-être ${prod.vipLevel || defaultVipLevel}`;
-                          }
-                          return `Titres à revenu fixe ${prod.vipLevel || defaultVipLevel}`;
-                        };
-
-                        const getCardStyle = (cat?: string) => {
-                          if (cat === 'wellbeing') {
-                            return {
-                              container: 'bg-rose-950/45 border border-rose-800/40 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:border-rose-600 transition-all duration-300 relative flex flex-col justify-between',
-                              imgBg: 'bg-rose-900 border border-rose-800',
-                              badge: 'text-rose-200 bg-rose-900/80',
-                              statLabel: 'text-rose-200/80',
-                              statVal: 'text-amber-300 font-extrabold',
-                              statValTotal: 'text-white font-black',
-                              buttonLeft: 'bg-rose-900/60 text-white',
-                              buttonRight: 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black',
-                              buttonBorder: 'border-rose-700/50'
-                            };
-                          }
-                          // Default stability (rose rouge theme)
-                          return {
-                            container: 'bg-rose-950/45 border border-rose-800/40 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:border-rose-600 transition-all duration-300 relative flex flex-col justify-between',
-                            imgBg: 'bg-gradient-to-r from-rose-900 to-rose-950 border border-rose-800',
-                            badge: 'text-rose-200 bg-rose-900/80',
-                            statLabel: 'text-rose-200/80',
-                            statVal: 'text-amber-300 font-extrabold',
-                            statValTotal: 'text-white font-black',
-                            buttonLeft: 'bg-rose-900/60 text-white',
-                            buttonRight: 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black',
-                            buttonBorder: 'border-rose-700/50'
-                          };
-                        };
-
-                        const theme = getCardStyle(p.category);
-                        const displayName = getVipDisplayName(p, p.vipLevel || (index + 1));
-                        const activeCount = activeInvestments.filter(i => (i.productName === p.name || i.productId === p.id) && i.status === 'active').length;
-                        const pendingCount = activeInvestments.filter(i => (i.productName === p.name || i.productId === p.id) && i.status !== 'active' && i.status !== 'completed').length;
-                        const isWellbeing = p.category === 'wellbeing';
-                        const reqVipLevel = p.vipLevel || (index + 1);
-                        const wellbeingAccess = isWellbeing ? DataStore.canUserAccessWellbeingProduct(userState.id, reqVipLevel) : { allowed: true };
-                        const totalExpectedProductPayout = p.totalReturn || (p.price + (p.dailyReturn * p.durationDays));
-
-                        return (
-                          <div 
-                            key={p.id}
-                            className={`${theme.container} ${isBlocked ? 'opacity-70 pointer-events-none' : ''}`}
-                          >
-                            {/* Card Content Top Row */}
-                            <div>
-                              {/* Compact Gold Image with VIP level text written directly on it */}
-                              <div className="relative w-full h-32 sm:h-36 rounded-xl overflow-hidden mb-2.5 shadow-xs border border-amber-500/20 bg-slate-950 group">
-                                <ProductImage 
-                                  vipLevel={p.vipLevel || (index + 1)}
-                                  alt={displayName}
-                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                  category={p.category}
-                                  imageUrl={p.imageUrl}
-                                />
-                                {/* Soft gradient overlay for text readability */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-black/35 pointer-events-none" />
-
-                                {/* VIP level badge written directly on the image */}
-                                <div className="absolute top-2 left-2 bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white font-sans font-black text-[9px] px-2 py-0.5 rounded-lg uppercase tracking-wider shadow-md border border-rose-300/40 flex items-center gap-1">
-                                  🏆 VIP {p.vipLevel || 0}
-                                </div>
-
-                                {/* Display name written directly on the image overlay */}
-                                <div className="absolute bottom-2 left-2.5 right-2.5 text-left">
-                                  <h4 className="font-sans font-black text-xs sm:text-sm text-white drop-shadow-md leading-tight tracking-wide">
-                                    {displayName}
-                                  </h4>
-                                </div>
-                              </div>
-
-                              {/* Key-Value Details */}
-                              <div className="mt-1 space-y-2 text-left select-none border-t border-rose-800/30 pt-2.5">
-                                <div className="flex justify-between items-center text-xs sm:text-sm">
-                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Rendement Journalier</span>
-                                  <span className={`${theme.statVal} font-black text-sm sm:text-base`}>+{p.dailyReturn.toLocaleString()} {getCurrency()}/j</span>
-                                </div>
-                                <div className="flex justify-between items-center text-xs sm:text-sm">
-                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Durée du Cycle</span>
-                                  <span className="font-extrabold text-white font-mono bg-rose-900/60 px-2.5 py-0.5 rounded-md text-xs sm:text-sm border border-rose-800/40">
-                                    {p.durationDays} Jours
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center text-xs sm:text-sm">
-                                  <span className={`${theme.statLabel} font-bold text-xs sm:text-sm`}>Revenu Total Prévu</span>
-                                  <span className={`${theme.statValTotal} font-black text-sm sm:text-base`}>{totalExpectedProductPayout.toLocaleString()} {getCurrency()}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Button Area */}
-                            <div className="mt-3.5 text-left">
-                              {/* Elegant Split Button with Rose Rouge Theme */}
-                              <button
-                                onClick={() => handleBuyProduct(p)}
-                                disabled={isBlocked || buyingProductId === p.id}
-                                className={`w-full flex items-stretch rounded-xl overflow-hidden shadow-sm transition-all active:scale-[0.98] cursor-pointer border-none ${isBlocked || buyingProductId === p.id ? 'opacity-60 cursor-not-allowed' : 'hover:brightness-105'}`}
-                              >
-                                <div className={`${theme.buttonLeft} font-black text-xs sm:text-sm px-3.5 py-2.5 flex items-center justify-center flex-1`}>
-                                  {p.price.toLocaleString()} {getCurrency()}
-                                </div>
-                                <div className={`${theme.buttonLeft} flex items-center justify-center px-1 font-bold select-none text-xs sm:text-sm text-amber-300`}>
-                                  ⚡
-                                </div>
-                                <div className={`${theme.buttonRight} text-white font-black text-xs sm:text-sm px-3 py-2.5 flex items-center justify-center flex-1 text-center uppercase tracking-wider`}>
-                                  {buyingProductId === p.id ? 'Paiement...' : 'Investir'}
-                                </div>
-                              </button>
-                            </div>
-
-                            {isBlocked && (
-                              <div className="absolute inset-0 rounded-2xl bg-slate-950/60 flex flex-col items-center justify-center p-3 z-10">
-                                <div className="bg-red-500 text-white font-bold text-xs uppercase px-2.5 py-1 rounded-lg">
-                                  Fermé / Suspendu
-                                </div>
-                                {formattedReopenTime && (
-                                  <span className="text-[9px] text-white font-mono mt-1 bg-black/60 px-2 py-0.5 rounded">
-                                    Ouvre à: {formattedReopenTime}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                    {products.filter(p => {
-                      if (productSubTab === 'stability') {
-                        return p.category === 'stability' || !p.category;
-                      }
-                      return p.category === productSubTab;
-                    }).length === 0 && (
-                      <div className="col-span-full py-12 px-4 text-center rounded-2xl bg-rose-950/40 border border-dashed border-rose-800/40 max-w-sm mx-auto">
-                        <span className="text-2xl">📭</span>
-                        <h5 className="font-sans font-black text-white uppercase tracking-wider text-xs mt-2">Aucun produit disponible</h5>
-                        <p className="text-[10px] text-rose-300/70 font-bold mt-1">
-                          Aucun plan d'investissement n'est actif dans cette catégorie pour le moment.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            );
-          })()}
+          {!profileSubPage && activeTab === 'products' && (
+            <ProductsTabView
+              products={products}
+              productSubTab={productSubTab}
+              setProductSubTab={setProductSubTab}
+              handleBuyProduct={handleBuyProduct}
+              buyingProductId={buyingProductId}
+              activeInvestments={activeInvestments}
+              getCurrency={getCurrency}
+              t={t}
+              setIsSupportPageOpen={setIsSupportPageOpen}
+              unreadSupportCount={unreadSupportCount}
+            />
+          )}
 
           {/* DEPOSIT FORM TAB */}
           {!profileSubPage && activeTab === 'deposit' && (() => {
@@ -6501,1106 +6027,75 @@ export default function Dashboard({
 
           {/* FORUM / COMMUNICATION TAB */}
           {!profileSubPage && activeTab === 'forum' && (
-            <div className="space-y-4 max-w-2xl mx-auto text-left bg-gradient-to-br from-[#9f1239] via-[#881337] to-[#4c0519] p-4 sm:p-5 rounded-2xl border border-rose-700/50 shadow-xl text-white animate-fadeIn">
-              
-              {/* FORUM HEADER CARD */}
-              <div className="bg-rose-950/70 border border-rose-700/50 rounded-xl p-3.5 sm:p-4 text-white text-left relative overflow-hidden shadow-sm">
-                <div className="flex items-center justify-between gap-3 relative z-10">
-                  <div className="space-y-0.5 flex-1">
-                    <h2 className="text-lg sm:text-xl font-sans font-black tracking-tight leading-tight text-white flex items-center gap-2">
-                      <span>💬</span>
-                      <span>Forum Communautaire</span>
-                    </h2>
-                    <p className="text-[11px] text-rose-200 font-medium">
-                      Échangez avec les autres investisseurs et partagez vos avis en direct.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* POST A NEW MESSAGE FORM */}
-              <div className="bg-rose-950/60 border border-rose-700/50 rounded-xl p-3.5 sm:p-4 shadow-xs">
-                <form onSubmit={handlePostForumMessage} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm">✍️</span>
-                      <span className="font-sans font-bold text-xs text-white uppercase tracking-wider">
-                        Nouvelle publication
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <textarea
-                      rows={2}
-                      value={forumMessageInput}
-                      onChange={(e) => setForumMessageInput(e.target.value)}
-                      placeholder="Partagez votre avis ou votre expérience..."
-                      maxLength={500}
-                      className="w-full bg-rose-900/40 border border-rose-700/60 rounded-xl p-3 text-xs font-normal text-white placeholder-rose-400/60 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:border-rose-400 transition-all resize-none shadow-xs"
-                    />
-                    <div className="flex justify-between items-center text-[10px] text-rose-300 font-medium px-1 select-none">
-                      <span className="flex items-center gap-1">
-                        <span>Auteur anonyme :</span>
-                        <span className="font-mono font-bold text-amber-300 bg-rose-900/60 px-1.5 py-0.5 rounded border border-rose-700/40">
-                          {getMaskedAnonymousId(userState.id || userState.phone || userState.name)}
-                        </span>
-                      </span>
-                      <span>{forumMessageInput.length}/500</span>
-                    </div>
-                  </div>
-
-                  {/* Optional Image Attachments */}
-                  <div className="space-y-1.5 bg-rose-900/30 border border-rose-700/50 p-2.5 rounded-xl text-left">
-                    <label className="text-[10px] font-sans font-bold text-rose-200 uppercase tracking-wider block">
-                      📸 Photos / Captures d'écran (optionnel)
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* Image 1 Selector */}
-                      <div className="relative border border-dashed border-rose-700/60 hover:border-rose-400 rounded-xl bg-rose-950/40 p-2 flex flex-col items-center justify-center min-h-[75px] text-center cursor-pointer transition-colors group">
-                        {forumImage1 ? (
-                          <div className="w-full h-full relative">
-                            <img src={forumImage1} className="w-full h-16 object-cover rounded-lg" alt="Image 1" referrerPolicy="no-referrer" />
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setForumImage1(null); }}
-                              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center hover:bg-rose-700 transition-colors"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer">
-                            <span className="text-sm mb-0.5">📥</span>
-                            <span className="text-[9px] font-bold text-rose-200 uppercase">Image 1</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (ev) => {
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const canvas = document.createElement('canvas');
-                                      let w = img.width, h = img.height;
-                                      const maxD = 900;
-                                      if (w > maxD || h > maxD) {
-                                        if (w > h) { h = Math.round((h * maxD) / w); w = maxD; }
-                                        else { w = Math.round((w * maxD) / h); h = maxD; }
-                                      }
-                                      canvas.width = w; canvas.height = h;
-                                      const ctx = canvas.getContext('2d');
-                                      if (ctx) {
-                                        ctx.drawImage(img, 0, 0, w, h);
-                                        setForumImage1(canvas.toDataURL('image/jpeg', 0.75));
-                                      } else {
-                                        setForumImage1(ev.target?.result as string);
-                                      }
-                                    };
-                                    img.src = ev.target?.result as string;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      {/* Image 2 Selector */}
-                      <div className="relative border border-dashed border-rose-700/60 hover:border-rose-400 rounded-xl bg-rose-950/40 p-2 flex flex-col items-center justify-center min-h-[75px] text-center cursor-pointer transition-colors group">
-                        {forumImage2 ? (
-                          <div className="w-full h-full relative">
-                            <img src={forumImage2} className="w-full h-16 object-cover rounded-lg" alt="Image 2" referrerPolicy="no-referrer" />
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setForumImage2(null); }}
-                              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center hover:bg-rose-700 transition-colors"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer">
-                            <span className="text-sm mb-0.5">📥</span>
-                            <span className="text-[9px] font-bold text-rose-200 uppercase">Image 2</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (ev) => {
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const canvas = document.createElement('canvas');
-                                      let w = img.width, h = img.height;
-                                      const maxD = 900;
-                                      if (w > maxD || h > maxD) {
-                                        if (w > h) { h = Math.round((h * maxD) / w); w = maxD; }
-                                        else { w = Math.round((w * maxD) / h); h = maxD; }
-                                      }
-                                      canvas.width = w; canvas.height = h;
-                                      const ctx = canvas.getContext('2d');
-                                      if (ctx) {
-                                        ctx.drawImage(img, 0, 0, w, h);
-                                        setForumImage2(canvas.toDataURL('image/jpeg', 0.75));
-                                      } else {
-                                        setForumImage2(ev.target?.result as string);
-                                      }
-                                    };
-                                    img.src = ev.target?.result as string;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-sans font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 duration-150 transition-all cursor-pointer select-none active:scale-95 uppercase tracking-wider"
-                    >
-                      <Send className="w-3 h-3 stroke-[2.5]" />
-                      <span>Publier</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* FORUM TIMELINE OF POSTS */}
-              <div className="space-y-3">
-                {forumPosts.length === 0 ? (
-                  <div className="bg-rose-950/60 border border-rose-700/50 rounded-2xl p-6 text-center space-y-1.5">
-                    <div className="text-2xl mb-1">💬</div>
-                    <p className="text-white font-bold text-xs">
-                      Aucune publication sur le forum pour le moment.
-                    </p>
-                    <p className="text-rose-300 font-medium text-[10px]">
-                      Soyez le premier à publier un message sur le forum !
-                    </p>
-                  </div>
-                ) : (
-                  deduplicateForumPosts(forumPosts).map((post) => {
-                    const hasLiked = post.likedBy ? post.likedBy.includes(userState.id) : post.hasLiked;
-                    const anonId = getMaskedAnonymousId(post);
-
-                    const imagesList: string[] = [];
-                    if (post.image1) imagesList.push(post.image1);
-                    if (post.image2) imagesList.push(post.image2);
-                    if (post.image && !imagesList.includes(post.image)) imagesList.push(post.image);
-                    if (post.imageUrl && !imagesList.includes(post.imageUrl)) imagesList.push(post.imageUrl);
-                    if (post.proofImage && !imagesList.includes(post.proofImage)) imagesList.push(post.proofImage);
-
-                    return (
-                      <div
-                        key={post.id}
-                        className="bg-rose-950/70 border border-rose-700/50 hover:border-rose-500/70 transition-all rounded-2xl p-3.5 sm:p-4 text-left shadow-sm space-y-2.5"
-                      >
-                        {/* Author row - Anonymous 3-digit masked format (e.g. 1★7) */}
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#e11d48] to-[#be123c] text-amber-300 font-sans font-black flex items-center justify-center text-xs shadow-xs border border-rose-400/30 shrink-0">
-                              ★
-                            </div>
-                            <div className="leading-tight">
-                              <span className="font-sans font-bold text-white text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
-                                <span className="font-mono font-black text-amber-300 tracking-wider">{anonId}</span>
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-rose-300/80 bg-rose-900/50 px-1.5 py-0.5 rounded border border-rose-700/30">
-                                  Membre
-                                </span>
-                              </span>
-                              <span className="text-rose-300 text-[9px] font-medium opacity-85 block mt-0.5">
-                                {new Date(post.createdAt || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Content text */}
-                        {post.text && (
-                          <div className="bg-rose-900/35 border border-rose-700/35 p-3 rounded-xl">
-                            <p className="text-xs text-rose-100 leading-relaxed font-normal whitespace-pre-wrap">
-                              {maskUserPhone(post.text)}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Standard Inline Image attachments (Normal display, no zoom popup on click) */}
-                        {imagesList.length > 0 && (
-                          <div className={`grid gap-2 ${imagesList.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                            {imagesList.map((imgUrl, idx) => (
-                              <div 
-                                key={idx} 
-                                className="rounded-xl overflow-hidden border border-rose-700/50 bg-black/40 flex justify-center items-center max-h-56 sm:max-h-64"
-                              >
-                                <img
-                                  src={imgUrl}
-                                  alt={`Capture ${idx + 1}`}
-                                  className="w-full h-full max-h-56 sm:max-h-64 object-contain"
-                                  referrerPolicy="no-referrer"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Likes action */}
-                        <div className="flex justify-between items-center border-t border-rose-700/30 pt-2 text-rose-300">
-                          <button
-                            type="button"
-                            onClick={() => handleLikeForumPost(post.id)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-sans font-bold tracking-wide uppercase transition-all duration-150 cursor-pointer ${
-                              hasLiked
-                                ? 'bg-rose-900/90 text-amber-300 font-bold border border-amber-400/40'
-                                : 'text-rose-200 hover:bg-rose-900/50 hover:text-white border border-rose-700/40'
-                            }`}
-                          >
-                            <ThumbsUp className={`w-3 h-3 ${hasLiked ? 'fill-amber-300 stroke-amber-300' : ''}`} />
-                            <span>{post.likes || 0} Likes</span>
-                          </button>
-                        </div>
-
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-            </div>
+            <ForumTabView
+              userState={userState}
+              forumPosts={forumPosts}
+              setForumPosts={setForumPosts}
+              forumMessageInput={forumMessageInput}
+              setForumMessageInput={setForumMessageInput}
+              forumImage1={forumImage1}
+              setForumImage1={setForumImage1}
+              forumImage2={forumImage2}
+              setForumImage2={setForumImage2}
+              handlePostForumMessage={handlePostForumMessage}
+              handleLikeForumPost={handleLikeForumPost}
+              handlePostForumComment={handlePostForumComment}
+              forumCommentInputs={forumCommentInputs}
+              setForumCommentInputs={setForumCommentInputs}
+              triggerToast={triggerToast}
+              maskUserPhone={maskUserPhone}
+              t={t}
+            />
           )}
 
           {/* TEAM / MLM SYSTEM TAB */}
-          {!profileSubPage && activeTab === 'team' && (() => {
-            const getActiveUsersCount = (list: any[]) => {
-              return list.filter(u => getUserInvestedAmount(u.id) > 0).length;
-            };
-
-            if (showTeamDetailsPage) {
-              return (
-                <div className="bg-[#0b0f19] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-4 sm:pt-6 pb-6 text-white text-left animate-fadeIn">
-                  <div className="max-w-xl mx-auto w-full space-y-5 sm:space-y-6">
-                    
-                    {/* Header with back button */}
-                    <div className="flex items-center space-x-3.5 mb-2 pt-1">
-                      <button 
-                        onClick={() => setShowTeamDetailsPage(false)}
-                        className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 hover:bg-slate-800 transition-all cursor-pointer shadow-xs active:scale-95"
-                      >
-                        <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
-                      </button>
-                      <div>
-                        <span className="text-[10px] text-amber-400 font-sans font-black uppercase tracking-widest block leading-none mb-1">RÉSEAU GOLD AVENUE</span>
-                        <h2 className="font-sans font-black text-white text-base sm:text-lg uppercase tracking-tight leading-none">Détails de l'équipe</h2>
-                      </div>
-                    </div>
-
-                    {/* Level Tabs Inside the Details Page */}
-                    <div className="grid grid-cols-3 gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
-                      <button
-                        onClick={() => setReferralListTab('level1')}
-                        className={`py-3 text-center rounded-xl text-xs font-black transition-all cursor-pointer border-none outline-none ${
-                          referralListTab === 'level1'
-                            ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                            : 'text-slate-400 hover:text-white bg-transparent'
-                        }`}
-                      >
-                        🥇 Niv 1 ({level1Users.length})
-                      </button>
-                      <button
-                        onClick={() => setReferralListTab('level2')}
-                        className={`py-3 text-center rounded-xl text-xs font-black transition-all cursor-pointer border-none outline-none ${
-                          referralListTab === 'level2'
-                            ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                            : 'text-slate-400 hover:text-white bg-transparent'
-                        }`}
-                      >
-                        🥈 Niv 2 ({level2Users.length})
-                      </button>
-                      <button
-                        onClick={() => setReferralListTab('level3')}
-                        className={`py-3 text-center rounded-xl text-xs font-black transition-all cursor-pointer border-none outline-none ${
-                          referralListTab === 'level3'
-                            ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                            : 'text-slate-400 hover:text-white bg-transparent'
-                        }`}
-                      >
-                        🥉 Niv 3 ({level3Users.length})
-                      </button>
-                    </div>
-
-                    {/* Commissions and total stats banner */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-slate-900/80 p-4 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-sm text-left">
-                        <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider block">Membres Actifs</span>
-                        <span className="text-lg sm:text-xl font-sans font-black text-white block mt-1">
-                          {referralListTab === 'level1' 
-                            ? getActiveUsersCount(level1Users) 
-                            : referralListTab === 'level2' 
-                              ? getActiveUsersCount(level2Users) 
-                              : getActiveUsersCount(level3Users)}
-                        </span>
-                      </div>
-                      <div className="bg-slate-900/80 p-4 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-sm text-left">
-                        <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider block">Total Investi</span>
-                        <span className="text-lg sm:text-xl font-sans font-black text-amber-300 block mt-1">
-                          {referralListTab === 'level1' 
-                            ? getLevelInvestedAmount(level1Users).toLocaleString() 
-                            : referralListTab === 'level2' 
-                              ? getLevelInvestedAmount(level2Users).toLocaleString() 
-                              : getLevelInvestedAmount(level3Users).toLocaleString()} XOF
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* DETAILED LIST OF MEMBERS */}
-                    <div className="bg-slate-900/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-800 shadow-sm space-y-4 text-white">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                        <span className="text-[11px] text-amber-400 font-black uppercase tracking-wider block pl-0.5">
-                          LISTE DES FILLEULS : {referralListTab === 'level1' ? 'Niveau 1' : referralListTab === 'level2' ? 'Niveau 2' : 'Niveau 3'}
-                        </span>
-                        <span className="text-[9px] bg-slate-800 text-amber-300 font-bold font-mono px-2.5 py-1 rounded-full border border-slate-700 uppercase tracking-wide">
-                          {referralListTab === 'level1' ? level1Users.length : referralListTab === 'level2' ? level2Users.length : level3Users.length} membres
-                        </span>
-                      </div>
-
-                      {/* Member Items */}
-                      <div className="space-y-2.5 pt-1">
-                        {referralListTab === 'level1' && (
-                          level1Users.length === 0 ? (
-                            <div className="text-center py-8 bg-slate-950/60 rounded-2xl border border-slate-800 p-4">
-                              <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
-                                Vous n'avez pas encore de filleuls inscrits directement (Niveau 1) dans votre équipe.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2.5">
-                              {level1Users.map(u => (
-                                <div key={u.id} className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-amber-500/40 transition-colors text-white">
-                                  <div className="flex flex-col text-left">
-                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
-                                    <span className="text-xs sm:text-sm font-sans font-black text-white mt-0.5">{u.name || "Membre anonyme"}</span>
-                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
-                                  </div>
-                                  <div className="flex flex-col text-right">
-                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Montant investi</span>
-                                    <span className="text-xs sm:text-sm font-mono font-black text-amber-300 mt-0.5">{getUserInvestedAmount(u.id).toLocaleString()} XOF</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )
-                        )}
-
-                        {referralListTab === 'level2' && (
-                          level2Users.length === 0 ? (
-                            <div className="text-center py-8 bg-slate-950/60 rounded-2xl border border-slate-800 p-4">
-                              <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
-                                Aucun membre de Niveau 2 enregistré dans votre réseau.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2.5">
-                              {level2Users.map(u => (
-                                <div key={u.id} className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-amber-500/40 transition-colors text-white">
-                                  <div className="flex flex-col text-left">
-                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
-                                    <span className="text-xs sm:text-sm font-sans font-black text-white mt-0.5">{u.name || "Membre anonyme"}</span>
-                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
-                                  </div>
-                                  <div className="flex flex-col text-right">
-                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Montant investi</span>
-                                    <span className="text-xs sm:text-sm font-mono font-black text-amber-300 mt-0.5">{getUserInvestedAmount(u.id).toLocaleString()} XOF</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )
-                        )}
-
-                        {referralListTab === 'level3' && (
-                          level3Users.length === 0 ? (
-                            <div className="text-center py-8 bg-slate-950/60 rounded-2xl border border-slate-800 p-4">
-                              <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
-                                Aucun membre de Niveau 3 enregistré dans votre réseau.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2.5">
-                              {level3Users.map(u => (
-                                <div key={u.id} className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-amber-500/40 transition-colors text-white">
-                                  <div className="flex flex-col text-left">
-                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Membre parrainé</span>
-                                    <span className="text-xs sm:text-sm font-sans font-black text-white mt-0.5">{u.name || "Membre anonyme"}</span>
-                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{maskPhoneNumber(u.whatsapp || u.id)}</span>
-                                  </div>
-                                  <div className="flex flex-col text-right">
-                                    <span className="text-[10px] text-amber-400/80 font-extrabold uppercase tracking-wider">Montant investi</span>
-                                    <span className="text-xs sm:text-sm font-mono font-black text-amber-300 mt-0.5">{getUserInvestedAmount(u.id).toLocaleString()} XOF</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div className="bg-[#0b0f19] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-4 sm:pt-6 pb-6 text-white text-left animate-fadeIn animate-duration-300">
-                <div className="max-w-xl mx-auto w-full space-y-4 sm:space-y-5">
-                  
-                  {/* INVITATION REWARDS SECTION */}
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* Header with Star */}
-                    <div className="flex items-center justify-between pl-1">
-                      <div className="space-y-0.5">
-                        <h2 className="text-lg sm:text-2xl font-sans font-black tracking-tight text-white">
-                          Récompenses d'invitation
-                        </h2>
-                        <p className="text-xs text-amber-300 font-bold">
-                          Investissez ensemble, enrichissez-vous ensemble
-                        </p>
-                      </div>
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-300 border border-amber-500/30 text-xl sm:text-2xl">
-                        🌟
-                      </div>
-                    </div>
-
-                    {/* Invitation Cards */}
-                    <div className="space-y-2.5 sm:space-y-3">
-                      {/* Invitation Code Card */}
-                      <div className="bg-slate-900/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-slate-800 shadow-sm transition-transform hover:scale-[1.01] text-white">
-                        <div className="flex items-center space-x-3 sm:space-x-4">
-                          <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                            <Copy className="w-5 h-5 stroke-[2.25]" />
-                          </div>
-                          <div>
-                            <span className="text-[10px] sm:text-[11px] text-amber-400 font-black uppercase tracking-wider block">Code d'invitation</span>
-                            <span className="text-sm sm:text-lg font-sans font-black text-white block mt-0.5 select-all">{userState.referralCode}</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={handleCopyCode}
-                          className="px-4 py-2 sm:px-5 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] sm:text-[11px] font-black rounded-xl shadow-md transition-all active:scale-95 duration-150 uppercase tracking-widest cursor-pointer border-none outline-none"
-                        >
-                          {copiedCode ? "Copié !" : "Copier"}
-                        </button>
-                      </div>
-
-                      {/* Invitation Link Card */}
-                      <div className="bg-slate-900/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border border-slate-800 shadow-sm transition-transform hover:scale-[1.01] text-white">
-                        <div className="flex items-center space-x-3 sm:space-x-4 overflow-hidden mr-2">
-                          <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                            <Share className="w-5 h-5 stroke-[2.25]" />
-                          </div>
-                          <div className="overflow-hidden">
-                            <span className="text-[10px] sm:text-[11px] text-amber-400 font-black uppercase tracking-wider block">Lien d'invitation</span>
-                            <span className="text-xs font-sans font-bold text-slate-300 block mt-0.5 truncate select-all">{referralURL}</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={handleCopyLink}
-                          className="px-4 py-2 sm:px-5 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] sm:text-[11px] font-black rounded-xl shadow-md transition-all active:scale-95 duration-150 uppercase tracking-widest cursor-pointer border-none outline-none shrink-0"
-                        >
-                          {copiedLink ? "Copié !" : "Copier"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* TEAM LEVELS SECTION */}
-                  <div className="space-y-3 pt-1">
-                    <div className="flex items-center justify-between pl-1">
-                      <h3 className="font-sans font-black text-white text-sm sm:text-base uppercase tracking-tight">
-                        Niveau d'équipe
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setShowTeamDetailsPage(true);
-                        }}
-                        className="text-amber-400 hover:text-amber-300 text-xs font-extrabold flex items-center space-x-1 uppercase tracking-wider cursor-pointer bg-transparent border-none outline-none"
-                      >
-                        <span>Détails de l'équipe</span>
-                        <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
-                      </button>
-                    </div>
-
-                    {/* Level Cards */}
-                    <div className="space-y-2.5">
-                      
-                      {/* Level 1 (N1) - Golden Card */}
-                      <div 
-                        onClick={() => {
-                          setReferralListTab('level1');
-                          setShowTeamDetailsPage(true);
-                        }}
-                        className={`bg-slate-900/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
-                          referralListTab === 'level1' 
-                            ? 'border-amber-400 ring-2 ring-amber-400/40 scale-[1.01]' 
-                            : 'border-slate-800 hover:border-amber-500/40'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
-                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl filter drop-shadow-sm shrink-0">
-                            🥇
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-2 sm:gap-4 flex-1 text-left">
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-amber-300 block leading-tight">{mlmRates.level1 !== undefined ? mlmRates.level1 : 30}%</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Taux Niv 1</span>
-                            </div>
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-white block leading-tight">{level1Users.length}</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
-                            </div>
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-emerald-400 block leading-tight">{getActiveUsersCount(level1Users)}</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Activé</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-amber-400 pl-1.5">
-                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                        </div>
-                      </div>
-
-                      {/* Level 2 (N2) - Silver Card */}
-                      <div 
-                        onClick={() => {
-                          setReferralListTab('level2');
-                          setShowTeamDetailsPage(true);
-                        }}
-                        className={`bg-slate-900/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
-                          referralListTab === 'level2' 
-                            ? 'border-amber-400 ring-2 ring-amber-400/40 scale-[1.01]' 
-                            : 'border-slate-800 hover:border-amber-500/40'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
-                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-2xl filter drop-shadow-sm shrink-0">
-                            🥈
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-2 sm:gap-4 flex-1 text-left">
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-amber-300 block leading-tight">{mlmRates.level2 !== undefined ? mlmRates.level2 : 2}%</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Taux Niv 2</span>
-                            </div>
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-white block leading-tight">{level2Users.length}</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
-                            </div>
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-emerald-400 block leading-tight">{getActiveUsersCount(level2Users)}</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Activé</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-amber-400 pl-1.5">
-                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                        </div>
-                      </div>
-
-                      {/* Level 3 (N3) - Bronze Card */}
-                      <div 
-                        onClick={() => {
-                          setReferralListTab('level3');
-                          setShowTeamDetailsPage(true);
-                        }}
-                        className={`bg-slate-900/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex items-center justify-between border transition-all duration-200 cursor-pointer ${
-                          referralListTab === 'level3' 
-                            ? 'border-amber-400 ring-2 ring-amber-400/40 scale-[1.01]' 
-                            : 'border-slate-800 hover:border-amber-500/40'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 sm:space-x-5 flex-1">
-                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-900/30 border border-amber-700/40 flex items-center justify-center text-2xl filter drop-shadow-sm shrink-0">
-                            🥉
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-2 sm:gap-4 flex-1 text-left">
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-amber-300 block leading-tight">{mlmRates.level3 !== undefined ? mlmRates.level3 : 1}%</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Taux Niv 3</span>
-                            </div>
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-white block leading-tight">{level3Users.length}</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Total invité</span>
-                            </div>
-                            <div>
-                              <span className="text-base sm:text-lg font-sans font-black text-emerald-400 block leading-tight">{getActiveUsersCount(level3Users)}</span>
-                              <span className="text-[8.5px] sm:text-[10px] text-slate-400 font-black uppercase tracking-tight block mt-0.5">Activé</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-amber-400 pl-1.5">
-                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* COMMISSIONS SUMMARY CARD */}
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex items-center justify-between shadow-xs text-white">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-base sm:text-lg border border-amber-500/30">
-                        💰
-                      </div>
-                      <div>
-                        <span className="text-[8.5px] sm:text-[9px] text-amber-400 font-black uppercase tracking-wider block">SOLDE DE COMMISSIONS</span>
-                        <span className="text-sm sm:text-base font-black text-amber-300 block mt-0.5">
-                          {commissions.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()} XOF
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[8.5px] sm:text-[9px] text-amber-400 font-black uppercase tracking-wider block">TOTAL INVITÉS</span>
-                      <span className="text-xs sm:text-sm font-black text-white block mt-0.5">
-                        {totalReferrals} membres
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 5-LINE EXPLANATION OF REFERRAL & COMMISSIONS */}
-                  <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3 text-slate-800">
-                    <div className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5">
-                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm sm:text-base shrink-0 border border-amber-200">
-                        ℹ️
-                      </div>
-                      <div>
-                        <h3 className="font-sans font-black text-slate-900 text-xs sm:text-sm uppercase tracking-tight">
-                          Fonctionnement du Parrainage & Commissions
-                        </h3>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-slate-500 font-medium block">
-                          Guide et règles de redistribution
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 5-Line Clear Explanation */}
-                    <div className="space-y-2 text-left">
-                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
-                        <span className="text-amber-500 font-bold shrink-0">1.</span>
-                        <p>Partagez votre code ou votre lien d'invitation personnel copiable directement auprès de vos contacts ou sur vos réseaux sociaux.</p>
-                      </div>
-                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
-                        <span className="text-amber-500 font-bold shrink-0">2.</span>
-                        <p>Dès qu'un nouveau membre s'inscrit via votre lien, il est automatiquement intégré à votre réseau de filleuls.</p>
-                      </div>
-                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
-                        <span className="text-amber-500 font-bold shrink-0">3.</span>
-                        <p>À chaque souscription d'un plan d'investissement par un membre de votre réseau, une commission proportionnelle est créditée sur votre solde.</p>
-                      </div>
-                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
-                        <span className="text-amber-500 font-bold shrink-0">4.</span>
-                        <p>Les taux de commission s'appliquent sur 3 niveaux : <strong className="text-amber-600 font-bold">Niveau 1 ({mlmRates.level1 !== undefined ? mlmRates.level1 : 30}%)</strong>, <strong className="text-amber-600 font-bold">Niveau 2 ({mlmRates.level2 !== undefined ? mlmRates.level2 : 2}%)</strong> et <strong className="text-amber-600 font-bold">Niveau 3 ({mlmRates.level3 !== undefined ? mlmRates.level3 : 1}%)</strong>.</p>
-                      </div>
-                      <div className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-500 leading-relaxed font-medium">
-                        <span className="text-amber-500 font-bold shrink-0">5.</span>
-                        <p className="text-[10px] sm:text-[11px] text-slate-500">Les commissions sont conditionnées par l'activité réelle et les investissements validés de vos filleuls ; aucun gain n'est garanti sans souscription active.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            );
-          })()}
+          {!profileSubPage && activeTab === 'team' && (
+            <TeamTabView
+              userState={userState}
+              referralURL={referralURL}
+              copiedCode={copiedCode}
+              copiedLink={copiedLink}
+              handleCopyCode={handleCopyCode}
+              handleCopyLink={handleCopyLink}
+              showTeamDetailsPage={showTeamDetailsPage}
+              setShowTeamDetailsPage={setShowTeamDetailsPage}
+              referralListTab={referralListTab}
+              setReferralListTab={setReferralListTab}
+              level1Users={level1Users}
+              level2Users={level2Users}
+              level3Users={level3Users}
+              getUserInvestedAmount={getUserInvestedAmount}
+              getLevelInvestedAmount={getLevelInvestedAmount}
+              maskPhoneNumber={maskPhoneNumber}
+              mlmRates={mlmRates}
+              commissions={commissions}
+              totalReferrals={totalReferrals}
+              setActiveTab={setActiveTab}
+              t={t}
+            />
+          )}
 
           {/* USER PROFILE */}
-          {!profileSubPage && activeTab === 'profile' && (() => {
-            const rechargeSum = allDeposits.filter(d => d.status === 'approved').reduce((acc, d) => acc + d.amount, 0);
-            const purchaseSum = activeInvestments.reduce((acc, i) => acc + i.price, 0);
-            const rechargeBal = Math.max(0, rechargeSum - purchaseSum);
-            const totalProductRevenue = activeInvestments.reduce((acc, i) => acc + (i.totalReturnClaimed || 0), 0);
-            const totalCommissions = commissions.reduce((acc, c) => acc + c.amount, 0);
-            const activeInvsCount = activeInvestments.filter(i => i.status === 'active').length;
+          {!profileSubPage && activeTab === 'profile' && (
+            <ProfileTabView
+              userState={userState}
+              setActiveTab={setActiveTab}
+              setProfileSubPage={setProfileSubPage}
+              setIsSupportPageOpen={setIsSupportPageOpen}
+              unreadSupportCount={unreadSupportCount}
+              currentLanguage={currentLanguage}
+              setCurrentLanguage={setCurrentLanguage}
+              setIsAdminMode={setIsAdminMode}
+              onLogout={onLogout}
+              triggerToast={triggerToast}
+            />
+          )}
 
-            const todayDateString = new Date().toDateString();
-            const todayWithdrawals = (allWithdrawals || [])
-              .filter(w => new Date(w.createdAt).toDateString() === todayDateString)
-              .reduce((acc, w) => acc + w.amount, 0);
-
-            const totalApprovedWithdrawals = (allWithdrawals || [])
-              .filter(w => w.status === 'approved')
-              .reduce((acc, w) => acc + w.amount, 0);
-
-            const totalTeamSize = level1Users.length + level2Users.length + level3Users.length;
-
-            const todayEarned = activeInvestments
-              .filter(i => i.status === 'active')
-              .reduce((acc, i) => acc + (i.dailyReturn || 0), 0);
-
-            return (
-              <div className="bg-[#070209] -mx-3 sm:-mx-5 md:-mx-8 xl:-mx-16 -mt-3.5 px-3.5 sm:px-5 md:px-8 xl:px-16 pt-3 sm:pt-5 pb-8 text-rose-100 min-h-screen text-left animate-fadeIn">
-                <div className="max-w-md mx-auto w-full space-y-3">
-                  
-                  {/* TOP WALLET / PROFILE STATS CARD - NOIR & ROSE PRESTIGE */}
-                  <div className="bg-gradient-to-br from-[#0e0312] via-[#1a0522] to-[#2d0739] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-[0_4px_30px_rgba(244,63,94,0.18)] border-2 border-rose-500/40 relative overflow-hidden text-rose-100" id="mon-compte-wallet-card">
-                    {/* Glowing background ambiance */}
-                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-rose-500/15 rounded-full blur-2xl pointer-events-none" />
-
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-2.5 relative z-10">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-500 text-black flex items-center justify-center shadow-md font-black shrink-0">
-                          <Wallet className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <div>
-                          <h3 className="font-sans font-black text-sm sm:text-base text-rose-100 tracking-tight uppercase">
-                            Mon Portefeuille
-                          </h3>
-                          <span className="text-[10.5px] text-rose-400 font-bold uppercase tracking-wider block">
-                            Solde & Synthèse
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setActiveTab('deposit')}
-                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-black font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer shadow-md shadow-rose-950/40"
-                        >
-                          + Recharger
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('withdraw')}
-                          className="px-3 py-1.5 rounded-xl bg-[#190621] hover:bg-[#250932] text-rose-300 border border-rose-500/50 font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer"
-                        >
-                          Retirer
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Balance - Enlarged */}
-                    <div className="mt-4 pt-3 pb-2 border-t border-rose-900/40 relative z-10">
-                      <span className="text-xs font-black text-rose-400 uppercase tracking-widest block">
-                        💰 SOLDE DISPONIBLE
-                      </span>
-                      <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-3xl sm:text-4xl md:text-5xl font-black text-rose-100 font-mono tracking-tight drop-shadow-[0_2px_18px_rgba(244,63,94,0.4)]">
-                          {userState.balance.toLocaleString()}
-                        </span>
-                        <span className="text-base sm:text-xl font-black text-rose-400 font-sans">
-                          F CFA
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 6 Statistics in 3 Columns x 2 Rows Grid */}
-                    <div className="grid grid-cols-3 gap-x-2 gap-y-3 mt-3 pt-3 text-center border-t border-rose-900/40 relative z-10">
-                      {/* 1. Daily Income */}
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-rose-400 font-mono block leading-tight">
-                          +{todayEarned.toLocaleString()}
-                        </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
-                          Revenu aujourd'hui
-                        </span>
-                      </div>
-
-                      {/* 2. Cumulative Income */}
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-pink-400 font-mono block leading-tight">
-                          {totalProductRevenue.toLocaleString()}
-                        </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
-                          Revenu cumulé
-                        </span>
-                      </div>
-
-                      {/* 3. Daily Withdrawals */}
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-rose-300 font-mono block leading-tight">
-                          {todayWithdrawals.toLocaleString()}
-                        </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
-                          Retirer aujourd'hui
-                        </span>
-                      </div>
-
-                      {/* 4. Total Withdrawals */}
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-rose-200 font-mono block leading-tight">
-                          {totalApprovedWithdrawals.toLocaleString()}
-                        </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
-                          Retraits totaux
-                        </span>
-                      </div>
-
-                      {/* 5. Team Size */}
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-pink-300 font-mono block leading-tight">
-                          {totalTeamSize}
-                        </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
-                          Taille de l'équipe
-                        </span>
-                      </div>
-
-                      {/* 6. Team Benefits */}
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-base font-black text-rose-400 font-mono block leading-tight">
-                          {totalCommissions.toLocaleString()}
-                        </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] text-rose-300/70 font-medium block leading-tight">
-                          Commissions d'équipe
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* FEATURE LIST CARDS - NOIR & ROSE PRESTIGE (NO TRACE OF WHITE) */}
-                  <div className="space-y-2.5 pt-0.5">
-
-                    {/* 0. Mes Commandes */}
-                    <button 
-                      onClick={() => setProfileSubPage('orders')}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-mes-commandes"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <ShoppingBag className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <div className="ml-3.5 flex flex-col min-w-0">
-                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 leading-snug break-words group-hover:text-rose-200">Mes Commandes</span>
-                          <span className="text-[10px] sm:text-[11px] text-rose-300/60 font-medium truncate">
-                            {activeInvestments.length > 0 ? `${activeInvestments.length} équipement(s) souscrit(s)` : 'Historique & suivi des équipements'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {activeInvestments.filter(i => i.status === 'active').length > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-[#2b0834] text-rose-300 text-[10px] font-black border border-rose-500/40">
-                            {activeInvestments.filter(i => i.status === 'active').length} actif{activeInvestments.filter(i => i.status === 'active').length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                      </div>
-                    </button>
-
-                    {/* Historique des revenus */}
-                    <button 
-                      onClick={() => setProfileSubPage('revenue-history')}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-historique-revenus"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <Coins className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <div className="ml-3.5 flex flex-col min-w-0">
-                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 leading-snug break-words group-hover:text-rose-200">Historique des revenus</span>
-                          <span className="text-[10px] sm:text-[11px] text-rose-300/60 font-medium truncate">
-                            Revenus & bénéfices des cycles de produits terminés
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
-                    {/* 1. Carte bancaire */}
-                    <button 
-                      onClick={() => {
-                        setBankCardError('');
-                        setBankCardSuccess('');
-                        setProfileSubPage('bank');
-                      }}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-carte-bancaire"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <CreditCard className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Carte bancaire</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
-                    {/* 2. Recharger l'enregistrement */}
-                    <button 
-                      onClick={() => setProfileSubPage('recharge-history')}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-recharger-enregistrement"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <History className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Recharger l'enregistrement</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
-                    {/* 3. Relevé des renseignements */}
-                    <button 
-                      onClick={() => setProfileSubPage('withdraw-history')}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-releve-des-renseignements"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <ArrowDownLeft className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Relevé des renseignements</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
-                    {/* 4. Modifier le mot de passe */}
-                    <button 
-                      onClick={() => {
-                        setPwdError('');
-                        setPwdSuccess('');
-                        setOldPassword('');
-                        setNewPassword('');
-                        setConfirmNewPassword('');
-                        setProfileSubPage('password');
-                      }}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-modifier-mot-de-passe"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <Lock className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Modifier le mot de passe</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
-                    {/* 5. À propos */}
-                    <button 
-                      onClick={() => setProfileSubPage('about')}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-a-propos"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <Info className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">À propos</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
-                    {/* 6. Foire Aux Questions (FAQ) */}
-                    <button 
-                      onClick={() => setProfileSubPage('faq')}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-faq"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform">
-                          <HelpCircle className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Foire Aux Questions (FAQ)</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
-                    {/* 7. Support en ligne */}
-                    <button 
-                      onClick={() => setIsSupportPageOpen(true)}
-                      className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/40 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-service-client-chat"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:text-rose-300 transition-transform relative">
-                          <Headphones className="w-5 h-5 stroke-[2.25]" />
-                          {unreadSupportCount > 0 && (
-                            <span 
-                              id="badge-service-client-count"
-                              className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-rose-600 text-black text-[10px] font-black flex items-center justify-center shadow-md border-2 border-black animate-pulse"
-                            >
-                              {unreadSupportCount > 99 ? '99+' : unreadSupportCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="ml-3.5 flex flex-col min-w-0">
-                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 leading-snug break-words group-hover:text-rose-200">Support en ligne</span>
-                          <span className="text-[10px] sm:text-[11px] text-rose-300/60 font-medium truncate">
-                            {unreadSupportCount > 0 
-                              ? `${unreadSupportCount} nouveau${unreadSupportCount > 1 ? 'x' : ''} message${unreadSupportCount > 1 ? 's' : ''}` 
-                              : 'Recharge non reçue, Canal WhatsApp, Conseiller'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {unreadSupportCount > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 text-[10px] sm:text-[11px] font-black border border-rose-700/50">
-                            {unreadSupportCount}
-                          </span>
-                        )}
-                        <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                      </div>
-                    </button>
-
-                    {/* 8. Panneau Administratif (if admin) */}
-                    {userState.role === 'admin' && (
-                      <button 
-                        onClick={() => {
-                          setIsAdminMode(true);
-                          triggerToast("🔑 Mode Administrateur Activé", "success");
-                        }}
-                        className="w-full bg-[#0d0411] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/50 flex items-center justify-between hover:bg-[#18071f] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                        id="card-panneau-administratif"
-                      >
-                        <div className="flex items-center flex-1 min-w-0 pr-2">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#23072b] to-[#140319] border border-rose-500/30 text-rose-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
-                            <Lock className="w-5 h-5 stroke-[2.25]" />
-                          </div>
-                          <span className="font-bold text-sm sm:text-[15px] text-rose-100 ml-3.5 leading-snug break-words group-hover:text-rose-200">Panneau Administratif</span>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-rose-600/70 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                      </button>
-                    )}
-
-                    {/* 9. Déconnexion */}
-                    <button 
-                      onClick={onLogout}
-                      className="w-full bg-[#130308] rounded-2xl p-3 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-rose-900/60 flex items-center justify-between hover:bg-[#1f050d] active:scale-[0.99] transition-all cursor-pointer text-left outline-none group"
-                      id="card-deconnexion"
-                    >
-                      <div className="flex items-center flex-1 min-w-0 pr-2">
-                        <div className="w-10 h-10 rounded-xl bg-[#280610] border border-rose-800/40 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                          <LogOut className="w-5 h-5 stroke-[2.25]" />
-                        </div>
-                        <span className="font-bold text-sm sm:text-[15px] text-rose-400 ml-3.5 leading-snug break-words">Se déconnecter</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-rose-700/60 shrink-0 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                  </div>
-
-                </div>
-              </div>
-            );
-          })()}
         </main>
       )}
 
       {/* DASHBOARD MOBILE FIXED BOTTOM NAVIGATION */}
-      <footer className="fixed bottom-0 left-0 right-0 py-1.5 px-2 sm:px-4 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-[0_-2px_12px_rgba(0,0,0,0.04)]">
+      <footer className="fixed bottom-0 left-0 right-0 py-2 px-2 sm:px-4 bg-white/95 backdrop-blur-md border-t border-slate-100 z-40 shadow-[0_-2px_12px_rgba(0,0,0,0.04)]">
         <div className="max-w-md mx-auto grid grid-cols-4 items-center">
           
           {/* 1. Accueil */}
@@ -7613,17 +6108,22 @@ export default function Dashboard({
             }}
             className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'dashboard' && !isAdminMode 
-                ? 'text-red-600 font-black' 
+                ? 'text-[#D49A22] font-black' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
             id="tab-nav-accueil"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'dashboard' && !isAdminMode ? 'text-red-600' : 'text-slate-400'
+              activeTab === 'dashboard' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
             }`}>
               <Home className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Accueil', 'Home')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+              {t('Accueil', 'Home')}
+            </span>
+            {activeTab === 'dashboard' && !isAdminMode && (
+              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+            )}
           </button>
 
           {/* 2. Produit */}
@@ -7636,17 +6136,22 @@ export default function Dashboard({
             }}
             className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'products' && !isAdminMode 
-                ? 'text-red-600 font-black' 
+                ? 'text-[#D49A22] font-black' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
             id="tab-nav-produit"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'products' && !isAdminMode ? 'text-red-600' : 'text-slate-400'
+              activeTab === 'products' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
             }`}>
               <Package className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Produit', 'Products')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+              {t('Produit', 'Products')}
+            </span>
+            {activeTab === 'products' && !isAdminMode && (
+              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+            )}
           </button>
   
           {/* 3. Forum */}
@@ -7659,17 +6164,22 @@ export default function Dashboard({
             }}
             className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'forum' && !isAdminMode 
-                ? 'text-red-600 font-black' 
+                ? 'text-[#D49A22] font-black' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
             id="tab-nav-forum"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'forum' && !isAdminMode ? 'text-red-600' : 'text-slate-400'
+              activeTab === 'forum' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
             }`}>
               <MessageSquare className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Forum', 'Forum')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+              {t('Forum', 'Forum')}
+            </span>
+            {activeTab === 'forum' && !isAdminMode && (
+              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+            )}
           </button>
   
           {/* 4. Portefeuille */}
@@ -7682,17 +6192,22 @@ export default function Dashboard({
             }}
             className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
               activeTab === 'profile' && !isAdminMode 
-                ? 'text-red-600 font-black' 
+                ? 'text-[#D49A22] font-black' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
-            id="tab-nav-portefeuille"
+            id="tab-nav-profil"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'profile' && !isAdminMode ? 'text-red-600' : 'text-slate-400'
+              activeTab === 'profile' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
             }`}>
               <Wallet className="w-5 h-5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">{t('Portefeuille', 'Wallet')}</span>
+            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+              {t('Portefeuille', 'Wallet')}
+            </span>
+            {activeTab === 'profile' && !isAdminMode && (
+              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+            )}
           </button>
  
         </div>
@@ -7702,7 +6217,7 @@ export default function Dashboard({
       <div className="fixed right-3.5 bottom-15 z-45 sm:right-5 sm:bottom-16">
         <button
           onClick={() => setIsSupportPageOpen(true)}
-          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-900 hover:bg-slate-800 border-2 border-white text-white flex items-center justify-center shadow-lg active:scale-95 duration-150 transition-all cursor-pointer relative"
+          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#d9962a] via-[#e5a836] to-[#f2bb45] hover:brightness-105 border-2 border-white text-white flex items-center justify-center shadow-lg active:scale-95 duration-150 transition-all cursor-pointer relative"
           title="Assistance & Support en ligne"
           id="btn-floating-support-headset"
         >

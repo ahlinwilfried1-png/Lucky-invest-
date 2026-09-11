@@ -639,9 +639,22 @@ const SERVER_DEFAULT_PRODUCTS = [
       modified = true;
     }
 
-    if (storeData["gi_category_schedules"] && storeData["gi_category_schedules"].activity) {
-      delete storeData["gi_category_schedules"].activity;
+    if (!storeData["gi_category_schedules"]) {
+      storeData["gi_category_schedules"] = JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES));
       modified = true;
+    } else {
+      if (!storeData["gi_category_schedules"].wellbeing) {
+        storeData["gi_category_schedules"].wellbeing = JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES.wellbeing));
+        modified = true;
+      }
+      if (!storeData["gi_category_schedules"].withdrawals) {
+        storeData["gi_category_schedules"].withdrawals = JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES.withdrawals));
+        modified = true;
+      }
+      if (storeData["gi_category_schedules"].activity) {
+        delete storeData["gi_category_schedules"].activity;
+        modified = true;
+      }
     }
 
     // Explicitly allow real cleanup timestamps to sync with clients' browsers
@@ -2485,7 +2498,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         "gi_whatsapp_group",
         "gi_whatsapp_channel",
         "gi_whatsapp_support_number",
-        "gi_manual_deposit_numbers"
+        "gi_manual_deposit_numbers",
+        "gi_category_schedules"
       ];
 
       for (const key of Object.keys(body)) {
@@ -2728,6 +2742,25 @@ const SERVER_DEFAULT_PRODUCTS = [
           if (key === "gi_products") {
             sanitizeProductsInPlace(storeData[key]);
           }
+          modified = true;
+        } else if (key === "gi_category_schedules" && typeof newVal === 'object' && newVal) {
+          const current = storeData["gi_category_schedules"] || JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES));
+          const mergedCatSched: any = { ...current };
+          for (const cat of ['wellbeing', 'withdrawals'] as const) {
+            if (newVal[cat]) {
+              const incomingTime = Number(newVal[cat].lastModified || 0);
+              const existingTime = Number(current[cat]?.lastModified || 0);
+              if (incomingTime >= existingTime) {
+                mergedCatSched[cat] = {
+                  ...((DEFAULT_CATEGORY_SCHEDULES as any)[cat]),
+                  ...current[cat],
+                  ...newVal[cat],
+                  lastModified: incomingTime || Date.now()
+                };
+              }
+            }
+          }
+          storeData["gi_category_schedules"] = mergedCatSched;
           modified = true;
         } else {
           // Overwrite primitives directly
@@ -3185,20 +3218,28 @@ const SERVER_DEFAULT_PRODUCTS = [
     let currentSchedules = storeData["gi_category_schedules"] || JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES));
 
     if (schedules && typeof schedules === 'object') {
-      currentSchedules = {
-        ...currentSchedules,
-        ...schedules
-      };
+      for (const cat of ['wellbeing', 'withdrawals'] as const) {
+        if (schedules[cat]) {
+          currentSchedules[cat] = {
+            ...((DEFAULT_CATEGORY_SCHEDULES as any)[cat]),
+            ...((currentSchedules as any)[cat]),
+            ...schedules[cat],
+            lastModified: schedules[cat].lastModified || Date.now()
+          };
+        }
+      }
     } else if (category && (category === 'wellbeing' || category === 'withdrawals') && schedule) {
       currentSchedules[category] = {
-        ...currentSchedules[category],
+        ...((DEFAULT_CATEGORY_SCHEDULES as any)[category]),
+        ...((currentSchedules as any)[category]),
         ...schedule,
-        lastModified: Date.now()
+        lastModified: schedule.lastModified || Date.now()
       };
     }
 
     storeData["gi_category_schedules"] = currentSchedules;
-    await saveStore(["gi_category_schedules"]);
+    saveStoreLocal();
+    await saveStoreRemote(["gi_category_schedules"]);
 
     const wellbeingStatus = evaluateCategorySchedule('wellbeing', currentSchedules);
     const withdrawalsStatus = evaluateCategorySchedule('withdrawals', currentSchedules);

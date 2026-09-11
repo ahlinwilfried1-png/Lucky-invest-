@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   TrendingUp, 
@@ -139,6 +139,8 @@ export default function AdminPanel({
   const [categorySchedules, setCategorySchedules] = useState<CategorySchedules>(() => DataStore.getCategorySchedules());
   const [currentSystemTime, setCurrentSystemTime] = useState<Date>(new Date());
   const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'withdrawals' | null>(null);
+  const lastSaveScheduleTimeRef = useRef<number>(0);
+  const editingCategoryRef = useRef<'wellbeing' | 'withdrawals' | null>(null);
   const [timeInputs, setTimeInputs] = useState({
     wellbeing: {
       openTime: categorySchedules.wellbeing?.openTime || '08:00',
@@ -157,21 +159,25 @@ export default function AdminPanel({
       setCurrentSystemTime(new Date());
     }, 1000);
 
-    const handleSchedulesUpdate = () => {
-      const fresh = DataStore.getCategorySchedules();
+    const handleSchedulesUpdate = (e?: any) => {
+      // Guard against periodic sync overriding recently saved times or active edits
+      if (Date.now() - lastSaveScheduleTimeRef.current < 6000) {
+        return;
+      }
+      const fresh = (e && (e as any).detail) ? (e as any).detail : DataStore.getCategorySchedules();
       setCategorySchedules(fresh);
-      setTimeInputs({
-        wellbeing: {
+      setTimeInputs(prev => ({
+        wellbeing: editingCategoryRef.current === 'wellbeing' ? prev.wellbeing : {
           openTime: fresh.wellbeing?.openTime || '08:00',
           closeTime: fresh.wellbeing?.closeTime || '20:00',
           enabled: fresh.wellbeing?.enabled ?? true
         },
-        withdrawals: {
+        withdrawals: editingCategoryRef.current === 'withdrawals' ? prev.withdrawals : {
           openTime: fresh.withdrawals?.openTime || '09:00',
           closeTime: fresh.withdrawals?.closeTime || '17:00',
           enabled: fresh.withdrawals?.enabled ?? true
         }
-      });
+      }));
     };
 
     window.addEventListener('gi_category_schedules_updated', handleSchedulesUpdate);
@@ -189,6 +195,7 @@ export default function AdminPanel({
     updates: Partial<CategorySchedule>
   ) => {
     setIsSavingSchedule(category);
+    lastSaveScheduleTimeRef.current = Date.now();
     try {
       const current = { ...categorySchedules };
       const updatedCat: CategorySchedule = {
@@ -202,7 +209,17 @@ export default function AdminPanel({
       };
 
       setCategorySchedules(newSchedules);
-      DataStore.saveCategorySchedules(newSchedules, true);
+      setTimeInputs(prev => ({
+        ...prev,
+        [category]: {
+          openTime: updatedCat.openTime,
+          closeTime: updatedCat.closeTime,
+          enabled: updatedCat.enabled
+        }
+      }));
+
+      // Await saving to client storage, server and Supabase
+      await DataStore.saveCategorySchedules(newSchedules, true);
 
       const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Retraits';
       let actionLabel = 'mis à jour';
@@ -212,13 +229,13 @@ export default function AdminPanel({
 
       setNotification({
         type: 'success',
-        message: `✨ Opérations ${catLabel} ${actionLabel}. Enregistré et synchronisé avec Supabase.`
+        message: `✨ Opérations ${catLabel} ${actionLabel}. Enregistré définitivement et synchronisé.`
       });
       onRefreshData();
     } catch (e: any) {
       setNotification({
         type: 'error',
-        message: `Erreur lors de l'enregistrement : ${e.message}`
+        message: `Erreur lors de l'enregistrement : ${e?.message || 'Erreur réseau'}`
       });
     } finally {
       setIsSavingSchedule(null);
@@ -3074,6 +3091,8 @@ export default function AdminPanel({
                             <input
                               type="time"
                               value={timeInputs[cat].openTime}
+                              onFocus={() => { editingCategoryRef.current = cat; }}
+                              onBlur={() => { editingCategoryRef.current = null; }}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 setTimeInputs(prev => ({
@@ -3092,6 +3111,8 @@ export default function AdminPanel({
                             <input
                               type="time"
                               value={timeInputs[cat].closeTime}
+                              onFocus={() => { editingCategoryRef.current = cat; }}
+                              onBlur={() => { editingCategoryRef.current = null; }}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 setTimeInputs(prev => ({
