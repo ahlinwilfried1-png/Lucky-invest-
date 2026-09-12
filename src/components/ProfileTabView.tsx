@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Smartphone,
   LogOut,
-  Lock
+  Lock,
+  Megaphone
 } from 'lucide-react';
 
 interface ProfileTabViewProps {
@@ -33,6 +34,7 @@ interface ProfileTabViewProps {
   setProfileSubPage: (page: any) => void;
   setIsSupportPageOpen: (open: boolean) => void;
   unreadSupportCount: number;
+  unreadAnnouncementsCount?: number;
   currentLanguage: 'fr' | 'en';
   setCurrentLanguage: (lang: 'fr' | 'en') => void;
   setIsAdminMode: (admin: boolean) => void;
@@ -46,6 +48,7 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
   setProfileSubPage,
   setIsSupportPageOpen,
   unreadSupportCount,
+  unreadAnnouncementsCount = 0,
   currentLanguage,
   setCurrentLanguage,
   setIsAdminMode,
@@ -316,16 +319,21 @@ export const ProfileTabView: React.FC<ProfileTabViewProps> = ({
               <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-none">Aide</span>
             </button>
 
-            {/* 2. Centre de missions */}
+            {/* 2. Annonces */}
             <button
-              onClick={() => setProfileSubPage('wheel')}
-              className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none"
-              id="service-missions"
+              onClick={() => setProfileSubPage('annonces')}
+              className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none relative"
+              id="service-annonces"
             >
-              <div className="w-9 h-9 rounded-full bg-[#fef8e7] text-[#e08e1a] border border-amber-100/30 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <Crown className="w-4 h-4 stroke-[2.2]" />
+              <div className="w-9 h-9 rounded-full bg-[#fef3eb] text-[#d97706] border border-amber-200/40 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform relative">
+                <Megaphone className="w-4 h-4 stroke-[2.2]" />
+                {unreadAnnouncementsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs animate-pulse">
+                    {unreadAnnouncementsCount > 99 ? '99+' : unreadAnnouncementsCount}
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-tight">Missions</span>
+              <span className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 mt-1 block leading-tight">Annonces</span>
             </button>
 
             {/* 3. Telegram */}

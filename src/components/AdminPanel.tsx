@@ -30,7 +30,7 @@ import {
   Save,
   Database
 } from 'lucide-react';
-import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules } from '../types';
+import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules, Announcement } from '../types';
 import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore } from '../dataStore';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, subscribeToSupabaseRealtime } from '../supabase';
 
@@ -120,12 +120,98 @@ export default function AdminPanel({
   const [supabaseTestResult, setSupabaseTestResult] = useState<any>(null);
 
   // Navigation tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'deposits' | 'withdrawals' | 'products' | 'platform' | 'transactions' | 'support' | 'proofs' | 'investments'>('deposits');
+  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'deposits' | 'withdrawals' | 'products' | 'platform' | 'transactions' | 'support' | 'proofs' | 'investments' | 'annonces'>('deposits');
   const activeAdminTabRef = React.useRef(activeAdminTab);
   React.useEffect(() => {
     activeAdminTabRef.current = activeAdminTab;
   }, [activeAdminTab]);
   const [commissions, setCommissions] = useState<any[]>(() => DataStore.getCommissions());
+
+  // Announcements state
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => DataStore.getAnnouncements());
+  const [annTitle, setAnnTitle] = useState<string>('');
+  const [annContent, setAnnContent] = useState<string>('');
+  const [annCategory, setAnnCategory] = useState<'officiel' | 'important' | 'promotion' | 'maintenance' | 'info'>('officiel');
+  const [annAuthor, setAnnAuthor] = useState<string>('Direction Gold Avenue');
+  const [annPinned, setAnnPinned] = useState<boolean>(false);
+  const [isPublishingAnn, setIsPublishingAnn] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    const handleAnnUpdate = () => {
+      setAnnouncements(DataStore.getAnnouncements());
+    };
+    window.addEventListener('gi_announcements_updated', handleAnnUpdate);
+    return () => {
+      window.removeEventListener('gi_announcements_updated', handleAnnUpdate);
+    };
+  }, []);
+
+  const handlePublishAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!annTitle.trim() || !annContent.trim()) {
+      setNotification({ message: 'Veuillez renseigner le titre et le texte de l\'annonce.', type: 'error' });
+      setTimeout(() => setNotification(null), 4000);
+      return;
+    }
+
+    try {
+      setIsPublishingAnn(true);
+      DataStore.publishAnnouncement({
+        title: annTitle.trim(),
+        content: annContent.trim(),
+        category: annCategory,
+        author: annAuthor.trim() || 'Direction Gold Avenue',
+        pinned: annPinned
+      });
+
+      // Synchronisation Supabase / Backend
+      try {
+        await syncWithBackend();
+      } catch (e) {
+        console.warn('Sync backend error', e);
+      }
+
+      setAnnouncements(DataStore.getAnnouncements());
+      setAnnTitle('');
+      setAnnContent('');
+      setAnnPinned(false);
+
+      setNotification({
+        message: '📢 Annonce officielle publiée et enregistrée dans Supabase !',
+        type: 'success'
+      });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err: any) {
+      setNotification({
+        message: 'Erreur lors de la publication : ' + (err?.message || 'Inconnue'),
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 4000);
+    } finally {
+      setIsPublishingAnn(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (annId: string) => {
+    if (!window.confirm('Voulez-vous supprimer cette annonce pour tous les utilisateurs ?')) {
+      return;
+    }
+
+    try {
+      DataStore.deleteAnnouncement(annId);
+      try {
+        await syncWithBackend();
+      } catch (e) {
+        console.warn('Sync backend error', e);
+      }
+      setAnnouncements(DataStore.getAnnouncements());
+      setNotification({ message: 'Annonce supprimée avec succès.', type: 'success' });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      setNotification({ message: 'Erreur lors de la suppression.', type: 'error' });
+      setTimeout(() => setNotification(null), 4000);
+    }
+  };
 
   // Forum sub-tab state
   const [proofsSubTab, setProofsSubTab] = useState<'avis' | 'forum'>('avis');
@@ -138,9 +224,9 @@ export default function AdminPanel({
   // Category & Operations Schedules Management (Bien-être & Retraits)
   const [categorySchedules, setCategorySchedules] = useState<CategorySchedules>(() => DataStore.getCategorySchedules());
   const [currentSystemTime, setCurrentSystemTime] = useState<Date>(new Date());
-  const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'withdrawals' | null>(null);
+  const [isSavingSchedule, setIsSavingSchedule] = useState<'wellbeing' | 'withdrawals' | 'activity' | null>(null);
   const lastSaveScheduleTimeRef = useRef<number>(0);
-  const editingCategoryRef = useRef<'wellbeing' | 'withdrawals' | null>(null);
+  const editingCategoryRef = useRef<'wellbeing' | 'withdrawals' | 'activity' | null>(null);
   const [timeInputs, setTimeInputs] = useState({
     wellbeing: {
       openTime: categorySchedules.wellbeing?.openTime || '08:00',
@@ -151,6 +237,11 @@ export default function AdminPanel({
       openTime: categorySchedules.withdrawals?.openTime || '09:00',
       closeTime: categorySchedules.withdrawals?.closeTime || '17:00',
       enabled: categorySchedules.withdrawals?.enabled ?? true
+    },
+    activity: {
+      openTime: categorySchedules.activity?.openTime || '08:00',
+      closeTime: categorySchedules.activity?.closeTime || '20:00',
+      enabled: categorySchedules.activity?.enabled ?? true
     }
   });
 
@@ -176,6 +267,11 @@ export default function AdminPanel({
           openTime: fresh.withdrawals?.openTime || prev.withdrawals.openTime,
           closeTime: fresh.withdrawals?.closeTime || prev.withdrawals.closeTime,
           enabled: fresh.withdrawals?.enabled ?? prev.withdrawals.enabled
+        },
+        activity: editingCategoryRef.current === 'activity' ? prev.activity : {
+          openTime: fresh.activity?.openTime || prev.activity.openTime,
+          closeTime: fresh.activity?.closeTime || prev.activity.closeTime,
+          enabled: fresh.activity?.enabled ?? prev.activity.enabled
         }
       }));
     };
@@ -206,15 +302,21 @@ export default function AdminPanel({
   }, []);
 
   const handleUpdateCategorySchedule = async (
-    category: 'wellbeing' | 'withdrawals',
+    category: 'wellbeing' | 'withdrawals' | 'activity',
     updates: Partial<CategorySchedule>
   ) => {
     setIsSavingSchedule(category);
     lastSaveScheduleTimeRef.current = Date.now();
     try {
       const current = { ...categorySchedules };
+      const baseCat = current[category] || (DEFAULT_CATEGORY_SCHEDULES as any)[category] || {
+        mode: 'open',
+        openTime: '08:00',
+        closeTime: '20:00',
+        enabled: true
+      };
       const updatedCat: CategorySchedule = {
-        ...current[category],
+        ...baseCat,
         ...updates,
         lastModified: Date.now()
       };
@@ -236,7 +338,7 @@ export default function AdminPanel({
       // Await saving to client storage, server and Supabase
       await DataStore.saveCategorySchedules(newSchedules, true);
 
-      const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Retraits';
+      const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activités' : 'Retraits';
       let actionLabel = 'mis à jour';
       if (updates.mode === 'open') actionLabel = 'ouverts immédiatement';
       else if (updates.mode === 'closed') actionLabel = 'fermés immédiatement';
@@ -942,21 +1044,7 @@ export default function AdminPanel({
   };
 
   const handleDeleteValidatedWithdrawals = async () => {
-    if (!window.confirm("🔴 Voulez-vous vraiment supprimer définitivement tous les retraits validés et expédiés de la plateforme ? Cette action est irréversible.")) {
-      return;
-    }
-    try {
-      const resp = await apiFetch(getApiUrl('/api/admin/delete-validated-withdrawals?t=' + Date.now()));
-      if (resp.ok) {
-        const data = await resp.json();
-        alert(data.message || "Retraits validés supprimés avec succès !");
-        executeDirectCentralSync();
-      } else {
-        alert("Erreur de communication avec le serveur.");
-      }
-    } catch (err: any) {
-      alert("Erreur : " + (err.message || err));
-    }
+    alert("ℹ️ L'historique des retraits est conservé définitivement dans Supabase pour garantir la traçabilité complète des transactions des utilisateurs.");
   };
 
   // Edit user modal state
@@ -981,7 +1069,7 @@ export default function AdminPanel({
   const [editProductImageUrl, setEditProductImageUrl] = useState<string>('');
   const [editVipIsCyclic, setEditVipIsCyclic] = useState<boolean>(false);
   const [editVipGeneratedProductIds, setEditVipGeneratedProductIds] = useState<string[]>([]);
-  const [editVipCategory, setEditVipCategory] = useState<'stability' | 'wellbeing'>('stability');
+  const [editVipCategory, setEditVipCategory] = useState<'stability' | 'wellbeing' | 'activity'>('stability');
 
   // New product form state
   const [newVipLevel, setNewVipLevel] = useState(1);
@@ -993,7 +1081,8 @@ export default function AdminPanel({
   const [newVipImageUrl, setNewVipImageUrl] = useState('');
   const [newVipIsCyclic, setNewVipIsCyclic] = useState<boolean>(false);
   const [newVipGeneratedProductIds, setNewVipGeneratedProductIds] = useState<string[]>([]);
-  const [newVipCategory, setNewVipCategory] = useState<'stability' | 'wellbeing'>('stability');
+  const [newVipCategory, setNewVipCategory] = useState<'stability' | 'wellbeing' | 'activity'>('stability');
+  const [adminProductCategoryFilter, setAdminProductCategoryFilter] = useState<'all' | 'stability' | 'wellbeing' | 'activity'>('all');
 
   // Global notify state
   const [globalNotifTitle, setGlobalNotifTitle] = useState('');
@@ -2035,11 +2124,12 @@ export default function AdminPanel({
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Catégorie du Produit</label>
                 <select
                   value={editVipCategory}
-                  onChange={(e) => setEditVipCategory(e.target.value as 'stability' | 'wellbeing')}
+                  onChange={(e) => setEditVipCategory(e.target.value as 'stability' | 'wellbeing' | 'activity')}
                   className="w-full bg-slate-950/80 rounded-xl py-3 px-4 text-sm text-white focus:outline-none shadow-inner"
                 >
                   <option value="stability">Stabilité (Plans standard)</option>
                   <option value="wellbeing">Bien-être (Plans bien-être)</option>
+                  <option value="activity">Activités (Plans activités)</option>
                 </select>
               </div>
 
@@ -2271,7 +2361,17 @@ export default function AdminPanel({
           onClick={() => setActiveAdminTab('proofs')}
           className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1 ${activeAdminTab === 'proofs' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          <span>Annonces</span>
+          <span>Avis & Forum</span>
+        </button>
+        <button
+          onClick={() => {
+            setAnnouncements(DataStore.getAnnouncements());
+            setActiveAdminTab('annonces');
+          }}
+          className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1.5 ${activeAdminTab === 'annonces' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
+        >
+          <Megaphone className="w-3.5 h-3.5" />
+          <span>Annonces ({announcements.length})</span>
         </button>
       </div>
 
@@ -2611,15 +2711,10 @@ export default function AdminPanel({
                 <span className="text-[11px] text-slate-400 block mt-0.5">Total : {withdrawals.length} demandes</span>
               </div>
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <button
-                  id="btn-delete-validated-withdrawals"
-                  type="button"
-                  onClick={handleDeleteValidatedWithdrawals}
-                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-650 hover:bg-red-600 hover:text-white text-red-100 border border-red-500/20 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Supprimer Validés</span>
-                </button>
+                <div className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-950/40 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider rounded-xl">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Historique Permanent Protégé</span>
+                </div>
                 <button
                   onClick={handleExportWithdrawalsToGoogle}
                   className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer active:scale-95"
@@ -3213,7 +3308,110 @@ export default function AdminPanel({
                 <div className="bg-slate-950/35 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-slate-400 shadow-xs">
                   <span className="text-amber-400 text-sm leading-none mt-0.5">ℹ️</span>
                   <p className="text-[11.5px] leading-relaxed">
-                    <strong className="text-slate-200">Continuité garantie :</strong> Les produits déjà achetés restent actifs jusqu’à la fin de leur cycle, même si l’administrateur met les nouveaux achats sur Fermé. À la fin du cycle, les revenus prévus sont versés automatiquement au solde de l’utilisateur. Le statut est synchronisé avec Supabase et la page Produit.
+                    <strong className="text-slate-200">Règle Bien-être :</strong> Lorsqu’un utilisateur achète un produit, son revenu total est versé uniquement à la fin du cycle. Même si le produit est ensuite fermé aux nouveaux achats, les produits déjà achetés continuent leur cycle normalement et le revenu total est versé à la fin du cycle. Une fois le cycle terminé, pour faire un nouveau Bien-être, l’utilisateur doit effectuer un nouvel investissement/achat pour démarrer un nouveau cycle. La fermeture concerne uniquement les nouveaux achats et n'interrompt jamais les cycles en cours.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* CONTRÔLE DE DISPONIBILITÉ DES PRODUITS ACTIVITÉS (OUVERT / FERMÉ) */}
+          {(() => {
+            const sched = categorySchedules.activity || DEFAULT_CATEGORY_SCHEDULES.activity || { mode: 'open', openTime: '08:00', closeTime: '20:00', enabled: true };
+            const isOpen = sched.mode !== 'closed';
+            const isSaving = isSavingSchedule === 'activity';
+
+            return (
+              <div className="bg-slate-900/60 rounded-2xl p-5 sm:p-6 space-y-4 shadow-lg shadow-black/25">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-white/[0.04]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shadow-xs">
+                      <Flame className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-black text-base text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>Produits Activités</span>
+                        <span className={`text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full ${
+                          isOpen ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                        }`}>
+                          {isOpen ? 'Disponible' : 'Indisponible'}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Définir la disponibilité des produits Activités à l'achat pour les utilisateurs.
+                      </p>
+                    </div>
+                  </div>
+
+                  {isSaving && (
+                    <span className="text-xs text-purple-300 font-mono animate-pulse">
+                      Synchronisation Supabase...
+                    </span>
+                  )}
+                </div>
+
+                {/* Main Action Buttons: Ouvert / Fermé */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => handleUpdateCategorySchedule('activity', { mode: 'open' })}
+                    className={`py-3 px-4 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all cursor-pointer outline-none border-none ${
+                      isOpen
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-400/40'
+                        : 'bg-slate-950/60 text-slate-400 hover:text-emerald-300 hover:bg-slate-950/90'
+                    }`}
+                    id="admin-btn-activity-ouvert"
+                  >
+                    <Unlock className="w-4 h-4" />
+                    <span>Ouvert</span>
+                    {isOpen && <CheckCircle className="w-4 h-4 ml-1 text-white" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => handleUpdateCategorySchedule('activity', { mode: 'closed' })}
+                    className={`py-3 px-4 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all cursor-pointer outline-none border-none ${
+                      !isOpen
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-950/40 ring-2 ring-red-400/40'
+                        : 'bg-slate-950/60 text-slate-400 hover:text-red-300 hover:bg-slate-950/90'
+                    }`}
+                    id="admin-btn-activity-ferme"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Fermé</span>
+                    {!isOpen && <CheckCircle className="w-4 h-4 ml-1 text-white" />}
+                  </button>
+                </div>
+
+                {/* Status Explanation Card */}
+                <div className={`p-3.5 rounded-xl flex items-center gap-3 text-xs shadow-xs ${
+                  isOpen ? 'bg-emerald-950/25 text-emerald-200' : 'bg-red-950/25 text-red-200'
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    isOpen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {isOpen ? <CheckCircle className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="font-bold block">
+                      {isOpen ? 'Les produits Activités sont disponibles à l’achat.' : 'Les produits Activités sont indisponibles à l’achat.'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block">
+                      {isOpen 
+                        ? 'Les utilisateurs peuvent voir et souscrire aux forfaits Activités.'
+                        : 'L’accès aux nouveaux achats de forfaits Activités est suspendu.'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Information Card confirming investments guarantee */}
+                <div className="bg-slate-950/35 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-slate-400 shadow-xs">
+                  <span className="text-purple-400 text-sm leading-none mt-0.5">ℹ️</span>
+                  <p className="text-[11.5px] leading-relaxed">
+                    <strong className="text-slate-200">Règle Activité :</strong> Lorsqu’un utilisateur achète un produit, son revenu total est versé uniquement à la fin du cycle. Même si le produit est ensuite fermé aux nouveaux achats, les produits déjà achetés continuent leur cycle normalement et le revenu total est versé à la fin du cycle. Une fois le cycle terminé, pour faire une nouvelle Activité, l’utilisateur doit effectuer un nouvel investissement/achat pour démarrer un nouveau cycle. La fermeture concerne uniquement les nouveaux achats et n'interrompt jamais les cycles en cours.
                   </p>
                 </div>
               </div>
@@ -3324,11 +3522,12 @@ export default function AdminPanel({
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Catégorie du Produit</label>
                 <select
                   value={newVipCategory}
-                  onChange={(e) => setNewVipCategory(e.target.value as 'stability' | 'wellbeing')}
+                  onChange={(e) => setNewVipCategory(e.target.value as 'stability' | 'wellbeing' | 'activity')}
                   className="w-full bg-slate-950/80 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none shadow-inner"
                 >
                   <option value="stability">Stabilité (Plans standard)</option>
                   <option value="wellbeing">Bien-être (Plans bien-être)</option>
+                  <option value="activity">Activités (Plans activités)</option>
                 </select>
               </div>
 
@@ -3347,37 +3546,79 @@ export default function AdminPanel({
           </div>
 
           {/* List of custom VIP packages */}
-          <div className="space-y-6">
-            {/* 1. Plans Stabilité VIP */}
-            <div>
-              <h4 className="text-sm font-display font-bold text-yellow-500 uppercase tracking-widest mb-4">
-                📦 Catalogue de tous les Produits (Stabilité & Bien-être)
+          <div className="space-y-4">
+            {/* Header with Category Filter Buttons */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h4 className="text-sm font-display font-bold text-yellow-500 uppercase tracking-widest">
+                📦 Catalogue des Produits ({products.length})
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {products.map((p) => {
-                  const isCurrentlyBlocked = p.isBlocked === true;
-                  const formattedReopenTime = p.reopenDateTime 
-                    ? new Date(p.reopenDateTime).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-                    : null;
+              <div className="flex flex-wrap gap-1.5 bg-slate-950/60 p-1 rounded-xl border border-white/[0.04]">
+                {[
+                  { id: 'all' as const, label: `Tous (${products.length})` },
+                  { id: 'stability' as const, label: `💎 Stabilité (${products.filter(p => !p.category || p.category === 'stability').length})` },
+                  { id: 'wellbeing' as const, label: `🌸 Bien-être (${products.filter(p => p.category === 'wellbeing').length})` },
+                  { id: 'activity' as const, label: `⚡ Activités (${products.filter(p => p.category === 'activity').length})` },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setAdminProductCategoryFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      adminProductCategoryFilter === tab.id
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
+            <div>
+              {(() => {
+                const filteredProds = products.filter(p => {
+                  if (adminProductCategoryFilter === 'all') return true;
+                  if (adminProductCategoryFilter === 'stability') return !p.category || p.category === 'stability';
+                  return p.category === adminProductCategoryFilter;
+                });
+
+                if (filteredProds.length === 0) {
                   return (
-                    <div key={p.id} className={`p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${isCurrentlyBlocked ? 'bg-red-950/25' : 'bg-slate-950/60'}`}>
-                      <div>
-                        <div className="flex justify-between items-start">
+                    <div className="p-8 rounded-2xl bg-slate-950/40 text-center text-xs text-slate-400 border border-white/[0.03]">
+                      Aucun produit trouvé dans cette catégorie.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredProds.map((p) => {
+                      const isCurrentlyBlocked = p.isBlocked === true;
+                      const formattedReopenTime = p.reopenDateTime 
+                        ? new Date(p.reopenDateTime).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+                        : null;
+
+                      return (
+                        <div key={p.id} className={`p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${isCurrentlyBlocked ? 'bg-red-950/25' : 'bg-slate-950/60'}`}>
                           <div>
-                            <div className="flex items-center space-x-2 flex-wrap gap-1.5">
-                              <span className="text-[10px] text-yellow-500 font-mono uppercase font-bold">Niveau {p.vipLevel}</span>
-                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-sans font-bold uppercase tracking-wider ${
-                                p.category === 'wellbeing'
-                                  ? 'bg-amber-500/15 text-amber-300'
-                                  : 'bg-blue-500/15 text-blue-300'
-                              }`}>
-                                {p.category === 'wellbeing' ? '🌸 Bien-être' : '💎 Stabilité'}
-                              </span>
-                              <span className={`w-1.5 h-1.5 rounded-full ${isCurrentlyBlocked ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
-                            </div>
-                            <h4 className="font-display font-medium text-white text-sm block mt-1.5">{p.name}</h4>
-                          </div>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center space-x-2 flex-wrap gap-1.5">
+                                  <span className="text-[10px] text-yellow-500 font-mono uppercase font-bold">Niveau {p.vipLevel}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[8px] font-sans font-bold uppercase tracking-wider ${
+                                    p.category === 'wellbeing'
+                                      ? 'bg-amber-500/15 text-amber-300'
+                                      : p.category === 'activity'
+                                      ? 'bg-purple-500/15 text-purple-300'
+                                      : 'bg-blue-500/15 text-blue-300'
+                                  }`}>
+                                    {p.category === 'wellbeing' ? '🌸 Bien-être' : p.category === 'activity' ? '⚡ Activités' : '💎 Stabilité'}
+                                  </span>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isCurrentlyBlocked ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
+                                </div>
+                                <h4 className="font-display font-medium text-white text-sm block mt-1.5">{p.name}</h4>
+                              </div>
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => openEditProductModal(p)}
@@ -3487,7 +3728,9 @@ export default function AdminPanel({
                   );
                 })}
               </div>
-            </div>
+            );
+          })()}
+        </div>
 
 
 
@@ -3975,7 +4218,7 @@ export default function AdminPanel({
                 </div>
                 {supabaseTestResult.database && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-emerald-800/40 text-[11px]">
-                    <div><span className="text-slate-400">Projet:</span> <span className="text-white font-bold">{supabaseTestResult.project || 'sjvyhnxklgsgprgkihrr'}</span></div>
+                    <div><span className="text-slate-400">Projet:</span> <span className="text-white font-bold">{supabaseTestResult.project || 'muixbrojlvfbjwnflgot'}</span></div>
                     <div><span className="text-slate-400">Tables trouvées:</span> <span className="text-white font-bold">{supabaseTestResult.tablesCount}</span></div>
                     <div><span className="text-slate-400">Table Store:</span> <span className="text-white font-bold">{supabaseTestResult.storeTableExists ? 'Oui' : 'Non'}</span></div>
                     <div><span className="text-slate-400">Table Users:</span> <span className="text-white font-bold">{supabaseTestResult.usersTableExists ? 'Oui' : 'Non'}</span></div>
@@ -5310,6 +5553,229 @@ export default function AdminPanel({
           </div>
         );
       })()}
+
+      {/* ANNONCES TAB - DIFFUSION DES ANNONCES OFFICIELLES */}
+      {activeAdminTab === 'annonces' && (
+        <div className="space-y-6">
+          {/* HEADER BANNER */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-amber-600/10 to-transparent border border-amber-500/20 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-amber-400 text-xs font-black uppercase tracking-wider">
+                <Megaphone className="w-4 h-4" />
+                <span>Administration Centrale</span>
+              </div>
+              <h2 className="text-xl font-display font-black text-white mt-1">
+                Diffusion des Annonces Officielles
+              </h2>
+              <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                Toute annonce publiée ici est enregistrée de manière permanente dans la base Supabase, reste disponible après actualisation et déclenche automatiquement une notification avec badge pour tous les utilisateurs sur leur page « Mon compte ».
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-2xl text-center">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Total publiées</span>
+                <span className="text-lg font-black text-amber-400 font-mono">{announcements.length}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* FORM TO PUBLISH NEW ANNOUNCEMENT */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+            <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2 mb-4">
+              <Plus className="w-4 h-4 text-amber-400" />
+              <span>Rédiger une nouvelle annonce officielle</span>
+            </h3>
+
+            <form onSubmit={handlePublishAnnouncement} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Title */}
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Titre de l'annonce *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Mise à jour majeure du système et bonus VIP"
+                    value={annTitle}
+                    onChange={(e) => setAnnTitle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Catégorie
+                  </label>
+                  <select
+                    value={annCategory}
+                    onChange={(e) => setAnnCategory(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-colors cursor-pointer"
+                  >
+                    <option value="officiel">⭐ Officiel (Gold Avenue)</option>
+                    <option value="important">🚨 Important / Urgent</option>
+                    <option value="promotion">✨ Promotion / Bonus</option>
+                    <option value="maintenance">🔧 Maintenance technique</option>
+                    <option value="info">ℹ️ Information générale</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Author */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Auteur ou Signature
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Direction Générale Gold Avenue"
+                    value={annAuthor}
+                    onChange={(e) => setAnnAuthor(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Pin Checkbox */}
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={annPinned}
+                      onChange={(e) => setAnnPinned(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-slate-300">
+                      📌 Épingler cette annonce en tête de liste
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Content Textarea */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Texte intégral de l'annonce *
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Rédigez le contenu officiel de votre annonce ici..."
+                  value={annContent}
+                  onChange={(e) => setAnnContent(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl p-4 text-xs text-white placeholder-slate-600 focus:outline-none transition-colors leading-relaxed"
+                />
+              </div>
+
+              {/* Submit button */}
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isPublishingAnn}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg hover:shadow-amber-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isPublishingAnn ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Megaphone className="w-4 h-4" />
+                  )}
+                  <span>{isPublishingAnn ? 'Publication en cours...' : 'Publier l\'annonce officielle'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* LIST OF PUBLISHED ANNOUNCEMENTS */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-400" />
+                <span>Annonces publiées en ligne ({announcements.length})</span>
+              </h3>
+              <button
+                onClick={() => setAnnouncements(DataStore.getAnnouncements())}
+                className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Rafraîchir</span>
+              </button>
+            </div>
+
+            {announcements.length === 0 ? (
+              <div className="text-center py-12 px-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-850">
+                <Megaphone className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                <p className="text-slate-400 text-xs">
+                  Aucune annonce publiée pour le moment. Rédigez-en une ci-dessus pour la diffuser à vos membres.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {announcements.map((ann) => (
+                  <div
+                    key={ann.id}
+                    className={`bg-slate-950 border rounded-2xl p-4 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
+                      ann.pinned ? 'border-amber-500/40 bg-amber-500/5' : 'border-slate-800'
+                    }`}
+                  >
+                    <div className="space-y-1.5 flex-1 pr-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                          ann.category === 'important'
+                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            : ann.category === 'promotion'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : ann.category === 'maintenance'
+                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                            : ann.category === 'info'
+                            ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                            : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        }`}>
+                          {ann.category || 'officiel'}
+                        </span>
+                        {ann.pinned && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500 text-slate-950">
+                            📌 Épinglé
+                          </span>
+                        )}
+                        <span className="text-[11px] text-slate-400">
+                          {new Date(ann.createdAt).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-white leading-snug">
+                        {ann.title}
+                      </h4>
+                      <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                        {ann.content}
+                      </p>
+                      <div className="text-[10px] text-slate-500">
+                        Émetteur : <span className="text-slate-400 font-semibold">{ann.author || 'Direction'}</span>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 flex items-center gap-2">
+                      <button
+                        onClick={() => handleDeleteAnnouncement(ann.id)}
+                        className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 hover:border-transparent rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title="Supprimer cette annonce"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Supprimer</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Custom Confirmation Modal */}
       {confirmConfig && (

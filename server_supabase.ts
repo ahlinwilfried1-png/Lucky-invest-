@@ -1,8 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Server-side Supabase credentials (Service Role Key for admin operations - NEVER exposed to browser)
-export const DEFAULT_SUPABASE_URL = 'https://sjvyhnxklgsgprgkihrr.supabase.co';
-export const DEFAULT_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdnlobnhrbGdzZ3ByZ2tpaHJyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODcyNzM2OCwiZXhwIjoyMTA0MzAzMzY4fQ.q8aNC6Ak8gj0m_6_yq3MQF_yYHQYoFpEz7Fn3zI2gxM';
+export const DEFAULT_SUPABASE_URL = 'https://muixbrojlvfbjwnflgot.supabase.co';
+export const DEFAULT_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11aXhicm9qbHZmYmp3bmZsZ290Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTE4NTg2NiwiZXhwIjoyMTA0NzYxODY2fQ.XH4UhUoRvfz1npdEi7pRTT4eH6VtSCs84FT_Eu3qJFU';
 
 let supabaseAdmin: SupabaseClient | null = null;
 let isSyncingRelational = false;
@@ -18,8 +18,13 @@ export function getSupabaseUrl(): string {
     ""
   ).trim();
 
-  // If environment points to stale project or is empty, use user's explicit project URL
-  if (envUrl && !envUrl.includes("ajluqalpxchoshqieuyj") && envUrl.startsWith("http")) {
+  // If environment points to a valid URL that is not an old superseded project, use it
+  if (
+    envUrl && 
+    !envUrl.includes("ajluqalpxchoshqieuyj") && 
+    !envUrl.includes("sjvyhnxklgsgprgkihrr") && 
+    envUrl.startsWith("http")
+  ) {
     return envUrl;
   }
   return DEFAULT_SUPABASE_URL;
@@ -31,18 +36,23 @@ export function getSupabaseUrl(): string {
 export function getSupabaseServiceKey(): string {
   const envKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
-  // If environment contains the old project key, prioritize the user's explicit service key
-  if (envKey && !envKey.includes("ajluqalpxchoshqieuyj")) {
+  // If environment contains a key that is not from an old superseded project, use it
+  if (
+    envKey && 
+    !envKey.includes("ajluqalpxchoshqieuyj") && 
+    !envKey.includes("sjvyhnxklgsgprgkihrr") && 
+    envKey.length > 20
+  ) {
     try {
       const parts = envKey.split(".");
       if (parts.length === 3) {
         const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
-        if (payload && payload.ref && payload.ref !== "ajluqalpxchoshqieuyj") {
+        if (payload && payload.ref && payload.ref !== "ajluqalpxchoshqieuyj" && payload.ref !== "sjvyhnxklgsgprgkihrr") {
           return envKey;
         }
       }
     } catch {
-      // ignore parse error and fallback
+      // fallback
     }
   }
   return DEFAULT_SUPABASE_SERVICE_ROLE_KEY;
@@ -607,6 +617,32 @@ export async function syncSupabaseRelationalTables(storeData: Record<string, any
 
       if (prodPayloads.length > 0) {
         await client.from('products').upsert(prodPayloads, { onConflict: 'id' });
+      }
+    }
+
+    // 6. Announcements
+    if (Array.isArray(storeData['gi_announcements']) && storeData['gi_announcements'].length > 0) {
+      const annPayloads = storeData['gi_announcements']
+        .filter((a: any) => a && a.id)
+        .map((a: any) => ({
+          id: a.id,
+          title: a.title || 'Annonce',
+          content: a.content || '',
+          summary: a.summary || null,
+          category: a.category || 'officiel',
+          importance: a.importance || 'normal',
+          date: a.date || new Date().toISOString().split('T')[0],
+          active: a.active !== false,
+          created_at: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
+          raw_data: a
+        }));
+
+      if (annPayloads.length > 0) {
+        try {
+          await client.from('announcements').upsert(annPayloads, { onConflict: 'id' });
+        } catch {
+          // non-blocking if table is not yet created
+        }
       }
     }
   } catch (err: any) {

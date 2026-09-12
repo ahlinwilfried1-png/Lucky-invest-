@@ -8,6 +8,7 @@ import {
   EyeOff, 
   ArrowLeft, 
   ChevronLeft,
+  Crown,
   Mail,
   Check, 
   Info, 
@@ -117,7 +118,8 @@ export default function Auth({
       : "The verification code (OTP) is incorrect.",
     errorPhoneRequired: lang === 'FR' ? "Le numéro de téléphone est requis." : "Phone number is required.",
     errorPasswordRequired: lang === 'FR' ? "Le mot de passe de connexion est requis." : "Login password is required.",
-    errorNicknameRequired: lang === 'FR' ? "Le surnom est requis." : "Nickname is required."
+    errorNicknameRequired: lang === 'FR' ? "Le surnom est requis." : "Nickname is required.",
+    forgotPassword: lang === 'FR' ? "Mot de passe oublié ?" : "Forgot password?"
   };
 
   React.useEffect(() => {
@@ -318,32 +320,32 @@ export default function Auth({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between py-6 p-4 relative overflow-y-auto overflow-x-hidden font-sans text-white select-none bg-transparent" id="auth-container">
+    <div className="min-h-screen bg-[#FAF8F2] flex flex-col justify-between py-6 px-3 sm:px-4 relative overflow-y-auto overflow-x-hidden font-sans text-[#102A43] select-none" id="auth-container">
       
       {/* Subtle clean background decorative accents */}
       <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
-        <div className="absolute -top-20 -left-20 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/4 -right-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 left-1/3 w-80 h-80 bg-[#0c1629]/50 rounded-full blur-3xl" />
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#F3C75F]/12 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -right-24 w-96 h-96 bg-[#D49A22]/8 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 left-1/4 w-96 h-96 bg-[#E8D8B0]/20 rounded-full blur-3xl" />
       </div>
 
-      {/* Top Navigation Bar containing Back minimalist chevron and Direct Language Switcher */}
-      <div className="w-full max-w-md mx-auto flex items-center justify-between relative z-10 mb-6 shrink-0 px-2">
+      {/* Top Navigation Bar containing Back chevron and Direct Language Switcher */}
+      <div className="w-full max-w-md mx-auto flex items-center justify-between relative z-10 mb-5 shrink-0 px-1">
         {onBackToHome ? (
           <button
             onClick={onBackToHome}
             type="button"
-            className="text-amber-400 hover:text-amber-300 active:scale-95 transition-all cursor-pointer p-1"
+            className="w-10 h-10 rounded-full bg-white border border-[#E8D8B0]/40 shadow-2xs text-[#D49A22] hover:text-[#C88A16] hover:border-[#D49A22]/50 active:scale-95 transition-all cursor-pointer flex items-center justify-center p-1"
             title="Retour"
           >
-            <ChevronLeft className="w-8 h-8" strokeWidth={2.5} />
+            <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
           </button>
         ) : (
-          <div className="w-8 h-8" />
+          <div className="w-10 h-10" />
         )}
 
         {/* Direct inline language switch without any subpages */}
-        <div className="flex items-center bg-[#0b1528]/80 backdrop-blur-md rounded-full p-1 border border-[#1a2c4e] shadow-sm">
+        <div className="flex items-center bg-white rounded-full p-1 border border-[#E8D8B0]/40 shadow-2xs">
           <button
             type="button"
             onClick={() => {
@@ -351,10 +353,10 @@ export default function Auth({
               localStorage.setItem('gi_lang', 'FR');
               window.dispatchEvent(new Event('gi_lang_changed'));
             }}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-black transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
               lang === 'FR' 
-                ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-[#F3C75F] to-[#C88A16] text-white shadow-2xs' 
+                : 'text-[#607D9A] hover:text-[#102A43]'
             }`}
           >
             <span>🇫🇷</span> FR
@@ -366,10 +368,10 @@ export default function Auth({
               localStorage.setItem('gi_lang', 'EN');
               window.dispatchEvent(new Event('gi_lang_changed'));
             }}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-black transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
               lang === 'EN' 
-                ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-[#F3C75F] to-[#C88A16] text-white shadow-2xs' 
+                : 'text-[#607D9A] hover:text-[#102A43]'
             }`}
           >
             <span>🇬🇧</span> EN
@@ -377,341 +379,343 @@ export default function Auth({
         </div>
       </div>
 
-      {/* Main Container Wrapper styled for clean centered single-column layout */}
-      <div className="w-full max-w-md mx-auto flex-1 flex flex-col justify-center items-center relative z-10 py-2 px-1 mb-8">
+      {/* Main Container Wrapper */}
+      <div className="w-full max-w-md mx-auto flex-1 flex flex-col justify-center items-center relative z-10 py-1 mb-6">
         
         <div className="w-full flex flex-col justify-center shrink-0">
           
-          {/* Left-aligned Gold Avenue Stylized Logo */}
-          <div className="flex flex-col items-start mb-6 animate-fade-in select-none pl-1">
+          {/* Centered Gold Avenue Stylized Logo */}
+          <div className="flex flex-col items-center mb-5 animate-fade-in select-none text-center">
+            <div className="relative mb-2">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F3C75F] via-[#D49A22] to-[#C88A16] flex items-center justify-center shadow-md shadow-amber-900/10 border border-[#E8D8B0]/60">
+                <Crown className="w-7 h-7 text-white drop-shadow-xs" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-[#E8D8B0]/60 flex items-center justify-center shadow-2xs">
+                <Sparkles className="w-3 h-3 text-[#D49A22]" />
+              </div>
+            </div>
             <div 
-              className="text-[36px] md:text-[42px] font-sans font-black italic tracking-tight text-amber-400 leading-none select-none text-left drop-shadow-[0_2px_10px_rgba(245,158,11,0.25)]"
+              className="text-[30px] sm:text-[34px] font-serif font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-[#D49A22] via-[#F3C75F] to-[#C88A16] leading-none uppercase select-none drop-shadow-2xs"
             >
               Gold Avenue
             </div>
-            <span className="text-[10.5px] font-bold text-amber-300/75 uppercase tracking-widest mt-1.5 text-left">{t.securePlacement}</span>
+            <span className="text-[11px] font-black text-[#607D9A] uppercase tracking-widest mt-1.5">{t.securePlacement}</span>
           </div>
 
-          {/* Direct Form Content directly on the page without outer card frame */}
-          <div className="w-full relative z-10 animate-fade-in text-white px-1 py-2">
-
-          {/* Error and Success alerts */}
-          {errorMessage && (
-            <div className="mb-5 p-4 rounded-2xl bg-red-950/80 border border-red-500/60 text-xs text-red-200 font-bold flex items-start space-x-2 animate-fade-in">
-              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mb-5 p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/60 text-xs text-emerald-200 font-bold flex items-start space-x-2 animate-fade-in">
-              <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <span>{successMessage}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Form inputs styled with midnight blue boxes and gold focus */}
-          <form onSubmit={handleSubmit} className="space-y-4" id="auth-form">
+          {/* Card Form Container */}
+          <div className="w-full relative z-10 bg-white rounded-3xl p-5 sm:p-7 shadow-xs border border-[#E8D8B0]/40 animate-fade-in text-left">
             
-            {isRegister ? (
-              /* REGISTRATION FIELDS */
-              <>
-                {/* Pays Selector Box */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.pays}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer border border-[#1a2c4e] hover:border-amber-400/50 transition-all h-14 bg-[#0b1528]">
-                    <span className="text-sm font-bold text-white flex items-center gap-2">
-                      <span className="text-lg leading-none">
-                        {eligibleCountries.find(c => c.code === selectedCode)?.flag || '🇹🇬'}
-                      </span>
-                      {eligibleCountries.find(c => c.code === selectedCode)?.name || 'Togo'} ({selectedCode})
-                    </span>
-                    <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
-                    <select
-                      id="auth-country-select"
-                      value={selectedCode}
-                      onChange={(e) => {
-                        const code = e.target.value;
-                        setSelectedCode(code);
-                        const found = eligibleCountries.find(c => c.code === code);
-                        if (found) setCountry(found.name);
-                      }}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full auth-clean-select"
-                    >
-                      {eligibleCountries.map((c, i) => (
-                        <option key={i} value={c.code} className="bg-[#0b1528] text-white font-bold">
-                          {c.flag} {c.name} ({c.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            {/* Header: Title & Subtitle */}
+            <div className="mb-5 text-left">
+              <h2 className="text-xl sm:text-2xl font-black text-[#102A43] tracking-tight">
+                {t.title}
+              </h2>
+              <p className="text-xs font-semibold text-[#607D9A] mt-1 leading-relaxed">
+                {t.subtitle}
+              </p>
+            </div>
 
-                {/* Phone Input Box */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.phone}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-14 border border-[#1a2c4e] bg-[#0b1528] focus-within:border-amber-400">
-                    <input
-                      type="tel"
-                      required
-                      placeholder={t.phone}
-                      value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
-                      className="w-full auth-clean-input text-white text-sm font-bold py-3 placeholder:text-slate-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Nickname (Surnom) Box */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.nickname}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-14 border border-[#1a2c4e] bg-[#0b1528] focus-within:border-amber-400">
-                    <input
-                      type="text"
-                      required
-                      placeholder={t.nickname}
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
-                      className="w-full auth-clean-input text-white text-sm font-bold py-3 placeholder:text-slate-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Password field */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.password}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-[#1a2c4e] bg-[#0b1528] focus-within:border-amber-400">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      placeholder={t.passwordPlaceholder}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="flex-1 auth-clean-input text-white text-sm font-bold py-3 placeholder:text-slate-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="p-1 text-slate-400 hover:text-amber-400 transition-colors shrink-0"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Invitation / Sponsor Code Field */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.invitationCode}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-[#1a2c4e] bg-[#0b1528] focus-within:border-amber-400">
-                    <input
-                      type="text"
-                      placeholder={t.invitationPlaceholder}
-                      value={referralCode}
-                      onChange={(e) => setReferralCode(e.target.value)}
-                      className="flex-1 auth-clean-input text-amber-300 text-sm font-bold py-3 placeholder:text-slate-500 uppercase tracking-widest"
-                    />
-                    <Link className="w-5 h-5 text-amber-400/60 shrink-0" />
-                  </div>
-                </div>
-
-                {/* Code de vérification (OTP) Field with ENVOYER action */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.otp}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-[#1a2c4e] bg-[#0b1528] focus-within:border-amber-400">
-                    <input
-                      type="text"
-                      required
-                      placeholder={t.otpPlaceholder}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      className="flex-1 auth-clean-input text-white text-sm font-bold py-3 placeholder:text-slate-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSendOTP}
-                      disabled={sendingOtp || otpCountdown > 0}
-                      className="text-amber-400 hover:text-amber-300 active:scale-95 disabled:opacity-50 text-sm font-black uppercase tracking-wider bg-transparent border-none py-1 px-3 cursor-pointer transition-all shrink-0 font-sans"
-                    >
-                      {otpCountdown > 0 ? `${otpCountdown}s` : t.envoyer}
-                    </button>
-                  </div>
-                </div>
-
-
-              </>
-            ) : (
-              /* LOGIN SPECIFIC FIELDS */
-              <>
-                {/* Pays Selector Box */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.pays}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer border border-[#1a2c4e] hover:border-amber-400/50 transition-all h-14 bg-[#0b1528]">
-                    <span className="text-sm font-bold text-white flex items-center gap-2">
-                      <span className="text-lg leading-none">
-                        {eligibleCountries.find(c => c.code === loginSelectedCode)?.flag || '🇹🇬'}
-                      </span>
-                      {eligibleCountries.find(c => c.code === loginSelectedCode)?.name || 'Togo'} ({loginSelectedCode})
-                    </span>
-                    <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
-                    <select
-                      id="auth-login-country-select"
-                      value={loginSelectedCode}
-                      onChange={(e) => setLoginSelectedCode(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full auth-clean-select"
-                    >
-                      {eligibleCountries.map((c, i) => (
-                        <option key={i} value={c.code} className="bg-[#0b1528] text-white font-bold">
-                          {c.flag} {c.name} ({c.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Login Phone Input */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.phone}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center h-14 border border-[#1a2c4e] bg-[#0b1528] focus-within:border-amber-400">
-                    <input
-                      type="text"
-                      required
-                      placeholder={t.phone}
-                      value={loginPhone}
-                      onChange={(e) => setLoginPhone(e.target.value)}
-                      className="w-full auth-clean-input text-white text-sm font-bold py-3 placeholder:text-slate-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Login Password Input */}
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-sans font-bold text-slate-200 block">{t.password}</label>
-                  <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-14 border border-[#1a2c4e] bg-[#0b1528] focus-within:border-amber-400">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      placeholder={t.loginPasswordPlaceholder}
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      className="flex-1 auth-clean-input text-white text-sm font-bold py-3 placeholder:text-slate-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="p-1 text-slate-400 hover:text-amber-400 transition-colors shrink-0"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
-              </>
+            {/* Error and Success alerts */}
+            {errorMessage && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 font-bold flex items-start gap-2.5 animate-fade-in">
+                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <span className="leading-snug">{errorMessage}</span>
+              </div>
             )}
 
-            {/* Primary Submit Button with Radiant Gold */}
-            <button
-              id="auth-submit-btn"
-              type="submit"
-              disabled={loading}
-              className="w-full font-sans font-black text-sm uppercase tracking-wider py-4 px-4 rounded-2xl flex items-center justify-center transition-all select-none cursor-pointer disabled:opacity-50 mt-6 shadow-lg shadow-amber-500/20 active:scale-[0.98] bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 border-none"
-            >
-              {loading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                  <span>{t.submitBtn}</span>
-                </div>
-              ) : (
-                <span>{t.submitBtn}</span>
-              )}
-            </button>
+            {successMessage && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-start gap-2.5 animate-fade-in">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span className="leading-snug">{successMessage}</span>
+              </div>
+            )}
 
-            {/* Secondary Toggle Mode Button */}
-            <div className="mt-3">
+            {/* Form inputs */}
+            <form onSubmit={handleSubmit} className="space-y-3.5" id="auth-form">
+              
+              {isRegister ? (
+                /* REGISTRATION FIELDS */
+                <>
+                  {/* Pays Selector Box */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.pays}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer border border-[#E8D8B0]/40 hover:border-[#D49A22]/50 transition-all h-13 sm:h-14 bg-white shadow-2xs">
+                      <span className="text-sm font-bold text-[#102A43] flex items-center gap-2">
+                        <span className="text-lg leading-none">
+                          {eligibleCountries.find(c => c.code === selectedCode)?.flag || '🇹🇬'}
+                        </span>
+                        {eligibleCountries.find(c => c.code === selectedCode)?.name || 'Togo'} ({selectedCode})
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-[#D49A22] shrink-0" />
+                      <select
+                        id="auth-country-select"
+                        value={selectedCode}
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          setSelectedCode(code);
+                          const found = eligibleCountries.find(c => c.code === code);
+                          if (found) setCountry(found.name);
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full auth-clean-select"
+                      >
+                        {eligibleCountries.map((c, i) => (
+                          <option key={i} value={c.code} className="bg-white text-[#102A43] font-bold">
+                            {c.flag} {c.name} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Phone Input Box */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.phone}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-13 sm:h-14 border border-[#E8D8B0]/40 bg-white focus-within:border-[#D49A22] focus-within:ring-2 focus-within:ring-[#D49A22]/15 transition-all shadow-2xs">
+                      <input
+                        type="tel"
+                        required
+                        placeholder={t.phone}
+                        value={whatsapp}
+                        onChange={(e) => setWhatsapp(e.target.value)}
+                        className="w-full auth-clean-input text-[#102A43] text-sm font-bold py-3 placeholder:text-[#607D9A]/50 bg-transparent outline-none"
+                      />
+                      <Smartphone className="w-5 h-5 text-[#D49A22] shrink-0 ml-2" />
+                    </div>
+                  </div>
+
+                  {/* Nickname (Surnom) Box */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.nickname}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-13 sm:h-14 border border-[#E8D8B0]/40 bg-white focus-within:border-[#D49A22] focus-within:ring-2 focus-within:ring-[#D49A22]/15 transition-all shadow-2xs">
+                      <input
+                        type="text"
+                        required
+                        placeholder={t.nickname}
+                        value={nickname}
+                        onChange={(e) => setNickname(e.target.value)}
+                        className="w-full auth-clean-input text-[#102A43] text-sm font-bold py-3 placeholder:text-[#607D9A]/50 bg-transparent outline-none"
+                      />
+                      <UserIcon className="w-5 h-5 text-[#D49A22] shrink-0 ml-2" />
+                    </div>
+                  </div>
+
+                  {/* Password field */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.password}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-13 sm:h-14 border border-[#E8D8B0]/40 bg-white focus-within:border-[#D49A22] focus-within:ring-2 focus-within:ring-[#D49A22]/15 transition-all shadow-2xs">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        placeholder={t.passwordPlaceholder}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="flex-1 auth-clean-input text-[#102A43] text-sm font-bold py-3 placeholder:text-[#607D9A]/50 bg-transparent outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="p-1 text-[#D49A22] hover:text-[#C88A16] transition-colors shrink-0 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Invitation / Sponsor Code Field */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.invitationCode}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-13 sm:h-14 border border-[#E8D8B0]/40 bg-white focus-within:border-[#D49A22] focus-within:ring-2 focus-within:ring-[#D49A22]/15 transition-all shadow-2xs">
+                      <input
+                        type="text"
+                        placeholder={t.invitationPlaceholder}
+                        value={referralCode}
+                        onChange={(e) => setReferralCode(e.target.value)}
+                        className="flex-1 auth-clean-input text-[#C88A16] text-sm font-black py-3 placeholder:text-[#607D9A]/50 uppercase tracking-widest bg-transparent outline-none"
+                      />
+                      <Link className="w-5 h-5 text-[#D49A22] shrink-0 ml-2" />
+                    </div>
+                  </div>
+
+                  {/* Code de vérification (OTP) Field with ENVOYER action */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.otp}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-13 sm:h-14 border border-[#E8D8B0]/40 bg-white focus-within:border-[#D49A22] focus-within:ring-2 focus-within:ring-[#D49A22]/15 transition-all shadow-2xs">
+                      <input
+                        type="text"
+                        required
+                        placeholder={t.otpPlaceholder}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        className="flex-1 auth-clean-input text-[#102A43] text-sm font-bold py-3 placeholder:text-[#607D9A]/50 bg-transparent outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendOTP}
+                        disabled={sendingOtp || otpCountdown > 0}
+                        className="text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#F3C75F] to-[#C88A16] hover:brightness-105 active:scale-95 disabled:opacity-50 py-2 px-3.5 rounded-xl border-none cursor-pointer transition-all shrink-0 shadow-2xs font-sans ml-2"
+                      >
+                        {otpCountdown > 0 ? `${otpCountdown}s` : t.envoyer}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* LOGIN SPECIFIC FIELDS */
+                <>
+                  {/* Pays Selector Box */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.pays}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between relative cursor-pointer border border-[#E8D8B0]/40 hover:border-[#D49A22]/50 transition-all h-13 sm:h-14 bg-white shadow-2xs">
+                      <span className="text-sm font-bold text-[#102A43] flex items-center gap-2">
+                        <span className="text-lg leading-none">
+                          {eligibleCountries.find(c => c.code === loginSelectedCode)?.flag || '🇹🇬'}
+                        </span>
+                        {eligibleCountries.find(c => c.code === loginSelectedCode)?.name || 'Togo'} ({loginSelectedCode})
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-[#D49A22] shrink-0" />
+                      <select
+                        id="auth-login-country-select"
+                        value={loginSelectedCode}
+                        onChange={(e) => setLoginSelectedCode(e.target.value)}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full auth-clean-select"
+                      >
+                        {eligibleCountries.map((c, i) => (
+                          <option key={i} value={c.code} className="bg-white text-[#102A43] font-bold">
+                            {c.flag} {c.name} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Login Phone Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.phone}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-13 sm:h-14 border border-[#E8D8B0]/40 bg-white focus-within:border-[#D49A22] focus-within:ring-2 focus-within:ring-[#D49A22]/15 transition-all shadow-2xs">
+                      <input
+                        type="text"
+                        required
+                        placeholder={t.phone}
+                        value={loginPhone}
+                        onChange={(e) => setLoginPhone(e.target.value)}
+                        className="w-full auth-clean-input text-[#102A43] text-sm font-bold py-3 placeholder:text-[#607D9A]/50 bg-transparent outline-none"
+                      />
+                      <Smartphone className="w-5 h-5 text-[#D49A22] shrink-0 ml-2" />
+                    </div>
+                  </div>
+
+                  {/* Login Password Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-black text-[#102A43] uppercase tracking-wider block">{t.password}</label>
+                    <div className="w-full auth-field-wrapper rounded-2xl px-4 flex items-center justify-between h-13 sm:h-14 border border-[#E8D8B0]/40 bg-white focus-within:border-[#D49A22] focus-within:ring-2 focus-within:ring-[#D49A22]/15 transition-all shadow-2xs">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        placeholder={t.loginPasswordPlaceholder}
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        className="flex-1 auth-clean-input text-[#102A43] text-sm font-bold py-3 placeholder:text-[#607D9A]/50 bg-transparent outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="p-1 text-[#D49A22] hover:text-[#C88A16] transition-colors shrink-0 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+
+                    {/* Mot de passe oublié */}
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowSupportModal(true)}
+                        className="text-xs font-bold text-[#D49A22] hover:text-[#C88A16] hover:underline cursor-pointer bg-transparent border-none p-0 transition-colors"
+                      >
+                        {t.forgotPassword}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Primary Submit Button with Radiant Gold Gradient */}
               <button
-                id="auth-toggle-mode-btn"
-                type="button"
-                onClick={() => {
-                  setIsRegister(!isRegister);
-                  setErrorMessage('');
-                  setSuccessMessage('');
-                }}
-                className="w-full font-sans font-extrabold text-sm uppercase tracking-wider py-3.5 px-4 rounded-2xl flex items-center justify-center transition-all select-none cursor-pointer active:scale-[0.98] border border-amber-400/40 hover:bg-[#111e38] text-amber-300 bg-[#0b1528]"
+                id="auth-submit-btn"
+                type="submit"
+                disabled={loading}
+                className="w-full font-sans font-black text-sm uppercase tracking-wider py-3.5 sm:py-4 px-4 rounded-2xl flex items-center justify-center transition-all select-none cursor-pointer disabled:opacity-50 mt-5 shadow-xs active:scale-[0.98] bg-gradient-to-r from-[#F3C75F] to-[#C88A16] hover:brightness-105 text-white border-none"
               >
-                <span>{t.toggleBtn}</span>
+                {loading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>{t.submitBtn}</span>
+                  </div>
+                ) : (
+                  <span>{t.submitBtn}</span>
+                )}
               </button>
-            </div>
-          </form>
+
+              {/* Secondary Toggle Mode Button */}
+              <div className="mt-3">
+                <button
+                  id="auth-toggle-mode-btn"
+                  type="button"
+                  onClick={() => {
+                    setIsRegister(!isRegister);
+                    setErrorMessage('');
+                    setSuccessMessage('');
+                  }}
+                  className="w-full font-sans font-black text-xs sm:text-sm uppercase tracking-wider py-3 sm:py-3.5 px-4 rounded-2xl flex items-center justify-center transition-all select-none cursor-pointer active:scale-[0.98] border border-[#E8D8B0]/40 hover:border-[#D49A22]/50 hover:bg-[#FAF8F2] text-[#102A43] bg-white shadow-2xs"
+                >
+                  <span>{t.toggleBtn}</span>
+                </button>
+              </div>
+            </form>
+
+          </div>
 
         </div>
 
       </div>
 
-    </div>
-
       {/* Footer Branding label */}
-      <div className="w-full text-center relative z-10 py-2 shrink-0">
-        <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">
+      <div className="w-full text-center relative z-10 py-3 shrink-0">
+        <p className="text-[11px] font-mono font-bold text-[#607D9A] uppercase tracking-widest">
           {t.footerText}
         </p>
       </div>
 
-      {/* Floating Support Representative Badge removed */}
-      {false && !isRegister && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center select-none animate-bounce" style={{ animationDuration: '3s' }}>
-          <button 
-            type="button"
-            onClick={() => setShowSupportModal(true)}
-            className="w-16 h-16 rounded-full bg-white shadow-2xl border-2 border-white flex items-center justify-center p-0.5 cursor-pointer hover:scale-105 active:scale-95 transition-all relative group"
-          >
-            <img 
-              src="https://images.unsplash.com/photo-1618042164219-62c820f10723?auto=format&fit=crop&q=80&w=150" 
-              alt="Service Client"
-              className="w-full h-full rounded-full object-cover"
-            />
-            {/* Small pulsing green online indicator dot */}
-            <span className="absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white animate-pulse" />
-          </button>
-          <span className="text-[9px] font-sans font-black text-slate-700 bg-white/95 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-md border border-slate-100 mt-1 uppercase tracking-wider">
-            {t.customerService}
-          </span>
-        </div>
-      )}
-
-      {/* Modern interactive Customer Support Modal removed */}
-      {false && showSupportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl relative border border-slate-100 text-slate-800 text-left animate-scale-up">
+      {/* Interactive Customer Support & Password Recovery Modal */}
+      {showSupportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-xl relative border border-[#E8D8B0]/40 text-[#102A43] text-left animate-scale-up">
             <button 
               onClick={() => setShowSupportModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-1"
+              className="absolute top-4 right-4 text-[#607D9A] hover:text-[#102A43] transition-colors p-1"
             >
               <X className="w-5 h-5" />
             </button>
             
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 border border-slate-200 relative shrink-0">
-                <img 
-                  src="https://images.unsplash.com/photo-1618042164219-62c820f10723?auto=format&fit=crop&q=80&w=150" 
-                  alt="Service Client"
-                  className="w-full h-full object-cover"
-                />
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-[#F3C75F] to-[#C88A16] p-0.5 relative shrink-0 flex items-center justify-center shadow-xs">
+                <Headphones className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900 leading-none">
-                  {lang === 'FR' ? "Support Client Gold Avenue" : "Gold Avenue Customer Support"}
+                <h3 className="text-base font-black text-[#102A43] leading-none">
+                  {lang === 'FR' ? "Assistance & Récupération" : "Support & Recovery"}
                 </h3>
-                <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 mt-1.5">
+                <span className="text-xs text-[#D49A22] font-bold flex items-center gap-1 mt-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  {lang === 'FR' ? "Conseillers disponibles en continu" : "Advisors available continuously"}
+                  {lang === 'FR' ? "Service client disponible 24/7" : "Customer service available 24/7"}
                 </span>
               </div>
             </div>
 
-            <p className="text-xs font-semibold text-slate-500 leading-relaxed mb-5">
+            <p className="text-xs font-semibold text-[#607D9A] leading-relaxed mb-5">
               {lang === 'FR' 
-                ? "Besoin d'aide pour votre inscription, votre dépôt ou pour obtenir votre code d'invitation ? Veuillez rejoindre notre canal d'entraide ou discuter en direct avec un conseiller de garde."
-                : "Need help with registration, deposit or invitation code? Please join our help channel or chat live with an advisor on duty."
+                ? "Pour réinitialiser votre mot de passe ou obtenir de l'aide sur votre compte Gold Avenue, contactez directement nos conseillers d'assistance."
+                : "To reset your password or get help with your Gold Avenue account, contact our support advisors directly."
               }
             </p>
 
@@ -720,13 +724,13 @@ export default function Auth({
                 href="https://wa.me/237600000000"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full p-4 rounded-2xl flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-800 hover:bg-emerald-100 transition-all font-bold text-sm"
+                className="w-full p-3.5 rounded-2xl flex items-center justify-between bg-[#FAF8F2] border border-[#E8D8B0]/40 text-[#102A43] hover:border-[#D49A22]/50 transition-all font-bold text-sm shadow-2xs"
               >
                 <span className="flex items-center gap-2.5">
-                  <Smartphone className="w-4 h-4 text-emerald-600" />
-                  <span>{lang === 'FR' ? "Discussion WhatsApp Directe" : "Direct WhatsApp Chat"}</span>
+                  <Smartphone className="w-4 h-4 text-[#D49A22]" />
+                  <span>{lang === 'FR' ? "Support WhatsApp Direct" : "Direct WhatsApp Support"}</span>
                 </span>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-200/60 uppercase">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">
                   {lang === 'FR' ? "En ligne" : "Online"}
                 </span>
               </a>
@@ -735,13 +739,13 @@ export default function Auth({
                 href="https://t.me/mdb_cameroon"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full p-4 rounded-2xl flex items-center justify-between bg-sky-50 border border-sky-100 text-sky-800 hover:bg-sky-100 transition-all font-bold text-sm"
+                className="w-full p-3.5 rounded-2xl flex items-center justify-between bg-[#FAF8F2] border border-[#E8D8B0]/40 text-[#102A43] hover:border-[#D49A22]/50 transition-all font-bold text-sm shadow-2xs"
               >
                 <span className="flex items-center gap-2.5">
-                  <Globe className="w-4 h-4 text-sky-600" />
+                  <Globe className="w-4 h-4 text-[#D49A22]" />
                   <span>{lang === 'FR' ? "Canal Officiel Telegram" : "Official Telegram Channel"}</span>
                 </span>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-sky-200/60 uppercase">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-800 uppercase">
                   {lang === 'FR' ? "Rejoindre" : "Join"}
                 </span>
               </a>
@@ -749,7 +753,7 @@ export default function Auth({
 
             <button
               onClick={() => setShowSupportModal(false)}
-              className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all text-center"
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#F3C75F] to-[#C88A16] text-white font-black text-xs uppercase tracking-wider transition-all text-center border-none cursor-pointer shadow-2xs"
             >
               {lang === 'FR' ? "Fermer l'Assistance" : "Close Assistance"}
             </button>

@@ -197,14 +197,16 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060b14] font-sans tracking-normal leading-relaxed overflow-x-hidden relative text-slate-100">
+    <div className={`min-h-screen font-sans tracking-normal leading-relaxed overflow-x-hidden relative ${!user ? 'bg-[#FAF8F2] text-[#102A43]' : 'bg-[#060b14] text-slate-100'}`}>
       
-      {/* Global Midnight Blue & Subtle Gold Glow Atmosphere */}
-      <div className="fixed inset-0 -z-20 pointer-events-none overflow-hidden select-none" id="site-global-brand-background">
-        <div className="w-full h-full fixed inset-0 bg-[#060b14] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0e1f3d] via-[#070e1c] to-[#040810]" />
-        {/* Ambient subtle warm gold highlights on top and bottom corners */}
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-amber-500/5 blur-[120px] rounded-full pointer-events-none" />
-      </div>
+      {/* Global Midnight Blue & Subtle Gold Glow Atmosphere for authenticated view */}
+      {user && (
+        <div className="fixed inset-0 -z-20 pointer-events-none overflow-hidden select-none" id="site-global-brand-background">
+          <div className="w-full h-full fixed inset-0 bg-[#060b14] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0e1f3d] via-[#070e1c] to-[#040810]" />
+          {/* Ambient subtle warm gold highlights on top and bottom corners */}
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-amber-500/5 blur-[120px] rounded-full pointer-events-none" />
+        </div>
+      )}
 
       {/* 1. AUTHENTICATION & REGISTRATION SCREEN */}
       {!user && (

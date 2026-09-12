@@ -464,15 +464,22 @@ const DEFAULT_CATEGORY_SCHEDULES: Record<string, any> = {
     closeTime: "17:00",
     enabled: true,
     lastModified: 0
+  },
+  activity: {
+    mode: "open",
+    openTime: "08:00",
+    closeTime: "20:00",
+    enabled: true,
+    lastModified: 0
   }
 };
 
-function evaluateCategorySchedule(category: 'wellbeing' | 'withdrawals', schedulesObj?: any, date: Date = new Date()): {
+function evaluateCategorySchedule(category: 'wellbeing' | 'withdrawals' | 'activity', schedulesObj?: any, date: Date = new Date()): {
   isOpen: boolean;
   statusLabel: 'OUVERT' | 'FERMÉ';
   reason: string;
 } {
-  const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Retraits';
+  const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activités' : 'Retraits';
   const schedules = schedulesObj || DEFAULT_CATEGORY_SCHEDULES;
   const schedule = (schedules && schedules[category]) ? schedules[category] : DEFAULT_CATEGORY_SCHEDULES[category];
 
@@ -480,15 +487,15 @@ function evaluateCategorySchedule(category: 'wellbeing' | 'withdrawals', schedul
     return { isOpen: true, statusLabel: 'OUVERT', reason: `Les opérations pour ${catLabel} sont ouvertes.` };
   }
 
-  // Pour les produits Bien-être : contrôle direct binaire Ouvert / Fermé défini par l'administrateur
-  if (category === 'wellbeing') {
+  // Pour les produits Bien-être et Activités : contrôle direct binaire Ouvert / Fermé défini par l'administrateur
+  if (category === 'wellbeing' || category === 'activity') {
     const isClosed = schedule && schedule.mode === 'closed';
     return {
       isOpen: !isClosed,
       statusLabel: isClosed ? 'FERMÉ' : 'OUVERT',
       reason: isClosed 
-        ? 'Les produits Bien-être sont actuellement indisponibles à l\'achat.' 
-        : 'Les produits Bien-être sont disponibles à l\'achat.'
+        ? 'Ce produit est actuellement indisponible à l’achat' 
+        : `Les produits ${catLabel} sont disponibles à l'achat.`
     };
   }
 
@@ -665,8 +672,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         storeData["gi_category_schedules"].withdrawals = JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES.withdrawals));
         modified = true;
       }
-      if (storeData["gi_category_schedules"].activity) {
-        delete storeData["gi_category_schedules"].activity;
+      if (!storeData["gi_category_schedules"].activity) {
+        storeData["gi_category_schedules"].activity = JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES.activity));
         modified = true;
       }
     }
@@ -876,15 +883,76 @@ const SERVER_DEFAULT_PRODUCTS = [
         isBlocked: false,
         isCyclic: true,
         generatedProductIds: []
+      },
+
+      // ACTIVITÉS (Offres spéciales & opportunités exclusives)
+      {
+        id: "act-1",
+        vipLevel: 1,
+        name: "Gold Avenue Activité Découverte",
+        tag: "Activité Spéciale",
+        price: 3000,
+        dailyReturn: 900,
+        durationDays: 5,
+        totalReturn: 4500,
+        category: "activity",
+        isBlocked: false,
+        isCyclic: true,
+        generatedProductIds: []
+      },
+      {
+        id: "act-2",
+        vipLevel: 2,
+        name: "Gold Avenue Activité Privilège",
+        tag: "Activité Flash",
+        price: 10000,
+        dailyReturn: 3200,
+        durationDays: 5,
+        totalReturn: 16000,
+        category: "activity",
+        isBlocked: false,
+        isCyclic: true,
+        generatedProductIds: []
+      },
+      {
+        id: "act-3",
+        vipLevel: 3,
+        name: "Gold Avenue Activité Prestige",
+        tag: "Événement VIP",
+        price: 30000,
+        dailyReturn: 10500,
+        durationDays: 5,
+        totalReturn: 52500,
+        category: "activity",
+        isBlocked: false,
+        isCyclic: true,
+        generatedProductIds: []
+      },
+      {
+        id: "act-4",
+        vipLevel: 4,
+        name: "Gold Avenue Activité Excellence",
+        tag: "Haute Performance",
+        price: 75000,
+        dailyReturn: 28000,
+        durationDays: 5,
+        totalReturn: 140000,
+        category: "activity",
+        isBlocked: false,
+        isCyclic: true,
+        generatedProductIds: []
       }
     ];
 
-    // Force exact set of 14 products on startup (7 Stabilité + 7 Bien-être, no Activités)
-    storeData["gi_products"] = default14Products;
-    // Also purge any lingering activity products or investments
-    if (Array.isArray(storeData["gi_investments"])) {
-      storeData["gi_investments"] = storeData["gi_investments"].filter((inv: any) => inv.category !== 'activity' && !String(inv.productId || '').startsWith('act-'));
+    // Ensure all base products (Stabilité + Bien-être + Activités) are in the catalogue
+    const currentProds = Array.isArray(storeData["gi_products"]) ? storeData["gi_products"] : [];
+    const mergedProds = [...currentProds];
+    for (const dp of default14Products) {
+      if (!mergedProds.some((p: any) => p && String(p.id).trim() === String(dp.id).trim())) {
+        mergedProds.push(dp);
+      }
     }
+    storeData["gi_products"] = mergedProds.length > 0 ? mergedProds : default14Products;
     modified = true;
     setTimeout(() => {
       saveStore(["gi_products"]).catch(err => {
@@ -1351,12 +1419,17 @@ const SERVER_DEFAULT_PRODUCTS = [
               users[uIdx].lastModified = Date.now();
 
               const isWellbeing = inv.category === 'wellbeing';
-              const isStability = inv.category === 'stability';
+              const isActivity = inv.category === 'activity';
+              const isStability = inv.category === 'stability' || (!isWellbeing && !isActivity);
               const title = isWellbeing 
                 ? `🌸 Bien-être Terminé (${inv.productName})` 
+                : isActivity
+                ? `⚡ Activité Terminée (${inv.productName})`
                 : `📈 Stabilité Terminée (${inv.productName})`;
               const message = isWellbeing
-                ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`
+                ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre revenu total de ${totalPayout.toLocaleString()} XOF (capital: ${inv.price.toLocaleString()} XOF + bénéfices: ${netProfit.toLocaleString()} XOF) a été crédité sur votre compte. Pour démarrer un nouveau cycle, vous pouvez effectuer un nouvel achat.`
+                : isActivity
+                ? `Félicitations ! Votre cycle d'activité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre revenu total de ${totalPayout.toLocaleString()} XOF (capital: ${inv.price.toLocaleString()} XOF + bénéfices: ${netProfit.toLocaleString()} XOF) a été crédité sur votre compte. Pour démarrer un nouveau cycle, vous pouvez effectuer un nouvel achat.`
                 : `Félicitations ! Votre cycle de stabilité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre compte (total: ${totalPayout.toLocaleString()} XOF).`;
 
               notifications.unshift({
@@ -1440,50 +1513,12 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
 
         if (inv.daysPassed >= inv.durationDays) {
-            let autoRenewed = false;
-            const isWellbeing = inv.category === 'wellbeing';
-            const uIdx2 = users.findIndex((u: any) => u.id === inv.userId);
-
-            if (isWellbeing && inv.autoRenew && uIdx2 !== -1) {
-              if (users[uIdx2].balance >= inv.price) {
-                users[uIdx2].balance -= inv.price;
-                autoRenewed = true;
-                notifications.unshift({
-                  id: `not-autorenew-srv-${Date.now()}-${inv.id}`,
-                  userId: inv.userId,
-                  title: `🔄 Renouvellement Automatique (${inv.productName})`,
-                  message: `Félicitations ! Votre plan de bien-être "${inv.productName}" a été automatiquement renouvelé pour un nouveau cycle de ${inv.durationDays} jours. Le montant de ${inv.price.toLocaleString()} XOF a été déduit de votre solde.`,
-                  type: 'plan',
-                  lastModified: Date.now(),
-                  createdAt: new Date().toISOString(),
-                  read: false
-                });
-              } else {
-                inv.autoRenew = false;
-                notifications.unshift({
-                  id: `not-autorenew-srv-fail-${Date.now()}-${inv.id}`,
-                  userId: inv.userId,
-                  title: `⚠️ Renouvellement Auto Échoué (${inv.productName})`,
-                  message: `Le renouvellement automatique pour votre plan bien-être "${inv.productName}" a échoué en raison d'un solde insuffisant.`,
-                  type: 'plan',
-                  lastModified: Date.now(),
-                  createdAt: new Date().toISOString(),
-                  read: false
-                });
-              }
-            }
-
-            if (autoRenewed) {
-              inv.daysPassed = 0;
-              inv.totalReturnClaimed = 0;
-              inv.createdAt = new Date().toISOString();
-              inv.lastClaimDate = new Date().toISOString();
-              inv.status = 'active';
-            } else {
-              inv.status = 'completed';
-              handleCyclicCompletion(inv, users, products, investments, notifications);
-            }
-          }
+          inv.status = 'completed';
+          inv.payoutCredited = true;
+          inv.lastModified = Date.now();
+          handleCyclicCompletion(inv, users, products, investments, notifications);
+          changed = true;
+        }
           changed = true;
         }
       return inv;
@@ -2087,34 +2122,13 @@ const SERVER_DEFAULT_PRODUCTS = [
   });
 
   app.get("/api/admin/delete-validated-withdrawals", async (req, res) => {
-    try {
-      console.log("[API CLEANUP] Deleting all approved/completed/successful withdrawals...");
-      const withdrawals = storeData["gi_withdrawals"] || [];
-      const beforeCount = withdrawals.length;
-      
-      const filtered = withdrawals.filter((w: any) => 
-        w.status !== 'approved' && w.status !== 'completed' && w.status !== 'success'
-      );
-      
-      storeData["gi_withdrawals"] = filtered;
-      saveStoreLocal();
-
-      if (supabase) {
-        await supabase.from('store').upsert({
-          key: "gi_withdrawals",
-          value: filtered
-        });
-      }
-
-      res.json({
-        success: true,
-        message: `${beforeCount - filtered.length} retraits validés/expédiés ont été définitivement supprimés.`,
-        deletedCount: beforeCount - filtered.length
-      });
-    } catch (e: any) {
-      console.error("[API CLEANUP] Error deleting validated withdrawals:", e);
-      res.status(500).json({ success: false, error: e.message });
-    }
+    // Conformité absolue avec la règle de traçabilité : aucun retrait validé n'est supprimé
+    console.log("[API AUDIT] Conservation définitive de tous les retraits dans l'historique et Supabase.");
+    res.json({
+      success: true,
+      message: "L'historique des retraits est conservé définitivement conformément aux règles de traçabilité.",
+      deletedCount: 0
+    });
   });
 
   app.get("/api/admin/reset-all-deposits-withdrawals", async (req, res) => {
@@ -2326,7 +2340,7 @@ const SERVER_DEFAULT_PRODUCTS = [
               const incoming = sbData["gi_category_schedules"];
               const merged: any = { ...current };
               let hasNewer = false;
-              for (const cat of ['wellbeing', 'withdrawals'] as const) {
+              for (const cat of ['wellbeing', 'withdrawals', 'activity'] as const) {
                 const curTime = Number(current[cat]?.lastModified || 0);
                 const inTime = Number(incoming?.[cat]?.lastModified || 0);
                 if (inTime >= curTime && incoming[cat]) {
@@ -2781,7 +2795,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         } else if (key === "gi_category_schedules" && typeof newVal === 'object' && newVal) {
           const current = storeData["gi_category_schedules"] || JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES));
           const mergedCatSched: any = { ...current };
-          for (const cat of ['wellbeing', 'withdrawals'] as const) {
+          for (const cat of ['wellbeing', 'withdrawals', 'activity'] as const) {
             if (newVal[cat]) {
               const incomingTime = Number(newVal[cat].lastModified || 0);
               const existingTime = Number(current[cat]?.lastModified || 0);
@@ -3117,6 +3131,18 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
     }
 
+    // Horaires d'ouverture / fermeture pour Activités (sécurisé côté serveur)
+    if (targetProduct.category === 'activity') {
+      const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
+      const scheduleStatus = evaluateCategorySchedule('activity', schedules);
+      if (!scheduleStatus.isOpen) {
+        return res.json({
+          success: false,
+          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat'
+        });
+      }
+    }
+
     // Règle 5 : Un même utilisateur peut acheter plusieurs produits Activité, Bien-être et Stabilité.
     // Les horaires d'ouverture et de fermeture définis par l'administration sont strictement respectés (Règle 6).
 
@@ -3157,11 +3183,18 @@ const SERVER_DEFAULT_PRODUCTS = [
     commissions = storeData["gi_commissions"] || [];
     notifications = storeData["gi_notifications"] || [];
 
+    const isWellbeing = targetProduct.category === 'wellbeing';
+    const isActivity = targetProduct.category === 'activity';
+    const totalPayoutDisplay = (targetProduct.totalReturn || (targetProduct.price + (targetProduct.dailyReturn * targetProduct.durationDays))).toLocaleString();
+    const subNoticeMsg = (isWellbeing || isActivity)
+      ? `Votre souscription au produit "${targetProduct.name}" (${targetProduct.price.toLocaleString()} XOF) a été validée avec succès. Le revenu total de ${totalPayoutDisplay} XOF vous sera versé uniquement à la fin du cycle de ${targetProduct.durationDays} jours. Même si ce produit est ensuite fermé aux nouveaux achats, votre cycle continue normalement jusqu'à son terme.`
+      : `Votre souscription de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a été validée avec succès. Le revenu total de ${totalPayoutDisplay} XOF sera versé à la fin du cycle de ${targetProduct.durationDays} jours.`;
+
     notifications.unshift({
       id: `not-plan-${Date.now()}`,
       userId,
       title: 'Plan souscrit avec succès',
-      message: `Votre souscription de ${targetProduct.price.toLocaleString()} XOF dans le plan ${targetProduct.name} a été validée avec succès.`,
+      message: subNoticeMsg,
       type: 'plan',
       lastModified: Date.now(),
       createdAt: new Date().toISOString(),
@@ -3232,17 +3265,19 @@ const SERVER_DEFAULT_PRODUCTS = [
     return res.json({ success: true, message: `Le produit "${inv.productName}" est désormais ACTIF !`, investment: inv });
   });
 
-  // Endpoints pour la gestion des horaires d'ouverture Bien-être et Retraits
+  // Endpoints pour la gestion des horaires d'ouverture Bien-être, Retraits et Activités
   app.get("/api/category-schedules", (req, res) => {
     const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
     const wellbeingStatus = evaluateCategorySchedule('wellbeing', schedules);
     const withdrawalsStatus = evaluateCategorySchedule('withdrawals', schedules);
+    const activityStatus = evaluateCategorySchedule('activity', schedules);
     res.json({
       success: true,
       schedules,
       status: {
         wellbeing: wellbeingStatus,
-        withdrawals: withdrawalsStatus
+        withdrawals: withdrawalsStatus,
+        activity: activityStatus
       },
       serverTime: new Date().toISOString()
     });
@@ -3285,7 +3320,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     const now = Date.now();
 
     if (schedules && typeof schedules === 'object') {
-      for (const cat of ['wellbeing', 'withdrawals'] as const) {
+      for (const cat of ['wellbeing', 'withdrawals', 'activity'] as const) {
         if (schedules[cat]) {
           currentSchedules[cat] = {
             ...((DEFAULT_CATEGORY_SCHEDULES as any)[cat]),
@@ -3295,7 +3330,7 @@ const SERVER_DEFAULT_PRODUCTS = [
           };
         }
       }
-    } else if (category && (category === 'wellbeing' || category === 'withdrawals') && schedule) {
+    } else if (category && (category === 'wellbeing' || category === 'withdrawals' || category === 'activity') && schedule) {
       currentSchedules[category] = {
         ...((DEFAULT_CATEGORY_SCHEDULES as any)[category]),
         ...((currentSchedules as any)[category]),

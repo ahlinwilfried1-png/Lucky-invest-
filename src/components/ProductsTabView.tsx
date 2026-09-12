@@ -18,8 +18,8 @@ import { DataStore } from '../dataStore';
 
 interface ProductsTabViewProps {
   products: Product[];
-  productSubTab: 'stability' | 'wellbeing';
-  setProductSubTab: (tab: 'stability' | 'wellbeing') => void;
+  productSubTab: 'stability' | 'wellbeing' | 'activity';
+  setProductSubTab: (tab: 'stability' | 'wellbeing' | 'activity') => void;
   handleBuyProduct: (product: Product) => void;
   buyingProductId: string | null;
   activeInvestments: Investment[];
@@ -41,18 +41,24 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
   unreadSupportCount = 0
 }) => {
   const stabilityProducts = products
-    .filter(p => p.category === 'stability' || !p.category)
+    .filter(p => p.category === 'stability' || (!p.category && !String(p.id).startsWith('well-') && !String(p.id).startsWith('act-')))
     .sort((a, b) => (a.price || 0) - (b.price || 0));
 
   const wellbeingProducts = products
-    .filter(p => p.category === 'wellbeing')
+    .filter(p => p.category === 'wellbeing' || String(p.id).startsWith('well-'))
+    .sort((a, b) => (a.price || 0) - (b.price || 0));
+
+  const activityProducts = products
+    .filter(p => p.category === 'activity' || String(p.id).startsWith('act-'))
     .sort((a, b) => (a.price || 0) - (b.price || 0));
 
   const [wellbeingSchedule, setWellbeingSchedule] = useState(() => DataStore.isCategoryOpen('wellbeing'));
+  const [activitySchedule, setActivitySchedule] = useState(() => DataStore.isCategoryOpen('activity'));
 
   useEffect(() => {
     const updateSchedule = () => {
       setWellbeingSchedule(DataStore.isCategoryOpen('wellbeing'));
+      setActivitySchedule(DataStore.isCategoryOpen('activity'));
     };
     window.addEventListener('gi_category_schedules_updated', updateSchedule);
     window.addEventListener('gi_store_updated', updateSchedule);
@@ -83,14 +89,19 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
   const [closedNotice, setClosedNotice] = useState<string | null>(null);
 
   const showClosedNotice = () => {
-    setClosedNotice('Ce produit est actuellement indisponible à l’achat');
+    setClosedNotice('Ce produit est fermé aux nouveaux achats. Les cycles déjà commencés continuent normalement jusqu’à la fin de leur cycle.');
     setTimeout(() => {
       setClosedNotice(null);
-    }, 3200);
+    }, 4000);
   };
 
-  // Les produits Bien-être restent toujours visibles sur la page Produit, même quand ils sont fermés
-  const currentProducts = productSubTab === 'stability' ? stabilityProducts : wellbeingProducts;
+  // Les produits Bien-être et Activités restent toujours visibles sur la page Produit, même quand ils sont fermés
+  const currentProducts = 
+    productSubTab === 'stability' 
+      ? stabilityProducts 
+      : productSubTab === 'wellbeing' 
+        ? wellbeingProducts 
+        : activityProducts;
 
   const defaultGoldImage = "https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=800";
 
@@ -186,6 +197,29 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                 {t('BIEN-ÊTRE', 'WELL-BEING')}
               </span>
             </button>
+
+            {/* TAB 3: ACTIVITÉS */}
+            <button
+              type="button"
+              onClick={() => setProductSubTab('activity')}
+              className={`w-full flex flex-col items-center justify-center p-2.5 py-3 rounded-2xl transition-all duration-200 shrink-0 cursor-pointer text-center outline-none ${
+                productSubTab === 'activity'
+                  ? 'bg-gradient-to-b from-[#e5a024] to-[#c88214] text-white shadow-sm scale-[1.02]'
+                  : 'bg-white text-slate-700 shadow-xs hover:bg-slate-50'
+              }`}
+              id="tab-activites"
+            >
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mb-1 transition-all ${
+                productSubTab === 'activity' 
+                  ? 'bg-white/20 text-white shadow-xs' 
+                  : 'bg-slate-100/70 text-slate-600'
+              }`}>
+                <Sparkles className="w-4.5 h-4.5 stroke-[2.4]" />
+              </div>
+              <span className="font-sans font-black text-[9.5px] min-[375px]:text-[10px] uppercase tracking-wider block leading-tight">
+                {t('ACTIVITÉS', 'ACTIVITIES')}
+              </span>
+            </button>
           </div>
 
           {/* RIGHT COLUMN: VIP PRODUCT CARDS LIST */}
@@ -198,13 +232,16 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                   : null;
 
                 const vipLevel = p.vipLevel || (index + 1);
-                const isWellbeing = p.category === 'wellbeing';
-                const isClosedWellbeing = isWellbeing && !wellbeingSchedule.isOpen;
+                const isWellbeing = p.category === 'wellbeing' || String(p.id).startsWith('well-');
+                const isActivity = p.category === 'activity' || String(p.id).startsWith('act-');
+                const isClosed = (isWellbeing && !wellbeingSchedule.isOpen) || (isActivity && !activitySchedule.isOpen);
                 
-                // Display Title matching exact format: "Titres à revenu fixe 1", etc.
+                // Display Title matching exact format
                 const displayName = isWellbeing
                   ? `Gold Avenue Bien-être ${vipLevel}`
-                  : `Titres à revenu fixe ${vipLevel}`;
+                  : isActivity
+                    ? (p.name || `Gold Avenue Activité ${vipLevel}`)
+                    : `Titres à revenu fixe ${vipLevel}`;
 
                 const totalExpectedProductPayout = p.totalReturn || (p.price + (p.dailyReturn * p.durationDays));
                 const imgSrc = (p.imageUrl && p.imageUrl.trim() !== '') ? p.imageUrl : defaultGoldImage;
@@ -213,12 +250,12 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                   <div
                     key={p.id}
                     onClick={() => {
-                      if (isClosedWellbeing) {
+                      if (isClosed) {
                         showClosedNotice();
                       }
                     }}
                     className={`bg-white rounded-3xl shadow-xs hover:shadow-sm overflow-hidden p-3 sm:p-3.5 space-y-2.5 transition-all duration-300 relative flex flex-col justify-between ${
-                      isClosedWellbeing ? 'cursor-pointer hover:bg-slate-50/60' : ''
+                      isClosed ? 'cursor-pointer hover:bg-slate-50/60' : ''
                     }`}
                     id={`product-card-${p.id}`}
                   >
@@ -235,10 +272,17 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                         {/* Glossy subtle shine overlay */}
                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none" />
 
-                        {/* VIP Capsule Pill at Top Left (Exact style from reference screenshot) */}
-                        <div className="absolute top-2 left-2 bg-black/45 backdrop-blur-xs text-white font-sans font-extrabold text-[9.5px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                          <span>VIP {vipLevel} • {isWellbeing ? 'BIEN-ÊTRE' : 'STABILITÉ'}</span>
+                        {/* VIP Capsule Pill at Top Left */}
+                        <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                          <div className="bg-black/45 backdrop-blur-xs text-white font-sans font-extrabold text-[9.5px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            <span>VIP {vipLevel} • {isWellbeing ? 'BIEN-ÊTRE' : isActivity ? 'ACTIVITÉ' : 'STABILITÉ'}</span>
+                          </div>
+                          {isClosed && (
+                            <div className="bg-red-600/90 backdrop-blur-xs text-white font-sans font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                              <span>Fermé aux nouveaux achats</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Title Overlay at Bottom of Image */}
@@ -286,7 +330,7 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Bottom Action Area: Split Price & Investir Button (Exact Layout from Screenshot) */}
+                    {/* Bottom Action Area: Split Price & Investir Button */}
                     <div className="pt-2">
                       <div className="flex items-stretch gap-2">
                         {/* Left: Price Pill with Zap Icon */}
@@ -301,19 +345,23 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (isClosedWellbeing) {
+                            if (isClosed) {
                               showClosedNotice();
                               return;
                             }
                             handleBuyProduct(p);
                           }}
                           disabled={isBlocked || buyingProductId === p.id}
-                          className={`flex-1 bg-gradient-to-r from-[#d9962a] via-[#e5a836] to-[#f2bb45] hover:from-[#c88519] hover:to-[#dfa025] cursor-pointer active:scale-[0.98] text-white font-black text-xs sm:text-sm uppercase tracking-wider py-2.5 px-3 rounded-2xl flex items-center justify-center gap-1.5 shadow-2xs transition-all border-none outline-none ${
+                          className={`flex-1 ${
+                            isClosed
+                              ? 'bg-slate-200 text-slate-500 hover:bg-slate-300 cursor-pointer'
+                              : 'bg-gradient-to-r from-[#d9962a] via-[#e5a836] to-[#f2bb45] hover:from-[#c88519] hover:to-[#dfa025] cursor-pointer text-white'
+                          } active:scale-[0.98] font-black text-xs sm:text-sm uppercase tracking-wider py-2.5 px-3 rounded-2xl flex items-center justify-center gap-1.5 shadow-2xs transition-all border-none outline-none ${
                             isBlocked || buyingProductId === p.id ? 'opacity-60 cursor-not-allowed' : ''
                           }`}
                         >
                           <span className="whitespace-nowrap">
-                            {buyingProductId === p.id ? 'Paiement...' : 'INVESTIR'}
+                            {buyingProductId === p.id ? 'Paiement...' : isClosed ? 'Fermé' : 'INVESTIR'}
                           </span>
                           <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                         </button>

@@ -78,7 +78,7 @@ export interface Product {
   reopenDateTime?: string;
   isCyclic?: boolean;
   generatedProductIds?: string[];
-  category?: 'stability' | 'wellbeing';
+  category?: 'stability' | 'wellbeing' | 'activity';
   lastModified?: number;
 }
 
@@ -95,7 +95,7 @@ export interface Investment {
   totalReturnClaimed: number;
   lastClaimDate: string; // ISO string or short date
   status: 'active' | 'completed' | 'pending_activation';
-  category?: 'stability' | 'wellbeing' | string;
+  category?: 'stability' | 'wellbeing' | 'activity' | string;
   createdAt: string;
   activatedAt?: string;
   activationConditionsMet?: boolean;
@@ -195,5 +195,19 @@ export interface CategorySchedule {
 export interface CategorySchedules {
   wellbeing: CategorySchedule;
   withdrawals?: CategorySchedule;
+  activity?: CategorySchedule;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  category?: 'officiel' | 'important' | 'promotion' | 'maintenance' | 'info';
+  badge?: string;
+  createdAt: string;
+  author?: string;
+  imageUrl?: string;
+  pinned?: boolean;
+  lastModified?: number;
 }
 

@@ -12,7 +12,8 @@ import {
   WithdrawalProof,
   CategorySchedule,
   CategorySchedules,
-  RevenueRecord
+  RevenueRecord,
+  Announcement
 } from './types';
 import { deduplicateForumPosts } from './lib/forumUtils';
 import { 
@@ -33,6 +34,13 @@ export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
     mode: 'auto',
     openTime: '09:00',
     closeTime: '17:00',
+    enabled: true,
+    lastModified: 0
+  },
+  activity: {
+    mode: 'open',
+    openTime: '08:00',
+    closeTime: '20:00',
     enabled: true,
     lastModified: 0
   }
@@ -238,6 +246,64 @@ export const DEFAULT_PRODUCTS: Product[] = [
     isBlocked: false,
     isCyclic: true,
     generatedProductIds: []
+  },
+
+  // ACTIVITÉS (Offres spéciales & opportunités exclusives)
+  {
+    id: "act-1",
+    vipLevel: 1,
+    name: "Gold Avenue Activité Découverte",
+    tag: "Activité Spéciale",
+    price: 3000,
+    dailyReturn: 900,
+    durationDays: 5,
+    totalReturn: 4500,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-2",
+    vipLevel: 2,
+    name: "Gold Avenue Activité Privilège",
+    tag: "Activité Flash",
+    price: 10000,
+    dailyReturn: 3200,
+    durationDays: 5,
+    totalReturn: 16000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-3",
+    vipLevel: 3,
+    name: "Gold Avenue Activité Prestige",
+    tag: "Événement VIP",
+    price: 30000,
+    dailyReturn: 10500,
+    durationDays: 5,
+    totalReturn: 52500,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
+  },
+  {
+    id: "act-4",
+    vipLevel: 4,
+    name: "Gold Avenue Activité Excellence",
+    tag: "Haute Performance",
+    price: 75000,
+    dailyReturn: 28000,
+    durationDays: 5,
+    totalReturn: 140000,
+    category: "activity",
+    isBlocked: false,
+    isCyclic: true,
+    generatedProductIds: []
   }
 ];
 
@@ -278,6 +344,43 @@ const INITIAL_BONUS_CODES: BonusCode[] = [
 const INITIAL_CHATS: SupportMessage[] = [];
 
 const INITIAL_PROOFS: WithdrawalProof[] = [];
+
+export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: 'ann-1',
+    title: 'Bienvenue sur Gold Avenue — Plateforme d\'Investissement Sécurisée',
+    content: 'Chers investisseurs, nous vous souhaitons la bienvenue sur Gold Avenue. Notre mission est de vous offrir des solutions d\'investissement fiables, performantes et sécurisées avec des retours quotidiens garantis. N\'hésitez pas à explorer nos plans d\'investissement et à contacter notre support en cas de besoin.',
+    category: 'officiel',
+    badge: 'OFFICIEL',
+    author: 'Direction Gold Avenue',
+    createdAt: '2026-09-10T08:00:00.000Z',
+    pinned: true,
+    lastModified: 1788937200000
+  },
+  {
+    id: 'ann-2',
+    title: 'Horaires de Retrait & Traitement Rapide',
+    content: 'Les demandes de retrait sont examinées et validées du lundi au vendredi. Pour garantir un versement sans délai, veuillez vérifier l\'exactitude de votre numéro et de l\'opérateur bancaire ou Mobile Money renseigné dans votre profil.',
+    category: 'important',
+    badge: 'IMPORTANT',
+    author: 'Service Financier',
+    createdAt: '2026-09-11T11:30:00.000Z',
+    pinned: false,
+    lastModified: 1789036200000
+  },
+  {
+    id: 'ann-3',
+    title: 'Programme de Parrainage : Gagnez jusqu\'à 24% de Commissions',
+    content: 'Profitez de notre système de parrainage sur 3 niveaux (20% au Niveau 1, 3% au Niveau 2, et 1% au Niveau 3) crédité directement sur votre solde dès le premier rechargement validé de vos affiliés. Partagez votre lien d\'invitation dès maintenant !',
+    category: 'promotion',
+    badge: 'PROMOTION',
+    author: 'Service Marketing',
+    createdAt: '2026-09-12T06:00:00.000Z',
+    pinned: false,
+    lastModified: 1789102800000
+  }
+];
+
 
 // Robust, frame-safe in-memory cache to guarantee full compatibility when running inside sandboxed environments
 // (like an iframe on iOS, Safari, or tablets) where localStorage or sessionStorage access is strictly restricted or blocked.
@@ -525,7 +628,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
         'gi_commissions', 'gi_notifications', 'gi_bonus_codes', 'gi_support_messages', 
         'gi_products', 'gi_mlm_level1_rate', 'gi_mlm_level2_rate', 'gi_mlm_level3_rate',
         'gi_withdrawals_blocked_global', 'gi_referral_domain', 'gi_withdrawal_proofs',
-        'gi_manual_deposit_numbers', 'gi_official_banners', 'gi_cleanup_timestamp'
+        'gi_manual_deposit_numbers', 'gi_official_banners', 'gi_cleanup_timestamp',
+        'gi_announcements'
       ];
       for (const key of syncKeys) {
         const cached = localStorage.getItem(key) || inMemoryStore[key];
@@ -922,7 +1026,8 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
           'gi_deleted_products',
           'gi_manual_deposit_numbers',
           'gi_official_banners',
-          'gi_category_schedules'
+          'gi_category_schedules',
+          'gi_announcements'
         ];
         
         // Ensure standard keys are read with their default fallback if they are not in local storage yet
@@ -932,6 +1037,7 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
         DataStore.getInvestments();
         DataStore.getCommissions();
         DataStore.getNotifications();
+        DataStore.getAnnouncements();
         DataStore.getBonusCodes();
         DataStore.getSupportMessages();
         DataStore.getProducts();
@@ -1439,8 +1545,6 @@ export class DataStore {
 
   static getProducts(): Product[] {
     let list = getFromStore<Product[]>('gi_products', DEFAULT_PRODUCTS);
-    // Remove any activity products completely from the store
-    list = list.filter(p => p && p.id && (p as any).category !== 'activity' && !String(p.id).startsWith('act-'));
     const deletedList = getFromStore<string[]>('gi_deleted_products', []);
     if (deletedList.length > 0) {
       list = list.filter(p => p && p.id && !deletedList.includes(String(p.id)));
@@ -1641,7 +1745,7 @@ export class DataStore {
     }
   }
 
-  // --- GESTION DES HORAIRES BIEN-ÊTRE ET RETRAITS ---
+  // --- GESTION DES HORAIRES BIEN-ÊTRE, RETRAITS ET ACTIVITÉS ---
   static getCategorySchedules(): CategorySchedules {
     const data = getFromStore<CategorySchedules>('gi_category_schedules', DEFAULT_CATEGORY_SCHEDULES);
     return {
@@ -1658,6 +1762,16 @@ export class DataStore {
           lastModified: 0
         }),
         ...(data && data.withdrawals ? data.withdrawals : {})
+      },
+      activity: {
+        ...(DEFAULT_CATEGORY_SCHEDULES.activity || {
+          mode: 'open',
+          openTime: '08:00',
+          closeTime: '20:00',
+          enabled: true,
+          lastModified: 0
+        }),
+        ...(data && data.activity ? data.activity : {})
       }
     };
   }
@@ -1810,7 +1924,7 @@ export class DataStore {
     }
   }
 
-  static isCategoryOpen(category: 'wellbeing' | 'withdrawals', targetDate: Date = new Date()): {
+  static isCategoryOpen(category: 'wellbeing' | 'withdrawals' | 'activity', targetDate: Date = new Date()): {
     isOpen: boolean;
     statusLabel: 'OUVERT' | 'FERMÉ';
     reason: string;
@@ -1820,20 +1934,20 @@ export class DataStore {
   } {
     const schedules = this.getCategorySchedules();
     const schedule = (schedules && schedules[category]) ? schedules[category] : (DEFAULT_CATEGORY_SCHEDULES as any)[category];
-    const catLabel = category === 'wellbeing' ? 'Bien-être' : 'Retraits';
+    const catLabel = category === 'wellbeing' ? 'Bien-être' : category === 'activity' ? 'Activités' : 'Retraits';
 
     const openTime = schedule.openTime || '08:00';
     const closeTime = schedule.closeTime || '20:00';
 
-    // Pour les produits Bien-être : contrôle direct binaire Ouvert / Fermé défini par l'administrateur
-    if (category === 'wellbeing') {
+    // Pour les produits Bien-être et Activités : contrôle direct binaire Ouvert / Fermé défini par l'administrateur
+    if (category === 'wellbeing' || category === 'activity') {
       const isClosed = schedule && schedule.mode === 'closed';
       return {
         isOpen: !isClosed,
         statusLabel: isClosed ? 'FERMÉ' : 'OUVERT',
         reason: isClosed 
           ? 'Ce produit est actuellement indisponible à l’achat'
-          : 'Les produits Bien-être sont disponibles à l\'achat.',
+          : `Les produits ${catLabel} sont disponibles à l'achat.`,
         mode: isClosed ? 'closed' : 'open',
         openTime,
         closeTime
@@ -2967,6 +3081,17 @@ export class DataStore {
       }
     }
 
+    // Vérification de la disponibilité pour les produits Activités
+    if (targetProduct.category === 'activity') {
+      const scheduleStatus = this.isCategoryOpen('activity');
+      if (!scheduleStatus.isOpen) {
+        return {
+          success: false,
+          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat'
+        };
+      }
+    }
+
     // Deduct balance and update properties
     const isCyclicProduct = true;
 
@@ -3324,11 +3449,12 @@ export class DataStore {
 
     const isStability = inv.category === 'stability';
     const isWellbeing = inv.category === 'wellbeing';
-    if (isStability || isWellbeing || (inv as any).isCyclic) {
-      const planName = isWellbeing ? 'Bien-être' : 'Stabilité VIP';
+    const isActivity = inv.category === 'activity';
+    if (isStability || isWellbeing || isActivity || (inv as any).isCyclic) {
+      const planName = isWellbeing ? 'Bien-être' : isActivity ? 'Activité' : 'Stabilité VIP';
       return { 
         success: false, 
-        message: `Les revenus de ce plan ${planName} (${inv.productName}) vous seront versés automatiquement et en intégralité à la fin de son cycle de ${inv.durationDays} jours.`, 
+        message: `Les revenus de ce plan ${planName} (${inv.productName}) vous seront versés automatiquement et en intégralité uniquement à la fin de son cycle de ${inv.durationDays} jours. Même si le produit est fermé aux nouveaux achats, votre cycle continue normalement.`, 
         amount: 0 
       };
     }
@@ -3967,11 +4093,17 @@ export class DataStore {
                 this.saveRevenueHistory(revenueHistory);
 
                 const isWellbeing = inv.category === 'wellbeing';
+                const isActivity = inv.category === 'activity';
+                const isStability = inv.category === 'stability' || (!isWellbeing && !isActivity);
                 const title = isWellbeing 
                   ? `🌸 Cycle Bien-être Terminé (${inv.productName})` 
+                  : isActivity
+                  ? `⚡ Cycle d'Activité Terminé (${inv.productName})`
                   : `📈 Cycle Stabilité Terminé (${inv.productName})`;
                 const message = isWellbeing
-                  ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre solde (total: ${totalPayout.toLocaleString()} XOF).`
+                  ? `Félicitations ! Votre cycle de bien-être "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre revenu total de ${totalPayout.toLocaleString()} XOF (capital: ${inv.price.toLocaleString()} XOF + bénéfices: ${netProfit.toLocaleString()} XOF) a été crédité sur votre solde. Pour démarrer un nouveau cycle, vous pouvez effectuer un nouvel investissement.`
+                  : isActivity
+                  ? `Félicitations ! Votre cycle d'activité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre revenu total de ${totalPayout.toLocaleString()} XOF (capital: ${inv.price.toLocaleString()} XOF + bénéfices: ${netProfit.toLocaleString()} XOF) a été crédité sur votre solde. Pour démarrer un nouveau cycle, vous pouvez effectuer un nouvel investissement.`
                   : `Félicitations ! Votre cycle de stabilité "${inv.productName}" de ${inv.durationDays} jours est terminé. Votre capital de ${inv.price.toLocaleString()} XOF et vos bénéfices de ${netProfit.toLocaleString()} XOF ont été crédités sur votre solde (total: ${totalPayout.toLocaleString()} XOF).`;
 
                 notifications.unshift({
@@ -4665,5 +4797,143 @@ export class DataStore {
 
   static setWithdrawalsBlocked(blocked: boolean): void {
     setToStore<boolean>('gi_withdrawals_blocked_global', blocked);
+  }
+
+  // Announcements management & persistence
+  static getAnnouncements(): Announcement[] {
+    return getFromStore<Announcement[]>('gi_announcements', INITIAL_ANNOUNCEMENTS);
+  }
+
+  static saveAnnouncements(announcements: Announcement[]): void {
+    setToStore<Announcement[]>('gi_announcements', announcements);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('gi_announcements_updated', { detail: announcements }));
+    }
+    // Async push to server and Supabase
+    try {
+      apiFetch(getApiUrl('/api/save-store'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          'gi_announcements': announcements
+        })
+      }).catch((err) => console.warn('[SAVE ANNOUNCEMENTS SYNC ERROR]', err));
+    } catch (e) {}
+  }
+
+  static publishAnnouncement(data: {
+    title: string;
+    content: string;
+    category?: 'officiel' | 'important' | 'promotion' | 'maintenance' | 'info';
+    badge?: string;
+    author?: string;
+    pinned?: boolean;
+    imageUrl?: string;
+  }): Announcement {
+    const list = this.getAnnouncements();
+    const newAnn: Announcement = {
+      id: `ann-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: data.title.trim(),
+      content: data.content.trim(),
+      category: data.category || 'officiel',
+      badge: data.badge || (data.category ? data.category.toUpperCase() : 'OFFICIEL'),
+      author: data.author?.trim() || 'Administration Gold Avenue',
+      pinned: Boolean(data.pinned),
+      imageUrl: data.imageUrl,
+      createdAt: new Date().toISOString(),
+      lastModified: Date.now()
+    };
+
+    if (newAnn.pinned) {
+      list.unshift(newAnn);
+    } else {
+      const firstNonPinned = list.findIndex(a => !a.pinned);
+      if (firstNonPinned === -1) {
+        list.push(newAnn);
+      } else {
+        list.splice(firstNonPinned, 0, newAnn);
+      }
+    }
+
+    this.saveAnnouncements(list);
+
+    // Automatically trigger notification for all users
+    try {
+      const notifs = this.getNotifications();
+      notifs.unshift({
+        id: `not-ann-${newAnn.id}`,
+        title: `📢 Annonce : ${newAnn.title}`,
+        message: newAnn.content.length > 140 ? newAnn.content.substring(0, 137) + '...' : newAnn.content,
+        type: 'info',
+        createdAt: new Date().toISOString(),
+        read: false
+      });
+      this.saveNotifications(notifs);
+    } catch (e) {
+      console.warn('[ANNOUNCEMENT NOTIF TRIGGER ERROR]', e);
+    }
+
+    return newAnn;
+  }
+
+  static deleteAnnouncement(announcementId: string): void {
+    let list = this.getAnnouncements();
+    list = list.filter(a => a.id !== announcementId);
+    this.saveAnnouncements(list);
+  }
+
+  // Read status tracking per user
+  static getReadAnnouncementIds(userId?: string): string[] {
+    if (!userId) return [];
+    try {
+      const key = `gi_read_announcements_${userId}`;
+      const raw = localStorage.getItem(key) || inMemoryStore[key];
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static markAnnouncementAsRead(userId: string, announcementId: string): void {
+    if (!userId || !announcementId) return;
+    try {
+      const readIds = this.getReadAnnouncementIds(userId);
+      if (!readIds.includes(announcementId)) {
+        readIds.push(announcementId);
+        const key = `gi_read_announcements_${userId}`;
+        const valStr = JSON.stringify(readIds);
+        try {
+          localStorage.setItem(key, valStr);
+        } catch (e) {}
+        inMemoryStore[key] = valStr;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gi_read_announcements_updated', { detail: { userId, readIds } }));
+        }
+      }
+    } catch (e) {}
+  }
+
+  static markAllAnnouncementsAsRead(userId: string): void {
+    if (!userId) return;
+    try {
+      const all = this.getAnnouncements();
+      const allIds = all.map(a => a.id);
+      const key = `gi_read_announcements_${userId}`;
+      const valStr = JSON.stringify(allIds);
+      try {
+        localStorage.setItem(key, valStr);
+      } catch (e) {}
+      inMemoryStore[key] = valStr;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gi_read_announcements_updated', { detail: { userId, readIds: allIds } }));
+      }
+    } catch (e) {}
+  }
+
+  static getUnreadAnnouncementsCount(userId?: string): number {
+    if (!userId) return 0;
+    const all = this.getAnnouncements();
+    const readIds = this.getReadAnnouncementIds(userId);
+    return all.filter(a => !readIds.includes(a.id)).length;
   }
 }

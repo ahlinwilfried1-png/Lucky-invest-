@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Lora", "Spectral", "Georgia", "Cambria", "Times New Roman", serif;
-  --font-display: "Lora", "Spectral", "Georgia", serif;
-  --font-serif: "Lora", "Spectral", "Georgia", serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Lora", "Georgia", serif;
+  --font-serif: "Lora", "Georgia", serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   
   --color-gold-light: #fdfaf3;
@@ -70,32 +70,43 @@ button, input, select, textarea {
   letter-spacing: 0.02em;
 }
 
-/* Form input base styling in deep midnight blue */
-input, select, textarea {
-  background-color: #0b1426 !important;
-  color: #ffffff !important;
-  border-color: #192a4a;
-  outline: none !important;
+/* Soft and subtle borders across modern elements */
+.border, [class*="border-"] {
+  border-color: rgba(232, 216, 176, 0.25);
 }
 
-/* Auth field container */
-.auth-field-wrapper {
-  background-color: #0b1426 !important;
-  border-color: #192a4a !important;
-  outline: none !important;
-}
-
-.auth-field-wrapper:focus-within {
-  background-color: #0e1a33 !important;
-  border-color: #f59e0b !important;
-}
-
-input.auth-clean-input,
-select.auth-clean-select,
-textarea.auth-clean-textarea {
+/* Light auth container overrides */
+#auth-container input,
+#auth-container select,
+#auth-container textarea {
   background-color: transparent !important;
-  padding: 0 !important;
-  color: #ffffff !important;
+  color: #102A43 !important;
+}
+
+#auth-container .auth-field-wrapper {
+  background-color: #FFFFFF !important;
+  border-color: rgba(232, 216, 176, 0.45) !important;
+}
+
+#auth-container .auth-field-wrapper:focus-within {
+  background-color: #FFFFFF !important;
+  border-color: #D49A22 !important;
+  box-shadow: 0 0 0 2px rgba(212, 154, 34, 0.15) !important;
+}
+
+#auth-container input::placeholder,
+#auth-container textarea::placeholder {
+  color: #607D9A !important;
+  opacity: 0.65 !important;
+}
+
+/* Form input base styling for dark surfaces */
+.dark input, .dark select, .dark textarea,
+.bg-slate-900 input, .bg-slate-950 input {
+  background-color: #0b1426;
+  color: #ffffff;
+  border-color: rgba(25, 42, 74, 0.4);
+  outline: none !important;
 }
 
 input.auth-clean-input::placeholder {

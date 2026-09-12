@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- SCRIPT SQL COMPLET DE CRÉATION DE LA BASE DE DONNÉES SUPABASE
--- Projet Supabase : https://sjvyhnxklgsgprgkihrr.supabase.co
+-- Projet Supabase : https://muixbrojlvfbjwnflgot.supabase.co
 -- À exécuter dans : Dashboard Supabase > SQL Editor > New query > Run
 -- ==============================================================================
 
@@ -144,6 +144,20 @@ CREATE TABLE IF NOT EXISTS public.support_messages (
     raw_data JSONB DEFAULT '{}'::jsonb
 );
 
+-- 10. Table des Annonces Officielles de l'Administration
+CREATE TABLE IF NOT EXISTS public.announcements (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    summary TEXT,
+    category TEXT DEFAULT 'officiel' NOT NULL,
+    importance TEXT DEFAULT 'normal' NOT NULL,
+    date TEXT NOT NULL,
+    active BOOLEAN DEFAULT true NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    raw_data JSONB DEFAULT '{}'::jsonb
+);
+
 -- ==============================================================================
 -- INDEX DE PERFORMANCE
 -- ==============================================================================
@@ -156,6 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON public.withdrawals(status);
 CREATE INDEX IF NOT EXISTS idx_investments_user_id ON public.investments(user_id);
 CREATE INDEX IF NOT EXISTS idx_investments_status ON public.investments(status);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON public.announcements(created_at DESC);
 
 -- ==============================================================================
 -- CONFIGURATION ROW LEVEL SECURITY (RLS) & POLICIES
@@ -171,8 +186,9 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.commissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.support_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
--- 1. Policies service_role (Le serveur backend / admin dispose d'un accès TOTAL sans restriction)
+-- 1. Policies service_role (Le serveur backend / opérations administratives disposent d'un accès TOTAL)
 DROP POLICY IF EXISTS "Service role full access on store" ON public.store;
 CREATE POLICY "Service role full access on store" ON public.store FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -200,7 +216,10 @@ CREATE POLICY "Service role full access on notifications" ON public.notification
 DROP POLICY IF EXISTS "Service role full access on support_messages" ON public.support_messages;
 CREATE POLICY "Service role full access on support_messages" ON public.support_messages FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- 2. Policies public / anon (Permet aux requêtes client-side via Anon Key de lire et s'enregistrer en toute sécurité)
+DROP POLICY IF EXISTS "Service role full access on announcements" ON public.announcements;
+CREATE POLICY "Service role full access on announcements" ON public.announcements FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- 2. Policies public / anon (Permet aux requêtes client-side via Anon Key d'interagir en toute sécurité)
 DROP POLICY IF EXISTS "Anon read store" ON public.store;
 CREATE POLICY "Anon read store" ON public.store FOR SELECT TO anon USING (true);
 
@@ -234,13 +253,16 @@ CREATE POLICY "Anon access notifications" ON public.notifications FOR ALL TO ano
 DROP POLICY IF EXISTS "Anon access support_messages" ON public.support_messages;
 CREATE POLICY "Anon access support_messages" ON public.support_messages FOR ALL TO anon USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Anon access announcements" ON public.announcements;
+CREATE POLICY "Anon access announcements" ON public.announcements FOR ALL TO anon USING (true) WITH CHECK (true);
+
 -- ==============================================================================
 -- ACTIVER LA SYNCHRONISATION EN TEMPS RÉEL (SUPABASE REALTIME)
 -- ==============================================================================
 DO $$
 BEGIN
     BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.store, public.users, public.deposits, public.withdrawals, public.investments, public.products, public.notifications;
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.store, public.users, public.deposits, public.withdrawals, public.investments, public.products, public.notifications, public.announcements;
     EXCEPTION
         WHEN duplicate_object THEN NULL;
         WHEN others THEN NULL;

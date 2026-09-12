@@ -71,7 +71,7 @@ import {
   Layers,
   ArrowRight
 } from 'lucide-react';
-import { User, Deposit, Withdrawal, Product, Investment, Commission, SystemNotification, SupportMessage, WithdrawalProof, RevenueRecord } from '../types';
+import { User, Deposit, Withdrawal, Product, Investment, Commission, SystemNotification, SupportMessage, WithdrawalProof, RevenueRecord, Announcement } from '../types';
 import { DataStore, syncWithBackend, getApiUrl, apiFetch } from '../dataStore';
 import { ProfileTabView } from './ProfileTabView';
 import { ProductsTabView } from './ProductsTabView';
@@ -81,6 +81,7 @@ import { ForumTabView } from './ForumTabView';
 import { RechargeTabView } from './RechargeTabView';
 import { WithdrawTabView } from './WithdrawTabView';
 import { PointageView } from './PointageView';
+import { AnnoncesView } from './AnnoncesView';
 import AdminPanel from './AdminPanel';
 import CountdownTimer from './CountdownTimer';
 import { InvestmentItem } from './InvestmentItem';
@@ -421,7 +422,7 @@ export default function Dashboard({
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders' | 'team' | 'profile' | 'deposit' | 'withdraw' | 'proofs' | 'forum'>('dashboard');
   const [referralListTab, setReferralListTab] = useState<'level1' | 'level2' | 'level3'>('level1');
   const [showTeamDetailsPage, setShowTeamDetailsPage] = useState<boolean>(false);
-  const [productSubTab, setProductSubTab] = useState<'stability' | 'wellbeing'>('stability');
+  const [productSubTab, setProductSubTab] = useState<'stability' | 'wellbeing' | 'activity'>('stability');
 
   // Local lists
   const [userState, setUserState] = useState<User>(currentUser);
@@ -450,6 +451,8 @@ export default function Dashboard({
   const unreadSupportCount = supportMessages.filter(
     m => m.userId === currentUser.id && m.sender === 'admin' && m.status === 'unread'
   ).length;
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => DataStore.getAnnouncements());
+  const [unreadAnnouncementsCount, setUnreadAnnouncementsCount] = useState<number>(() => DataStore.getUnreadAnnouncementsCount(currentUser.id));
   const [withdrawalProofs, setWithdrawalProofs] = useState<WithdrawalProof[]>([]);
   const [selectedAvisImage, setSelectedAvisImage] = useState<string | null>(null);
   const [bannerImageError, setBannerImageError] = useState<boolean>(false);
@@ -1445,6 +1448,10 @@ export default function Dashboard({
     const msgs = DataStore.getSupportMessages().filter(m => m.userId === currentUser.id);
     setSupportMessages(msgs);
 
+    // Sync announcements and unread badge count
+    setAnnouncements(DataStore.getAnnouncements());
+    setUnreadAnnouncementsCount(DataStore.getUnreadAnnouncementsCount(currentUser.id));
+
     const pfs = DataStore.getWithdrawalProofs().filter(p => !p.status || p.status === 'approved');
     setWithdrawalProofs(pfs);
 
@@ -1559,6 +1566,8 @@ export default function Dashboard({
     window.addEventListener('gi_new_message', handleNewMessage);
     window.addEventListener('gi_store_updated', handleStoreUpdated);
     window.addEventListener('gi_category_schedules_updated', handleStoreUpdated);
+    window.addEventListener('gi_announcements_updated', handleStoreUpdated);
+    window.addEventListener('gi_read_announcements_updated', handleStoreUpdated);
 
     let bc: BroadcastChannel | null = null;
     try {
@@ -1577,6 +1586,8 @@ export default function Dashboard({
       window.removeEventListener('gi_new_message', handleNewMessage);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
       window.removeEventListener('gi_category_schedules_updated', handleStoreUpdated);
+      window.removeEventListener('gi_announcements_updated', handleStoreUpdated);
+      window.removeEventListener('gi_read_announcements_updated', handleStoreUpdated);
       if (bc) {
         try { bc.close(); } catch (e) {}
       }
@@ -2419,10 +2430,14 @@ export default function Dashboard({
       const res = await DataStore.buyProduct(userState.id, product.id);
       if (res.success) {
         triggerToast('Achat réussi 🎉', 'success');
-        openPurchaseSuccessAlert(
-          'Achat réussi',
-          `Félicitations ! Votre souscription au plan "${product.name}" (${product.price.toLocaleString()} ${getCurrency()}) a été validée avec succès.\nVos gains quotidiens sont dès à présent activés !`
-        );
+        const isWellbeing = product.category === 'wellbeing';
+        const isActivity = product.category === 'activity';
+        const totalPayoutAmt = (product.totalReturn || (product.price + (product.dailyReturn * product.durationDays))).toLocaleString();
+        const successMsg = (isWellbeing || isActivity)
+          ? `Félicitations ! Votre souscription au produit "${product.name}" (${product.price.toLocaleString()} ${getCurrency()}) a été validée avec succès.\nLe revenu total de ${totalPayoutAmt} ${getCurrency()} vous sera versé uniquement à la fin du cycle de ${product.durationDays} jours.\nMême si le produit est ultérieurement fermé aux nouveaux achats, votre cycle continuera normalement.`
+          : `Félicitations ! Votre souscription au plan "${product.name}" (${product.price.toLocaleString()} ${getCurrency()}) a été validée avec succès.\nLe revenu total de ${totalPayoutAmt} ${getCurrency()} sera versé à la fin du cycle de ${product.durationDays} jours.`;
+
+        openPurchaseSuccessAlert('Achat réussi', successMsg);
         syncDashboardData();
         setActiveTab('orders'); // Redirige directement vers Mes Commandes
       } else {
@@ -3653,7 +3668,7 @@ export default function Dashboard({
             }
 
             // 2. PAGE: POINTAGE (DÉDIÉE - SANS BARÈME, AVEC EXPLICATION ET SOLDE GÉNÉRÉ)
-            if (profileSubPage === 'point' || profileSubPage === 'pointage' || profileSubPage === 'missions') {
+            if (profileSubPage === 'point' || profileSubPage === 'pointage') {
               return (
                 <PointageView
                   userState={userState}
@@ -3665,6 +3680,21 @@ export default function Dashboard({
                   t={t}
                   setProfileSubPage={setProfileSubPage}
                   setActiveTab={setActiveTab}
+                />
+              );
+            }
+
+            // PAGE: ANNONCES (DÉDIÉE - AFFICHAGE DE TOUTES LES ANNONCES DE L'ADMINISTRATION)
+            if (profileSubPage === 'annonces' || profileSubPage === 'announcements') {
+              return (
+                <AnnoncesView
+                  userState={userState}
+                  onBack={() => {
+                    setProfileSubPage(null);
+                    setUnreadAnnouncementsCount(DataStore.getUnreadAnnouncementsCount(currentUser.id));
+                  }}
+                  triggerToast={triggerToast}
+                  t={t}
                 />
               );
             }
@@ -4520,43 +4550,76 @@ export default function Dashboard({
                         </div>
                       ) : (
                         filteredWithdrawals.map((w, idx) => {
-                          const isApproved = w.status === 'approved';
-                          const isPending = w.status === 'pending';
+                          const isApproved = w.status === 'approved' || w.status === 'completed' || w.status === 'success';
+                          const isPending = (w.status as string) === 'pending' || (w.status as string) === 'processing';
                           const statusColor = isApproved 
-                            ? 'bg-emerald-100 text-emerald-800' 
+                            ? 'bg-emerald-50 text-emerald-700' 
                             : isPending 
-                            ? 'bg-amber-100 text-amber-800' 
-                            : 'bg-red-100 text-red-800';
-                          const statusLabel = isApproved ? 'Réussi' : isPending ? 'En cours' : 'Rejeté';
+                            ? 'bg-amber-50 text-amber-700' 
+                            : 'bg-red-50 text-red-700';
+                          const statusLabel = isApproved ? 'Réussi' : isPending ? 'En attente' : 'Rejeté';
+                          const fee = w.fee !== undefined ? w.fee : Math.round(w.amount * 0.12);
+                          const netReceived = w.netAmount !== undefined ? w.netAmount : (w.amount - fee);
+                          const operatorName = w.operator || w.method || 'Mobile Money';
+                          const accountNum = w.number || w.accountNumber || '';
+                          const formattedDate = new Date(w.createdAt).toLocaleString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          });
 
                           return (
-                            <div key={w.id || idx} className="bg-white rounded-[22px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-2.5">
+                            <div key={w.id || idx} className="bg-white rounded-2xl p-4 shadow-2xs space-y-3">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
+                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ${
+                                    isApproved ? 'bg-emerald-50 text-emerald-600' : isPending ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                                  }`}>
                                     <ArrowDownLeft className="w-4.5 h-4.5 stroke-[2.25]" />
                                   </div>
                                   <div>
-                                    <span className="font-bold text-sm text-slate-800 block">
-                                      {w.method || 'Mobile Money'}
+                                    <span className="font-bold text-sm text-slate-800 block leading-tight">
+                                      {operatorName}
                                     </span>
                                     <span className="text-[11px] text-slate-400 font-medium">
-                                      {new Date(w.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                      {formattedDate}
                                     </span>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <span className="font-bold text-sm sm:text-base text-red-600 block">
-                                    -{w.amount.toLocaleString()} FCFA
-                                  </span>
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${statusColor}`}>
+                                  <span className={`inline-block px-2.5 py-1 rounded-full text-[10.5px] font-bold ${statusColor}`}>
                                     {statusLabel}
                                   </span>
                                 </div>
                               </div>
-                              <div className="pt-2 border-t border-slate-100 grid grid-cols-2 text-[11px] text-slate-500 gap-1">
-                                <div>Compte: <span className="font-bold text-slate-700">{w.accountNumber}</span></div>
-                                <div className="text-right">Net reçu: <span className="font-bold text-emerald-700">{w.netAmount ? `${w.netAmount.toLocaleString()} FCFA` : `${Math.round(w.amount * 0.95).toLocaleString()} FCFA`}</span></div>
+
+                              <div className="pt-2.5 border-t border-slate-100/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                <div className="bg-slate-50/70 p-2 rounded-xl">
+                                  <span className="text-[10px] text-slate-400 font-medium uppercase block">Montant du retrait</span>
+                                  <span className="font-bold text-slate-800 font-mono mt-0.5 block">
+                                    {w.amount.toLocaleString()} FCFA
+                                  </span>
+                                </div>
+                                <div className="bg-slate-50/70 p-2 rounded-xl">
+                                  <span className="text-[10px] text-slate-400 font-medium uppercase block">Frais</span>
+                                  <span className="font-bold text-rose-600 font-mono mt-0.5 block">
+                                    {fee.toLocaleString()} FCFA
+                                  </span>
+                                </div>
+                                <div className="bg-emerald-50/40 p-2 rounded-xl">
+                                  <span className="text-[10px] text-emerald-700 font-medium uppercase block">Montant reçu</span>
+                                  <span className="font-bold text-emerald-700 font-mono mt-0.5 block">
+                                    {netReceived.toLocaleString()} FCFA
+                                  </span>
+                                </div>
+                                <div className="bg-slate-50/70 p-2 rounded-xl">
+                                  <span className="text-[10px] text-slate-400 font-medium uppercase block">Compte</span>
+                                  <span className="font-bold text-slate-700 font-mono mt-0.5 block truncate" title={accountNum}>
+                                    {accountNum || 'Non spécifié'}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           );
@@ -5254,47 +5317,104 @@ export default function Dashboard({
                   </div>
                 </div>
 
-                {/* List of Orders */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between px-1">
-                    <h3 className="text-sm sm:text-base font-sans font-black text-white uppercase tracking-tight flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-amber-400" />
-                      {t('Tous les Produits Souscrits', 'All Subscribed Products')} ({activeInvestments.length})
-                    </h3>
-                  </div>
+                {/* List of Orders Organized in 3 Categories */}
+                {(() => {
+                  const getCategoryOfInvestment = (inv: Investment): 'stability' | 'wellbeing' | 'activity' => {
+                    if (inv.category === 'wellbeing' || inv.category === 'activity' || inv.category === 'stability') {
+                      return inv.category;
+                    }
+                    const prod = products.find(p => p.id === inv.productId);
+                    if (prod?.category) return prod.category;
+                    const name = (inv.productName || '').toLowerCase();
+                    const prodId = String(inv.productId || '').toLowerCase();
+                    if (name.includes('bien-être') || prodId.startsWith('well-')) return 'wellbeing';
+                    if (name.includes('activité') || prodId.startsWith('act-')) return 'activity';
+                    return 'stability';
+                  };
 
-                  {activeInvestments.length === 0 ? (
-                    <div className="text-center py-14 px-6 rounded-3xl bg-rose-950/50 border border-rose-800/40 max-w-md mx-auto space-y-4 shadow-md">
-                      <div className="w-16 h-16 rounded-2xl bg-rose-900/60 text-rose-300 flex items-center justify-center mx-auto shadow-inner">
-                        <ShoppingBag className="w-8 h-8 stroke-[1.75]" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <h4 className="font-sans font-black text-white text-lg uppercase tracking-tight">
-                          {t('Aucune commande enregistrée', 'No orders recorded yet')}
-                        </h4>
-                        <p className="text-xs sm:text-sm text-rose-200/80 font-medium max-w-xs mx-auto leading-relaxed">
-                          {t('Vous n\'avez pas encore activé de produit. Découvrez notre catalogue pour commencer.', 'You have not yet activated any product. Explore our catalog to get started.')}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setActiveTab('products')}
-                        className="bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white font-sans font-black text-xs sm:text-sm uppercase tracking-wider py-3 px-6 rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-md cursor-pointer border-none mt-2"
-                      >
-                        {t('Découvrir les Produits 🚀', 'Explore Products 🚀')}
-                      </button>
+                  const categoriesList = [
+                    {
+                      key: 'stability' as const,
+                      title: t('1. Stabilité', '1. Stability'),
+                      icon: ShieldCheck,
+                      color: 'text-blue-400',
+                      badgeBg: 'bg-blue-500/10 text-blue-300',
+                      items: activeInvestments.filter(i => getCategoryOfInvestment(i) === 'stability')
+                    },
+                    {
+                      key: 'wellbeing' as const,
+                      title: t('2. Bien-être', '2. Well-being'),
+                      icon: Sparkles,
+                      color: 'text-amber-400',
+                      badgeBg: 'bg-amber-500/10 text-amber-300',
+                      items: activeInvestments.filter(i => getCategoryOfInvestment(i) === 'wellbeing')
+                    },
+                    {
+                      key: 'activity' as const,
+                      title: t('3. Activités', '3. Activities'),
+                      icon: Flame,
+                      color: 'text-purple-400',
+                      badgeBg: 'bg-purple-500/10 text-purple-300',
+                      items: activeInvestments.filter(i => getCategoryOfInvestment(i) === 'activity')
+                    }
+                  ];
+
+                  return (
+                    <div className="space-y-6 pt-1">
+                      {categoriesList.map((cat) => {
+                        const CatIcon = cat.icon;
+                        return (
+                          <div key={cat.key} className="space-y-2.5">
+                            {/* Section Header */}
+                            <div className="flex items-center justify-between px-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-xl bg-slate-800/60 flex items-center justify-center">
+                                  <CatIcon className={`w-4 h-4 ${cat.color}`} />
+                                </div>
+                                <h3 className="text-sm sm:text-base font-sans font-black text-white uppercase tracking-tight">
+                                  {cat.title}
+                                </h3>
+                              </div>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${cat.badgeBg}`}>
+                                {cat.items.length} {cat.items.length > 1 ? 'produits' : 'produit'}
+                              </span>
+                            </div>
+
+                            {/* Section Items or Empty Message */}
+                            {cat.items.length === 0 ? (
+                              <div className="p-5 rounded-2xl bg-slate-900/30 border border-white/[0.03] text-center text-xs text-slate-400 space-y-2">
+                                <p className="font-medium text-[11.5px] text-slate-400">
+                                  Aucun produit n'a été souscrit dans cette catégorie.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProductSubTab(cat.key);
+                                    setActiveTab('products');
+                                  }}
+                                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  <span>Découvrir les offres</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-2.5">
+                                {cat.items.map((inv) => (
+                                  <InvestmentItem 
+                                    key={inv.id}
+                                    investment={inv}
+                                    onClaim={handleClaimReturn}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {activeInvestments.map((inv) => (
-                        <InvestmentItem 
-                          key={inv.id}
-                          investment={inv}
-                          onClaim={handleClaimReturn}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -5417,6 +5537,7 @@ export default function Dashboard({
               setProfileSubPage={setProfileSubPage}
               setIsSupportPageOpen={setIsSupportPageOpen}
               unreadSupportCount={unreadSupportCount}
+              unreadAnnouncementsCount={unreadAnnouncementsCount}
               currentLanguage={currentLanguage}
               setCurrentLanguage={setCurrentLanguage}
               setIsAdminMode={setIsAdminMode}
@@ -5429,7 +5550,7 @@ export default function Dashboard({
       )}
 
       {/* DASHBOARD MOBILE FIXED BOTTOM NAVIGATION */}
-      <footer className="fixed bottom-0 left-0 right-0 py-2 px-2 sm:px-4 bg-white/95 backdrop-blur-md border-t border-slate-100 z-40 shadow-[0_-2px_12px_rgba(0,0,0,0.04)]">
+      <footer className="fixed bottom-0 left-0 right-0 py-2.5 px-2 sm:px-4 bg-white border-t border-slate-100/90 z-40 shadow-[0_-2px_12px_rgba(0,0,0,0.03)] select-none">
         <div className="max-w-md mx-auto grid grid-cols-4 items-center">
           
           {/* 1. Accueil */}
@@ -5440,23 +5561,25 @@ export default function Dashboard({
               setActiveTab('dashboard');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none bg-transparent outline-none text-center ${
               activeTab === 'dashboard' && !isAdminMode 
-                ? 'text-[#D49A22] font-black' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-[#d97706]' 
+                : 'text-[#52667a] hover:text-[#0c2340]'
             }`}
             id="tab-nav-accueil"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'dashboard' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
+              activeTab === 'dashboard' && !isAdminMode ? 'text-[#d97706]' : 'text-[#52667a]'
             }`}>
-              <Home className="w-5 h-5 stroke-[2.25]" />
+              <Home className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.25]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+            <span className={`font-sans text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center ${
+              activeTab === 'dashboard' && !isAdminMode ? 'font-black text-[#d97706]' : 'font-semibold text-[#52667a]'
+            }`}>
               {t('Accueil', 'Home')}
             </span>
             {activeTab === 'dashboard' && !isAdminMode && (
-              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+              <div className="w-10 sm:w-12 h-1 bg-[#d97706] rounded-full mt-1 mx-auto" />
             )}
           </button>
 
@@ -5468,23 +5591,25 @@ export default function Dashboard({
               setActiveTab('products');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none bg-transparent outline-none text-center ${
               activeTab === 'products' && !isAdminMode 
-                ? 'text-[#D49A22] font-black' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-[#d97706]' 
+                : 'text-[#52667a] hover:text-[#0c2340]'
             }`}
             id="tab-nav-produit"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'products' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
+              activeTab === 'products' && !isAdminMode ? 'text-[#d97706]' : 'text-[#52667a]'
             }`}>
-              <Package className="w-5 h-5 stroke-[2.25]" />
+              <Package className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+            <span className={`font-sans text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center ${
+              activeTab === 'products' && !isAdminMode ? 'font-black text-[#d97706]' : 'font-semibold text-[#52667a]'
+            }`}>
               {t('Produit', 'Products')}
             </span>
             {activeTab === 'products' && !isAdminMode && (
-              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+              <div className="w-10 sm:w-12 h-1 bg-[#d97706] rounded-full mt-1 mx-auto" />
             )}
           </button>
   
@@ -5496,23 +5621,25 @@ export default function Dashboard({
               setActiveTab('forum');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none bg-transparent outline-none text-center ${
               activeTab === 'forum' && !isAdminMode 
-                ? 'text-[#D49A22] font-black' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-[#d97706]' 
+                : 'text-[#52667a] hover:text-[#0c2340]'
             }`}
             id="tab-nav-forum"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'forum' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
+              activeTab === 'forum' && !isAdminMode ? 'text-[#d97706]' : 'text-[#52667a]'
             }`}>
-              <MessageSquare className="w-5 h-5 stroke-[2.25]" />
+              <MessageSquare className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+            <span className={`font-sans text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center ${
+              activeTab === 'forum' && !isAdminMode ? 'font-black text-[#d97706]' : 'font-semibold text-[#52667a]'
+            }`}>
               {t('Forum', 'Forum')}
             </span>
             {activeTab === 'forum' && !isAdminMode && (
-              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+              <div className="w-10 sm:w-12 h-1 bg-[#d97706] rounded-full mt-1 mx-auto" />
             )}
           </button>
   
@@ -5524,23 +5651,25 @@ export default function Dashboard({
               setActiveTab('profile');
               setShowTeamDetailsPage(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none outline-none text-center ${
+            className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 cursor-pointer border-none bg-transparent outline-none text-center ${
               activeTab === 'profile' && !isAdminMode 
-                ? 'text-[#D49A22] font-black' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-[#d97706]' 
+                : 'text-[#52667a] hover:text-[#0c2340]'
             }`}
             id="tab-nav-profil"
           >
             <div className={`p-0.5 rounded-lg transition-all ${
-              activeTab === 'profile' && !isAdminMode ? 'text-[#D49A22]' : 'text-slate-400'
+              activeTab === 'profile' && !isAdminMode ? 'text-[#d97706]' : 'text-[#52667a]'
             }`}>
-              <Wallet className="w-5 h-5 stroke-[2.25]" />
+              <Wallet className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2]" />
             </div>
-            <span className="font-sans font-extrabold text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center">
+            <span className={`font-sans text-[11px] sm:text-xs leading-tight mt-0.5 whitespace-nowrap block truncate w-full text-center ${
+              activeTab === 'profile' && !isAdminMode ? 'font-black text-[#d97706]' : 'font-semibold text-[#52667a]'
+            }`}>
               {t('Portefeuille', 'Wallet')}
             </span>
             {activeTab === 'profile' && !isAdminMode && (
-              <div className="w-6 h-0.5 bg-[#D49A22] rounded-full mt-0.5 mx-auto" />
+              <div className="w-10 sm:w-12 h-1 bg-[#d97706] rounded-full mt-1 mx-auto" />
             )}
           </button>
  
