@@ -904,6 +904,25 @@ export const setToStore = <T>(key: string, value: T): void => {
   }
 };
 
+/**
+ * Saves directly to inMemoryStore and localStorage without firing /api/save-store
+ * or altering timestamps. Used by server sync routines to avoid loopback races.
+ */
+export const setToStoreLocalOnly = <T>(key: string, value: T): void => {
+  try {
+    const strValue = JSON.stringify(value);
+    inMemoryStore[key] = strValue;
+    try {
+      localStorage.setItem(key, strValue);
+    } catch {
+      // ignore
+    }
+    dispatchStoreUpdated();
+  } catch (error) {
+    console.warn(`Error writing to local store for key "${key}":`, error);
+  }
+};
+
 export function normalizePhoneNumber(whatsapp: string, countryName?: string): string {
   let clean = (whatsapp || '').replace(/\D/g, '');
   if (clean.length === 0) return '';
@@ -1946,7 +1965,7 @@ export class DataStore {
         isOpen: !isClosed,
         statusLabel: isClosed ? 'FERMÉ' : 'OUVERT',
         reason: isClosed 
-          ? 'Ce produit est actuellement indisponible à l’achat'
+          ? 'Ce produit est actuellement indisponible à l’achat.'
           : `Les produits ${catLabel} sont disponibles à l'achat.`,
         mode: isClosed ? 'closed' : 'open',
         openTime,
@@ -3068,7 +3087,7 @@ export class DataStore {
       if (!scheduleStatus.isOpen) {
         return {
           success: false,
-          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat'
+          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat.'
         };
       }
 
@@ -3087,7 +3106,7 @@ export class DataStore {
       if (!scheduleStatus.isOpen) {
         return {
           success: false,
-          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat'
+          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat.'
         };
       }
     }

@@ -51,7 +51,6 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState<boolean>(true);
-  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
 
   const categories = [
     { id: 'all', label: t('⭐ Toutes', '⭐ All') },
@@ -59,17 +58,6 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
     { id: 'vip', label: t('📈 Rendements VIP', '📈 VIP Earnings') },
     { id: 'help', label: t('💬 Entraide', '💬 Community Help') }
   ];
-
-  const toggleComments = (postId: string) => {
-    setOpenCommentsPostId(prev => (prev === postId ? null : postId));
-  };
-
-  const handleCommentSubmit = (postId: string, e: React.FormEvent) => {
-    e.preventDefault();
-    if (handlePostForumComment) {
-      handlePostForumComment(postId);
-    }
-  };
 
   const currentAnonId = getMaskedAnonymousId(userState.id || userState.phone || userState.name);
 
@@ -405,9 +393,6 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
             postsToDisplay.map((post) => {
               const hasLiked = post.likedBy ? post.likedBy.includes(userState.id) : post.hasLiked;
               const anonId = getMaskedAnonymousId(post);
-              const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
-              const isCommentsOpen = openCommentsPostId === post.id;
-              const commentInputVal = forumCommentInputs[post.id] || '';
 
               const imagesList: string[] = [];
               if (post.image1) imagesList.push(post.image1);
@@ -491,9 +476,8 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
                     </div>
                   )}
 
-                  {/* Post Footer Action Bar: Likes + Comments count */}
+                  {/* Post Footer Action Bar: Likes */}
                   <div className="flex items-center justify-between border-t border-[#E8D8B0]/50 pt-2.5">
-                    
                     {/* Left: Like Button with Golden Accent */}
                     <button
                       type="button"
@@ -508,79 +492,7 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
                       <ThumbsUp className={`w-3.5 h-3.5 ${hasLiked ? 'fill-[#D49A22] stroke-[#D49A22]' : 'stroke-[#607D9A]'}`} />
                       <span>{post.likes || 0} {t('J\'aime', 'Likes')}</span>
                     </button>
-
-                    {/* Right: Comments Button with Golden Bubble */}
-                    <button
-                      type="button"
-                      onClick={() => toggleComments(post.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans font-bold tracking-wide uppercase text-[#607D9A] hover:text-[#102A43] hover:bg-[#FAF8F2] border border-[#E8D8B0] bg-white transition-all cursor-pointer outline-none"
-                      id={`btn-comments-${post.id}`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-[#D49A22]" />
-                      <span>{commentsCount} {t('Commentaires', 'Comments')}</span>
-                    </button>
-
                   </div>
-
-                  {/* Expandable Comments Drawer */}
-                  {isCommentsOpen && (
-                    <div className="pt-2 border-t border-[#E8D8B0]/50 space-y-3 animate-fadeIn">
-                      
-                      {/* Comments List */}
-                      {Array.isArray(post.comments) && post.comments.length > 0 ? (
-                        <div className="space-y-2">
-                          {post.comments.map((comm: any, cIdx: number) => (
-                            <div 
-                              key={comm.id || cIdx} 
-                              className="bg-[#FAF8F2] p-2.5 sm:p-3 rounded-xl border border-[#E8D8B0]/60 space-y-1 text-left"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-mono font-bold text-xs text-[#102A43]">
-                                  {comm.author || t('Membre', 'Member')}
-                                </span>
-                                <span className="text-[9px] text-[#607D9A]">
-                                  {comm.date ? new Date(comm.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                                </span>
-                              </div>
-                              <p className="text-xs text-[#607D9A] font-medium leading-relaxed">
-                                {comm.text}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-2 text-[11px] text-[#607D9A] italic">
-                          {t('Aucun commentaire pour l\'instant. Soyez le premier à commenter !', 'No comments yet. Be the first to comment!')}
-                        </div>
-                      )}
-
-                      {/* Comment Input Form */}
-                      <form 
-                        onSubmit={(e) => handleCommentSubmit(post.id, e)}
-                        className="flex items-center gap-2 pt-1"
-                      >
-                        <input
-                          type="text"
-                          value={commentInputVal}
-                          onChange={(e) => {
-                            if (setForumCommentInputs) {
-                              setForumCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }));
-                            }
-                          }}
-                          placeholder={t('Écrire un commentaire...', 'Write a comment...')}
-                          className="flex-1 bg-[#FAF8F2] border border-[#E8D8B0] rounded-xl px-3 py-2 text-xs text-[#102A43] placeholder-[#607D9A]/70 focus:outline-none focus:ring-1 focus:ring-[#D49A22] focus:border-[#D49A22] shadow-2xs"
-                        />
-                        <button
-                          type="submit"
-                          className="px-3.5 py-2 bg-gradient-to-r from-[#B8790B] via-[#D49A22] to-[#F3C75F] hover:brightness-105 active:scale-95 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center cursor-pointer border-none outline-none shrink-0"
-                          title="Envoyer"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
-                      </form>
-
-                    </div>
-                  )}
 
                 </div>
               );

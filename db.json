@@ -11,7 +11,7 @@
       "whatsapp": "+237600000000",
       "createdAt": "2026-09-04T07:23:51.262Z",
       "isBlocked": false,
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422261,
       "referralCode": "72AGR",
       "checkInStreak": 1,
       "dailyEarnings": 180,
@@ -36,7 +36,7 @@
       "createdAt": "2026-09-06T09:59:40.049Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422261,
       "referralCode": "83DFW",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -58,7 +58,7 @@
       "createdAt": "2026-09-06T09:59:40.155Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422261,
       "referralCode": "80SET",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -80,7 +80,7 @@
       "createdAt": "2026-09-06T09:59:40.282Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422261,
       "referralCode": "87VHA",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -102,7 +102,7 @@
       "createdAt": "2026-09-06T10:38:30.265Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422261,
       "referralCode": "49TGT",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -125,7 +125,7 @@
       "isBlocked": false,
       "referredBy": "u-admin",
       "bankCardName": "Merlo Willy",
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422261,
       "referralCode": "75NTC",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -149,8 +149,74 @@
       "createdAt": "2026-09-08T08:15:42.924Z",
       "isBlocked": false,
       "referredBy": "u-1788772165789",
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422261,
       "referralCode": "64WRT",
+      "dailyEarnings": 0,
+      "totalEarnings": 0,
+      "totalRecharged": 0,
+      "totalWithdrawn": 0,
+      "withdrawBlocked": false,
+      "referralEarnings": 0
+    },
+    {
+      "id": "u-1789203373696",
+      "name": "Merlo",
+      "role": "user",
+      "bonus": 200,
+      "device": "iPhone",
+      "balance": 200,
+      "country": "Togo",
+      "password": "123456",
+      "whatsapp": "+22897783065",
+      "createdAt": "2026-09-12T08:56:13.696Z",
+      "isBlocked": false,
+      "referredBy": "u-admin",
+      "lastModified": 1789293422261,
+      "referralCode": "61DIF",
+      "dailyEarnings": 0,
+      "totalEarnings": 0,
+      "totalRecharged": 0,
+      "totalWithdrawn": 0,
+      "withdrawBlocked": false,
+      "referralEarnings": 0
+    },
+    {
+      "id": "u-1789205775553",
+      "name": "Lan",
+      "role": "user",
+      "bonus": 200,
+      "device": "iPhone",
+      "balance": 2000,
+      "country": "Togo",
+      "password": "123456",
+      "whatsapp": "+22870903318",
+      "createdAt": "2026-09-12T09:36:15.553Z",
+      "isBlocked": false,
+      "referredBy": "u-admin",
+      "lastModified": 1789296388907,
+      "referralCode": "28XUE",
+      "dailyEarnings": 0,
+      "totalEarnings": 0,
+      "totalRecharged": 0,
+      "totalWithdrawn": 0,
+      "withdrawBlocked": false,
+      "referralEarnings": 0
+    },
+    {
+      "id": "u-1789226922120",
+      "name": "Jason",
+      "role": "user",
+      "bonus": 200,
+      "device": "Android",
+      "balance": 200,
+      "country": "Côte d’Ivoire",
+      "password": "lemessi",
+      "whatsapp": "+225152261631",
+      "createdAt": "2026-09-12T15:28:42.120Z",
+      "isBlocked": false,
+      "referredBy": "u-admin",
+      "lastModified": 1789296259468,
+      "referralCode": "77EQW",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
@@ -160,6 +226,20 @@
     }
   ],
   "gi_deposits": [
+    {
+      "id": "dep-1789294844617",
+      "amount": 5000,
+      "method": "SoccoPay (Cameroun +237 600000000)",
+      "status": "pending",
+      "userId": "u-admin",
+      "operator": "SoccoPay (Cameroun +237 600000000)",
+      "userName": "Administrateur Principal",
+      "createdAt": "2026-09-13T10:20:44.617Z",
+      "reference": "SOC-843817-747",
+      "proofImage": "soccopay_link",
+      "lastModified": 1789296391946,
+      "receiptImage": "soccopay_link"
+    },
     {
       "id": "dep-1788862738738",
       "amount": 2500,
@@ -282,13 +362,13 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-1788686703542",
-      "operator": "T-Money",
+      "operator": "Mobile Money",
       "userName": "Merlo",
       "createdAt": "2026-09-06T10:44:25.608Z",
       "netAmount": 1760,
       "accountName": "",
-      "lastModified": 1788862250296,
-      "accountNumber": "",
+      "lastModified": 1789294870364,
+      "accountNumber": "97783065",
       "proof_file_url": ""
     },
     {
@@ -299,13 +379,13 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-admin",
-      "operator": "Moov Money",
+      "operator": "Mobile Money",
       "userName": "Administrateur Principal",
       "createdAt": "2026-09-05T08:28:57.978Z",
       "netAmount": 88000,
       "accountName": "",
-      "lastModified": 1788862250296,
-      "accountNumber": "",
+      "lastModified": 1789294870364,
+      "accountNumber": "97783065",
       "proof_file_url": ""
     },
     {
@@ -316,14 +396,31 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-admin",
-      "operator": "Moov Money",
+      "operator": "Mobile Money",
       "userName": "Administrateur Principal",
       "createdAt": "2026-09-05T08:08:29.986Z",
       "netAmount": 44000,
       "reference": "man-1788596071973",
       "accountName": "",
-      "lastModified": 1788862250296,
-      "accountNumber": "",
+      "lastModified": 1789294870364,
+      "accountNumber": "97783065",
+      "proof_file_url": ""
+    },
+    {
+      "id": "wth-1789203725050",
+      "fee": 120,
+      "amount": 1000,
+      "method": "Mobile Money",
+      "number": "97783065",
+      "status": "approved",
+      "userId": "u-1789203373696",
+      "operator": "Mobile Money",
+      "userName": "Merlo",
+      "createdAt": "2026-09-12T09:02:05.050Z",
+      "netAmount": 880,
+      "accountName": "",
+      "lastModified": 1789203740243,
+      "accountNumber": "97783065",
       "proof_file_url": ""
     }
   ],
@@ -338,12 +435,12 @@
       "vipLevel": 1,
       "createdAt": "2026-09-10T18:50:56.139Z",
       "productId": "stab-1",
-      "daysPassed": 1,
+      "daysPassed": 2,
       "dailyReturn": 180,
       "productName": "Gold Avenue Option Bronze",
       "totalReturn": 7200,
       "durationDays": 40,
-      "lastModified": 1789196671717,
+      "lastModified": 1789293422260,
       "lastClaimDate": "2026-09-10T18:50:56.139Z",
       "payoutCredited": false,
       "totalReturnClaimed": 0,
@@ -351,6 +448,24 @@
     }
   ],
   "gi_commissions": [
+    {
+      "id": "com-1789205090966-1",
+      "level": 1,
+      "amount": 600,
+      "userId": "u-admin",
+      "createdAt": "2026-09-12T09:24:50.966Z",
+      "fromUserName": "Merlo",
+      "lastModified": 1789205092846
+    },
+    {
+      "id": "com-1789203718853-1",
+      "level": 1,
+      "amount": 600,
+      "userId": "u-admin",
+      "createdAt": "2026-09-12T09:01:58.853Z",
+      "fromUserName": "Merlo",
+      "lastModified": 1789203718854
+    },
     {
       "id": "com-1788848893559-1",
       "level": 1,
@@ -417,144 +532,244 @@
   ],
   "gi_notifications": [
     {
-      "id": "not-plan-1789066256141",
+      "id": "not-dep-1789294844617",
+      "read": false,
+      "type": "deposit",
+      "title": "Dépôt soumis",
       "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-843817-747) est en cours de vérification par l'administration.",
+      "createdAt": "2026-09-13T10:20:44.633Z",
+      "lastModified": 1789294844633
+    },
+    {
+      "id": "not-ref-1789205775556",
+      "read": false,
+      "type": "info",
+      "title": "Nouveau parrainage",
+      "userId": "u-admin",
+      "message": "Lan s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
+      "createdAt": "2026-09-12T09:36:15.556Z",
+      "lastModified": 1789205775556
+    },
+    {
+      "id": "not-1789205775555",
+      "read": false,
+      "type": "bonus",
+      "title": "Bienvenue sur Dreampod !",
+      "userId": "u-1789205775553",
+      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
+      "createdAt": "2026-09-12T09:36:15.556Z",
+      "lastModified": 1789205775556
+    },
+    {
+      "id": "not-dep-1789204886353",
+      "read": false,
+      "type": "deposit",
+      "title": "Dépôt soumis",
+      "userId": "u-admin",
+      "message": "Votre demande de dépôt de 2,500 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-884968-559) est en cours de vérification par l'administration.",
+      "createdAt": "2026-09-12T09:21:26.368Z",
+      "lastModified": 1789204886368
+    },
+    {
+      "id": "not-wth-app-1789203740245",
+      "read": false,
+      "type": "withdraw",
+      "title": "💸 Retrait envoyé !",
+      "userId": "u-1789203373696",
+      "message": "Félicitations, votre retrait de 1 000 XOF sur le numéro 97783065 (T-Money (TG)) a été validé et expédié avec succès.",
+      "createdAt": "2026-09-12T09:02:20.245Z",
+      "lastModified": 1789203741832
+    },
+    {
+      "id": "not-plan-1789203718853",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789066256160,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-1789203373696",
+      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "createdAt": "2026-09-12T09:01:58.853Z",
+      "lastModified": 1789203718854
+    },
+    {
+      "id": "not-com1-1789203718853",
+      "read": false,
+      "type": "bonus",
+      "title": "Commission MLM reçue !",
+      "userId": "u-admin",
+      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Merlo a investi dans le plan Gold Avenue Option Bronze.",
+      "createdAt": "2026-09-12T09:01:58.853Z",
+      "lastModified": 1789203718854
+    },
+    {
+      "id": "not-ref-1789203373700",
+      "read": false,
+      "type": "info",
+      "title": "Nouveau parrainage",
+      "userId": "u-admin",
+      "message": "Merlo s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
+      "createdAt": "2026-09-12T08:56:13.700Z",
+      "lastModified": 1789203373700
+    },
+    {
+      "id": "not-1789203373700",
+      "read": false,
+      "type": "bonus",
+      "title": "Bienvenue sur Dreampod !",
+      "userId": "u-1789203373696",
+      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
+      "createdAt": "2026-09-12T08:56:13.700Z",
+      "lastModified": 1789203373700
+    },
+    {
+      "id": "not-wth-1789203725056",
+      "read": false,
+      "type": "withdraw",
+      "title": "Retrait en attente",
+      "userId": "u-1789203373696",
+      "message": "Votre demande de retrait de 1 000 XOF vers 97783065 (T-Money (TG)) est en attente de traitement par la comptabilité.",
+      "createdAt": "2026-09-12T09:02:05.056Z",
+      "lastModified": 1789203725056
+    },
+    {
+      "id": "not-plan-1789066256141",
+      "read": false,
+      "type": "plan",
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T18:50:56.160Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789059999391",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789059999407,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T17:06:39.407Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789059116408",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789059116409,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T16:51:56.409Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789059107105",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789059107119,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T16:51:47.119Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789058086343",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 100,000 XOF dans le plan Gold Avenue Option Saphir a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789058086343,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 100,000 XOF dans le plan Gold Avenue Option Saphir a été validée avec succès.",
       "createdAt": "2026-09-10T16:34:46.343Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789058066565",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 100,000 XOF dans le plan Gold Avenue Option Saphir a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789058066565,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 100,000 XOF dans le plan Gold Avenue Option Saphir a été validée avec succès.",
       "createdAt": "2026-09-10T16:34:26.565Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789058066552",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 25,000 XOF dans le plan Gold Avenue Option Platine a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789058066552,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 25,000 XOF dans le plan Gold Avenue Option Platine a été validée avec succès.",
       "createdAt": "2026-09-10T16:34:26.552Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789058066539",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 25,000 XOF dans le plan Gold Avenue Option Platine a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789058066539,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 25,000 XOF dans le plan Gold Avenue Option Platine a été validée avec succès.",
       "createdAt": "2026-09-10T16:34:26.539Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789058052839",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789058052855,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T16:34:12.855Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789057829823",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789057829823,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T16:30:29.823Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789055586180",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789055586195,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T15:53:06.195Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789055551318",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789055551334,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
       "createdAt": "2026-09-10T15:52:31.334Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789055266649",
-      "userId": "u-admin",
-      "title": "Plan souscrit (En attente d'activation)",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789055266649,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
       "createdAt": "2026-09-10T15:47:46.649Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789055108788",
-      "userId": "u-admin",
-      "title": "Plan souscrit (En attente d'activation)",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789055108858,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
       "createdAt": "2026-09-10T15:45:08.858Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-dep-1788859650301",
@@ -1221,13 +1436,13 @@
     },
     {
       "id": "not-dep-rej-1788941828166",
-      "userId": "u-admin",
-      "title": "⚠️ Dépôt rejeté",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "type": "deposit",
-      "createdAt": "2026-09-09T08:17:08.166Z",
       "read": false,
-      "lastModified": 1788941828167
+      "type": "deposit",
+      "title": "⚠️ Dépôt rejeté",
+      "userId": "u-admin",
+      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
+      "createdAt": "2026-09-09T08:17:08.166Z",
+      "lastModified": 1789204251325
     },
     {
       "id": "not-dep-rej-1788934201334",
@@ -1391,112 +1606,251 @@
     },
     {
       "id": "not-dep-rej-1788941823812",
-      "userId": "u-admin",
-      "title": "⚠️ Dépôt rejeté",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "type": "deposit",
-      "createdAt": "2026-09-09T08:17:03.812Z",
       "read": false,
-      "lastModified": 1788941823812
+      "type": "deposit",
+      "title": "⚠️ Dépôt rejeté",
+      "userId": "u-admin",
+      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
+      "createdAt": "2026-09-09T08:17:03.812Z",
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789034349014",
-      "userId": "u-admin",
-      "title": "Plan souscrit (En attente d'activation)",
-      "message": "Votre paiement de 25,000 XOF dans le plan Gold Avenue Option Platine a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789034349014,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre paiement de 25,000 XOF dans le plan Gold Avenue Option Platine a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
       "createdAt": "2026-09-10T09:59:09.014Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789034339966",
-      "userId": "u-admin",
-      "title": "Plan souscrit (En attente d'activation)",
-      "message": "Votre paiement de 50,000 XOF dans le plan Gold Avenue Option Diamant a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789034339966,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre paiement de 50,000 XOF dans le plan Gold Avenue Option Diamant a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
       "createdAt": "2026-09-10T09:58:59.966Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789034339717",
-      "userId": "u-admin",
-      "title": "Plan souscrit (En attente d'activation)",
-      "message": "Votre paiement de 10,000 XOF dans le plan Gold Avenue Option Or a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789034339717,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre paiement de 10,000 XOF dans le plan Gold Avenue Option Or a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
       "createdAt": "2026-09-10T09:58:59.717Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789034304050",
-      "userId": "u-admin",
-      "title": "Plan souscrit (En attente d'activation)",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789034304050,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
       "createdAt": "2026-09-10T09:58:24.050Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789034277143",
-      "userId": "u-admin",
-      "title": "Plan souscrit (En attente d'activation)",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789034277212,
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
       "createdAt": "2026-09-10T09:57:57.212Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789068539725",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789068539725,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
       "createdAt": "2026-09-10T19:28:59.725Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789068504514",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789068504530,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
       "createdAt": "2026-09-10T19:28:24.530Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "vip-point-1789116603246",
-      "userId": "u-admin",
       "title": "Pointage validé ! 🌟",
+      "isRead": false,
+      "userId": "u-admin",
       "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
       "createdAt": "2026-09-11T08:50:03.246Z",
-      "isRead": false,
-      "lastModified": 1789116603247
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789118828840",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789118828854,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
       "createdAt": "2026-09-11T09:27:08.854Z",
-      "read": false
+      "lastModified": 1789204251325
     },
     {
       "id": "not-plan-1789117612367",
-      "userId": "u-admin",
-      "title": "Plan souscrit avec succès",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
+      "read": false,
       "type": "plan",
-      "lastModified": 1789117612382,
+      "title": "Plan souscrit avec succès",
+      "userId": "u-admin",
+      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
       "createdAt": "2026-09-11T09:06:52.382Z",
-      "read": false
+      "lastModified": 1789204251325
+    },
+    {
+      "id": "not-plan-1789205090966",
+      "read": false,
+      "type": "plan",
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-1789203373696",
+      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "createdAt": "2026-09-12T09:24:50.966Z",
+      "lastModified": 1789205092832
+    },
+    {
+      "id": "not-com1-1789205090966",
+      "read": false,
+      "type": "bonus",
+      "title": "Commission MLM reçue !",
+      "userId": "u-admin",
+      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Merlo a investi dans le plan Gold Avenue Option Bronze.",
+      "createdAt": "2026-09-12T09:24:50.966Z",
+      "lastModified": 1789205092832
+    },
+    {
+      "id": "not-cyclecomplete-1789111945567-inv-1788848893558",
+      "read": false,
+      "type": "plan",
+      "title": "📈 Cycle Stabilité Terminé (Gold Avenue Activité Éclair)",
+      "userId": "u-1788772165789",
+      "message": "Félicitations ! Votre cycle de stabilité \"Gold Avenue Activité Éclair\" de 3 jours est terminé. Votre capital de 5 000 XOF et vos bénéfices de 2 500 XOF ont été crédités sur votre solde (total: 7 500 XOF).",
+      "createdAt": "2026-09-11T07:32:25.567Z",
+      "lastModified": 1789209078305
+    },
+    {
+      "id": "not-plan-1789020571107",
+      "read": false,
+      "type": "plan",
+      "title": "Plan souscrit (En attente d'activation)",
+      "userId": "u-admin",
+      "message": "Votre investissement de 75 000 XOF dans le plan Gold Avenue Bien-être Vitalité a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
+      "createdAt": "2026-09-10T06:09:31.107Z",
+      "lastModified": 1789209078305
+    },
+    {
+      "id": "vip-point-1788948559467",
+      "title": "Pointage validé ! 🌟",
+      "isRead": false,
+      "userId": "u-admin",
+      "message": "Félicitations ! Vous avez reçu 50 FCFA pour votre pointage quotidien correspondant à votre statut VIP 4.",
+      "createdAt": "2026-09-09T10:09:19.467Z",
+      "lastModified": 1788948611310
+    },
+    {
+      "id": "not-dep-rej-1788948463657",
+      "read": false,
+      "type": "deposit",
+      "title": "⚠️ Dépôt rejeté",
+      "userId": "u-1788947609814",
+      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
+      "createdAt": "2026-09-09T10:07:43.657Z",
+      "lastModified": 1788948467365
+    },
+    {
+      "id": "not-dep-1788947627038",
+      "read": false,
+      "type": "deposit",
+      "title": "Dépôt soumis",
+      "userId": "u-1788947609814",
+      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-626686-194) est en cours de vérification par l'administration.",
+      "createdAt": "2026-09-09T09:53:47.038Z",
+      "lastModified": 1788947627039
+    },
+    {
+      "id": "not-ref-1788947609842",
+      "read": false,
+      "type": "info",
+      "title": "Nouveau parrainage",
+      "userId": "u-admin",
+      "message": "Boss s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
+      "createdAt": "2026-09-09T09:53:29.842Z",
+      "lastModified": 1788947609843
+    },
+    {
+      "id": "not-1788947609842",
+      "read": false,
+      "type": "bonus",
+      "title": "Bienvenue sur Dreampod !",
+      "userId": "u-1788947609814",
+      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
+      "createdAt": "2026-09-09T09:53:29.842Z",
+      "lastModified": 1788947609843
+    },
+    {
+      "id": "not-dep-app-1788947864713",
+      "read": false,
+      "type": "deposit",
+      "title": "💵 Dépôt validé !",
+      "userId": "u-1788947609814",
+      "message": "Votre versement de 5 000 XOF via SoccoPay (Togo +228 97561188) a été approuvé. Votre solde principal a été rechargé.",
+      "createdAt": "2026-09-09T09:57:44.713Z",
+      "lastModified": 1788947876611
+    },
+    {
+      "id": "not-dep-1788947920031",
+      "read": false,
+      "type": "deposit",
+      "title": "Dépôt soumis",
+      "userId": "u-1788947609814",
+      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-919786-501) est en cours de vérification par l'administration.",
+      "createdAt": "2026-09-09T09:58:40.031Z",
+      "lastModified": 1788947920033
+    },
+    {
+      "id": "not-ref-1789226922129",
+      "read": false,
+      "type": "info",
+      "title": "Nouveau parrainage",
+      "userId": "u-admin",
+      "message": "Jason s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
+      "createdAt": "2026-09-12T15:28:42.129Z",
+      "lastModified": 1789226937201
+    },
+    {
+      "id": "not-1789226922129",
+      "read": false,
+      "type": "bonus",
+      "title": "Bienvenue sur Dreampod !",
+      "userId": "u-1789226922120",
+      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
+      "createdAt": "2026-09-12T15:28:42.129Z",
+      "lastModified": 1789226937201
+    },
+    {
+      "id": "not-dep-1789226937201",
+      "read": false,
+      "type": "deposit",
+      "title": "Dépôt soumis",
+      "userId": "u-1789226922120",
+      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-936966-954) est en cours de vérification par l'administration.",
+      "createdAt": "2026-09-12T15:28:57.201Z",
+      "lastModified": 1789226937201
     }
   ],
   "gi_bonus_codes": [
@@ -1748,93 +2102,130 @@
     },
     {
       "id": "msg-1789025412009-f4a8g",
-      "userId": "u-admin",
       "sender": "user",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
       "createdAt": "2026-09-10T07:30:12.009Z",
-      "status": "read",
-      "lastModified": 1789025584779
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789025611875-6dazu",
-      "userId": "u-1788772165789",
       "sender": "admin",
+      "status": "unread",
+      "userId": "u-1788772165789",
       "message": "Bonjour",
       "createdAt": "2026-09-10T07:33:31.875Z",
-      "status": "unread",
-      "lastModified": 1789025611876
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789025907504-vr6jz",
-      "userId": "u-admin",
       "sender": "user",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
       "createdAt": "2026-09-10T07:38:27.504Z",
-      "status": "read",
-      "lastModified": 1789025924933
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789025934653-vzg97",
-      "userId": "u-admin",
       "sender": "admin",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Oui",
       "createdAt": "2026-09-10T07:38:54.653Z",
-      "status": "read",
-      "lastModified": 1789025945760
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027159339-mix5s",
-      "userId": "u-admin",
       "sender": "user",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
       "createdAt": "2026-09-10T07:59:19.339Z",
-      "status": "read",
-      "lastModified": 1789027731224
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027695729-2hal1",
-      "userId": "u-admin",
       "sender": "user",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
       "createdAt": "2026-09-10T08:08:15.729Z",
-      "status": "read",
-      "lastModified": 1789027731224
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027740450-51z4t",
-      "userId": "u-admin",
       "sender": "admin",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Cc",
       "createdAt": "2026-09-10T08:09:00.450Z",
-      "status": "read",
-      "lastModified": 1789027848044
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027850696-ltcb0",
-      "userId": "u-admin",
       "sender": "user",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
       "createdAt": "2026-09-10T08:10:50.696Z",
-      "status": "unread",
-      "lastModified": 1789027850698
+      "lastModified": 1789206108504
     },
     {
       "id": "msg-1789027873875-2h3e1",
-      "userId": "u-admin",
       "sender": "user",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Que puis je faire pour vous ?",
       "createdAt": "2026-09-10T08:11:13.875Z",
-      "status": "unread",
-      "lastModified": 1789027873876
+      "lastModified": 1789206108504
     },
     {
       "id": "msg-1789060093351-55no0",
-      "userId": "u-admin",
       "sender": "user",
+      "status": "read",
+      "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
       "createdAt": "2026-09-10T17:08:13.351Z",
+      "lastModified": 1789206108504
+    },
+    {
+      "id": "msg-1789205927502-sjehy",
+      "sender": "user",
+      "status": "read",
+      "userId": "u-1789205775553",
+      "message": "Bonjour, je vousb contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "createdAt": "2026-09-12T09:38:47.502Z",
+      "lastModified": 1789206108504
+    },
+    {
+      "id": "msg-1789205953356-3i6s9",
+      "sender": "user",
       "status": "unread",
-      "lastModified": 1789060093352
+      "userId": "u-1789205775553",
+      "message": "Bonjour",
+      "createdAt": "2026-09-12T09:39:13.356Z",
+      "lastModified": 1789205953356
+    },
+    {
+      "id": "msg-1789206025595-qx7oc",
+      "image": "data:image/jpeg;base64,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",
+      "sender": "user",
+      "status": "unread",
+      "userId": "u-1789205775553",
+      "message": "",
+      "createdAt": "2026-09-12T09:40:25.595Z",
+      "lastModified": 1789206025595
+    },
+    {
+      "id": "test-msg-1789297301448",
+      "sender": "user",
+      "status": "read",
+      "userId": "u-test-user",
+      "message": "Test support from script",
+      "createdAt": "2026-09-13T11:01:41.448Z",
+      "lastModified": 1789297302327
     }
   ],
   "gi_products": [
@@ -2047,6 +2438,38 @@
       "generatedProductIds": []
     },
     {
+      "id": "well-7",
+      "tag": "Bien-être Plénitude",
+      "name": "Gold Avenue Bien-être Plénitude",
+      "price": 600000,
+      "category": "wellbeing",
+      "isCyclic": true,
+      "vipLevel": 7,
+      "createdAt": "2026-09-12T08:36:03.508Z",
+      "isBlocked": false,
+      "dailyReturn": 190000,
+      "totalReturn": 1900000,
+      "durationDays": 10,
+      "lastModified": 1789202163508,
+      "generatedProductIds": []
+    },
+    {
+      "id": "well-3",
+      "tag": "Bien-être Sérénité",
+      "name": "Gold Avenue Bien-être Sérénité",
+      "price": 30000,
+      "category": "wellbeing",
+      "isCyclic": true,
+      "vipLevel": 3,
+      "createdAt": "2026-09-12T08:36:03.508Z",
+      "isBlocked": false,
+      "dailyReturn": 7000,
+      "totalReturn": 70000,
+      "durationDays": 10,
+      "lastModified": 1789202163508,
+      "generatedProductIds": []
+    },
+    {
       "id": "well-5",
       "tag": "Bien-être Énergie",
       "name": "Gold Avenue Bien-être Énergie",
@@ -2093,38 +2516,6 @@
       "durationDays": 10,
       "lastModified": 1789202163508,
       "generatedProductIds": []
-    },
-    {
-      "id": "well-7",
-      "tag": "Bien-être Plénitude",
-      "name": "Gold Avenue Bien-être Plénitude",
-      "price": 600000,
-      "category": "wellbeing",
-      "isCyclic": true,
-      "vipLevel": 7,
-      "createdAt": "2026-09-12T08:36:03.508Z",
-      "isBlocked": false,
-      "dailyReturn": 190000,
-      "totalReturn": 1900000,
-      "durationDays": 10,
-      "lastModified": 1789202163508,
-      "generatedProductIds": []
-    },
-    {
-      "id": "well-3",
-      "tag": "Bien-être Sérénité",
-      "name": "Gold Avenue Bien-être Sérénité",
-      "price": 30000,
-      "category": "wellbeing",
-      "isCyclic": true,
-      "vipLevel": 3,
-      "createdAt": "2026-09-12T08:36:03.508Z",
-      "isBlocked": false,
-      "dailyReturn": 7000,
-      "totalReturn": 70000,
-      "durationDays": 10,
-      "lastModified": 1789202163508,
-      "generatedProductIds": []
     }
   ],
   "gi_deleted_products": [],
@@ -2137,10 +2528,7 @@
   "gi_whatsapp_channel": "https://whatsapp.com/channel/0029Vb8HK6s7Noa0xFzIZu1z",
   "gi_withdrawal_proofs": [],
   "gi_forum_posts": [],
-  "gi_deleted_forum_posts": [
-    "f-user-1788416138682",
-    "f-user-1788847976141-381"
-  ],
+  "gi_deleted_forum_posts": [],
   "gi_manual_deposit_numbers": {
     "BF_33": "+226 60 00 00 00 (Moov Money)",
     "BF_34": "+226 70 90 33 19 (Orange Money)",
@@ -2152,37 +2540,31 @@
     "TG_38": "*155*1*1*78829438*78829438*montant*code#"
   },
   "gi_cleanup_timestamp": 0,
-  "gi_deleted_investments": [
-    "inv-1789058066564",
-    "inv-1788691457896",
-    "inv-1788416489991",
-    "inv-1788848410747",
-    "inv-1788772844058",
-    "inv-1788772783972"
-  ],
+  "gi_deleted_investments": [],
   "gi_category_schedules": {
+    "activity": {
+      "mode": "closed",
+      "enabled": true,
+      "openTime": "08:00",
+      "closeTime": "20:00",
+      "lastModified": 1789209085334
+    },
     "wellbeing": {
       "mode": "closed",
+      "enabled": true,
       "openTime": "09:30",
       "closeTime": "19:30",
-      "enabled": true,
-      "lastModified": 1789122054128
+      "lastModified": 1789209081902
     },
     "withdrawals": {
       "mode": "auto",
+      "enabled": true,
       "openTime": "09:00",
       "closeTime": "17:00",
-      "enabled": true,
       "lastModified": 1789114930673
-    },
-    "activity": {
-      "mode": "closed",
-      "openTime": "08:00",
-      "closeTime": "20:00",
-      "enabled": true,
-      "lastModified": 1789200503333
     }
   },
   "userId": "",
-  "role": "user"
+  "role": "user",
+  "gi_deleted_users": []
 }

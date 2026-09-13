@@ -31,7 +31,7 @@ import {
   Database
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules, Announcement } from '../types';
-import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore } from '../dataStore';
+import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore, setToStoreLocalOnly } from '../dataStore';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, subscribeToSupabaseRealtime } from '../supabase';
 
 const maskUserPhone = (str: string): string => {
@@ -704,24 +704,30 @@ export default function AdminPanel({
         if (data && typeof data === 'object') {
           // 1. Force real-time updates directly to local React states for 100% server authority (Run this first to ensure UI works)
           if (Array.isArray(data['gi_users'])) setUsers(data['gi_users']);
-          if (Array.isArray(data['gi_deposits'])) setDeposits(data['gi_deposits']);
+          if (Array.isArray(data['gi_deposits'])) {
+            const validDeps = data['gi_deposits'].filter((d: any) => d && (d.id || d.amount));
+            setDeposits(validDeps);
+          }
           if (Array.isArray(data['gi_withdrawals'])) setWithdrawals(data['gi_withdrawals']);
           if (Array.isArray(data['gi_products'])) setProducts(data['gi_products']);
           if (Array.isArray(data['gi_bonus_codes'])) setBonusCodes(data['gi_bonus_codes']);
           if (Array.isArray(data['gi_commissions'])) setCommissions(data['gi_commissions']);
           if (Array.isArray(data['gi_investments'])) setInvestments(data['gi_investments']);
-          if (Array.isArray(data['gi_support_messages'])) setSupportMessages(data['gi_support_messages']);
+          if (Array.isArray(data['gi_support_messages'])) {
+            const deduped = DataStore.deduplicateSupportMessages(data['gi_support_messages']);
+            setSupportMessages(deduped);
+          }
           if (Array.isArray(data['gi_withdrawal_proofs'])) setWithdrawalProofs(data['gi_withdrawal_proofs']);
           if (Array.isArray(data['gi_forum_posts'])) setForumPosts(data['gi_forum_posts']);
           if (data['gi_manual_deposit_numbers'] && typeof data['gi_manual_deposit_numbers'] === 'object') {
             setManualDepositNumbers(data['gi_manual_deposit_numbers']);
           }
           
-          // 2. Keep local store and local storage safe
+          // 2. Keep local store and local storage safe without triggering loopback writes
           try {
             for (const key of Object.keys(data)) {
               if (data[key] !== undefined && data[key] !== null) {
-                setToStore(key, data[key]);
+                setToStoreLocalOnly(key, data[key]);
               }
             }
           } catch (storageErr) {
@@ -861,17 +867,33 @@ export default function AdminPanel({
 
   React.useEffect(() => {
     // Fast initial database load on mounts
-    executeDirectCentralSync();
+    executeDirectCentralSync(true);
 
     // Active Supabase Realtime listener for instant live updates across terminals
     const unsubSupabase = subscribeToSupabaseRealtime((table) => {
       console.log(`[SUPABASE REALTIME] Detected update on table ${table}`);
-      executeDirectCentralSync();
+      executeDirectCentralSync(true);
       onRefreshData();
     });
 
-    // Constant real-time active synchronization (poll every 3.5 seconds for guaranteed freshness without lag)
-    const interval = setInterval(() => executeDirectCentralSync(false), 3500);
+    // Instant Server-Sent Events (SSE) stream listener for real-time pushed deposits & messages
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('/api/realtime-stream');
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload && payload.type !== 'connected') {
+            console.log('[SSE EVENT]', payload);
+            executeDirectCentralSync(true);
+            onRefreshData();
+          }
+        } catch {}
+      };
+    } catch {}
+
+    // Constant real-time active synchronization (poll every 2.5 seconds for guaranteed freshness without lag)
+    const interval = setInterval(() => executeDirectCentralSync(false), 2500);
     
     const handleStoreUpdated = () => {
       executeDirectCentralSync(false);
@@ -880,6 +902,7 @@ export default function AdminPanel({
 
     return () => {
       unsubSupabase();
+      if (eventSource) eventSource.close();
       clearInterval(interval);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
     };
@@ -2421,12 +2444,9 @@ export default function AdminPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {deposits.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-6 text-center text-slate-500">Aucun dépôt enregistré.</td>
-                  </tr>
-                ) : (
-                  deposits.map((dep) => (
+                {deposits
+                  .filter((dep) => dep && (Number(dep.amount) > 0 || dep.reference || dep.userName))
+                  .map((dep) => (
                     <tr key={dep.id} className="hover:bg-slate-900/30">
                       <td className="p-3 font-semibold text-white">{dep.userName}</td>
                       <td className="p-3 text-yellow-400 font-bold font-mono">+{dep.amount.toLocaleString()} XOF</td>
@@ -2482,8 +2502,7 @@ export default function AdminPanel({
                         )}
                       </td>
                     </tr>
-                  ))
-                )}
+                  ))}
               </tbody>
             </table>
           </div>
@@ -2741,12 +2760,9 @@ export default function AdminPanel({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {withdrawals.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="p-6 text-center text-slate-500">Aucun retrait en attente.</td>
-                    </tr>
-                  ) : (
-                    withdrawals.map((wth) => {
+                  {withdrawals
+                    .filter((wth) => wth && (Number(wth.amount) > 0 || wth.userId || wth.userName))
+                    .map((wth) => {
                       const fee = wth.fee ?? Math.round(wth.amount * 0.12);
                       const net = wth.netAmount ?? (wth.amount - fee);
                       const userForWth = users.find(u => u.id === wth.userId);
@@ -2833,8 +2849,7 @@ export default function AdminPanel({
                           </td>
                         </tr>
                       );
-                    })
-                  )}
+                    })}
                 </tbody>
               </table>
             </div>
@@ -2928,14 +2943,9 @@ export default function AdminPanel({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {filteredUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-500 font-mono">
-                        Aucun utilisateur trouvé correspondant à votre recherche
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredUsers.map((user) => {
+                  {filteredUsers
+                    .filter((u) => u && u.id)
+                    .map((user) => {
                       const cleanReferredBy = (user.referredBy || '').trim().toUpperCase();
                       const sponsor = users.find(u => 
                         (u.id && u.id.trim().toUpperCase() === cleanReferredBy) || 
@@ -3123,8 +3133,7 @@ export default function AdminPanel({
                           </td>
                         </tr>
                       );
-                    })
-                  )}
+                    })}
                 </tbody>
               </table>
             </div>
@@ -3142,12 +3151,7 @@ export default function AdminPanel({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {users.filter(u => u.referredBy).length === 0 ? (
-                  <div className="col-span-2 p-6 rounded-2xl bg-slate-950/20 border border-dashed border-slate-800 text-center text-slate-500 text-xs">
-                    Aucun filleul actif ne s'est inscrit via un lien pour le moment.
-                  </div>
-                ) : (
-                  users.filter(u => u.referredBy).map((filleul) => {
+                {users.filter(u => u.referredBy).map((filleul) => {
                     const cleanRef = (filleul.referredBy || '').trim().toUpperCase();
                     const refDigits = cleanRef.replace(/\D/g, '');
                     const parrain = users.find(u => {
@@ -3201,8 +3205,7 @@ export default function AdminPanel({
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
               </div>
             </div>
           </div>
@@ -4492,14 +4495,10 @@ export default function AdminPanel({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {filteredTx.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-500 font-mono">
-                        Aucune transaction ne correspond aux filtres sélectionnés.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredTx.slice(0, 100).map((tx) => (
+                  {filteredTx
+                    .filter((tx) => tx && (Number(tx.amount) > 0 || tx.id))
+                    .slice(0, 100)
+                    .map((tx) => (
                       <tr key={tx.id} className="hover:bg-slate-900/10">
                         <td className="p-3 font-mono text-[10px] text-slate-400">{tx.id}</td>
                         <td className="p-3">
@@ -4542,8 +4541,7 @@ export default function AdminPanel({
                           </span>
                         </td>
                       </tr>
-                    ))
-                  )}
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -4647,13 +4645,8 @@ export default function AdminPanel({
                   Conversations ({sortedSessions.length})
                 </span>
 
-                {sortedSessions.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500">
-                    <p className="text-sm">Aucun message d'assistance reçu.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {sortedSessions.map(session => {
+                <div className="space-y-2">
+                  {sortedSessions.map(session => {
                       const isActive = session.userId === selectedUserId;
                       return (
                         <div
@@ -4712,7 +4705,6 @@ export default function AdminPanel({
                       );
                     })}
                   </div>
-                )}
               </div>
 
               {/* ACTIVE CONVERSATION MESSAGES PANEL (RIGHT COLUMN) */}
@@ -5008,13 +5000,8 @@ export default function AdminPanel({
                     Publications Actuelles sur la page Avis
                   </h4>
 
-                  {withdrawalProofs.length === 0 ? (
-                    <div className="text-center py-12 px-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-850">
-                      <p className="text-slate-400 text-xs">Aucun communiqué ou avis officiel n'a été publié pour le moment.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {withdrawalProofs.map((proof) => {
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {withdrawalProofs.map((proof) => {
                         return (
                           <div 
                             key={proof.id} 
@@ -5092,7 +5079,6 @@ export default function AdminPanel({
                         );
                       })}
                     </div>
-                  )}
                 </div>
               </>
             )}
@@ -5119,13 +5105,8 @@ export default function AdminPanel({
                   </div>
                 </div>
 
-                {forumPosts.length === 0 ? (
-                  <div className="text-center py-12 px-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-850">
-                    <p className="text-slate-400 text-xs">Aucune publication sur le forum pour le moment.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {forumPosts.map((post) => {
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {forumPosts.map((post) => {
                       return (
                         <div 
                           key={post.id} 
@@ -5345,7 +5326,6 @@ export default function AdminPanel({
                       );
                     })}
                   </div>
-                )}
               </div>
             )}
           </div>
@@ -5434,13 +5414,8 @@ export default function AdminPanel({
             </div>
 
             {/* LOGS LIST */}
-            {filteredInvestments.length === 0 ? (
-              <div className="text-center py-12 px-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-850">
-                <p className="text-slate-400 text-xs">Aucun produit payé ou souscrit ne correspond à votre recherche actuelle.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto overflow-y-hidden">
-                <table className="w-full text-left text-xs text-slate-200 min-w-[850px]">
+            <div className="overflow-x-auto overflow-y-hidden">
+              <table className="w-full text-left text-xs text-slate-200 min-w-[850px]">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                       <th className="pb-3 pl-4">Acheteur / Titulaire</th>
@@ -5549,7 +5524,6 @@ export default function AdminPanel({
                   </tbody>
                 </table>
               </div>
-            )}
           </div>
         );
       })()}
@@ -5702,16 +5676,8 @@ export default function AdminPanel({
               </button>
             </div>
 
-            {announcements.length === 0 ? (
-              <div className="text-center py-12 px-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-850">
-                <Megaphone className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-slate-400 text-xs">
-                  Aucune annonce publiée pour le moment. Rédigez-en une ci-dessus pour la diffuser à vos membres.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {announcements.map((ann) => (
+            <div className="space-y-3">
+              {announcements.map((ann) => (
                   <div
                     key={ann.id}
                     className={`bg-slate-950 border rounded-2xl p-4 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
@@ -5772,7 +5738,6 @@ export default function AdminPanel({
                   </div>
                 ))}
               </div>
-            )}
           </div>
         </div>
       )}

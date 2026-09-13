@@ -23,6 +23,8 @@ import {
   upsertSupabaseDeposit,
   upsertSupabaseWithdrawal,
   upsertSupabaseInvestment,
+  upsertSupabaseSupportMessage,
+  markSupabaseSupportMessagesRead,
   isReferralFirstApprovedDepositInSupabase,
   saveSupabaseCategorySchedules,
   fetchSupabaseCategorySchedules
@@ -494,7 +496,7 @@ function evaluateCategorySchedule(category: 'wellbeing' | 'withdrawals' | 'activ
       isOpen: !isClosed,
       statusLabel: isClosed ? 'FERMÉ' : 'OUVERT',
       reason: isClosed 
-        ? 'Ce produit est actuellement indisponible à l’achat' 
+        ? 'Ce produit est actuellement indisponible à l’achat.' 
         : `Les produits ${catLabel} sont disponibles à l'achat.`
     };
   }
@@ -2314,8 +2316,38 @@ const SERVER_DEFAULT_PRODUCTS = [
 
   let lastSupabasePullTime = 0;
   let lastSupabaseErrorTime = 0;
-  const SUPABASE_MIN_PULL_INTERVAL = 3000; // ms
+  const SUPABASE_MIN_PULL_INTERVAL = 2000; // ms
   const SUPABASE_ERROR_COOLDOWN = 15000; // ms: if Supabase errors out (e.g. quota), respond instantly without hanging
+
+  function mergeEntityLists(localList: any[], remoteList: any[], idField = 'id'): any[] {
+    const map = new Map<string, any>();
+    if (Array.isArray(localList)) {
+      for (const item of localList) {
+        if (item && item[idField]) {
+          map.set(String(item[idField]).trim(), item);
+        }
+      }
+    }
+    if (Array.isArray(remoteList)) {
+      for (const item of remoteList) {
+        if (!item || !item[idField]) continue;
+        const id = String(item[idField]).trim();
+        const existing = map.get(id);
+        if (!existing) {
+          map.set(id, item);
+        } else {
+          const localTime = Number(existing.lastModified || new Date(existing.createdAt || 0).getTime() || 0);
+          const remoteTime = Number(item.lastModified || new Date(item.createdAt || 0).getTime() || 0);
+          if (remoteTime >= localTime) {
+            map.set(id, { ...existing, ...item });
+          } else {
+            map.set(id, { ...item, ...existing });
+          }
+        }
+      }
+    }
+    return Array.from(map.values());
+  }
 
   async function syncFromSupabaseIfAvailable(force: boolean = false): Promise<boolean> {
     const client = getSupabaseAdminClient();
@@ -2333,6 +2365,7 @@ const SERVER_DEFAULT_PRODUCTS = [
       lastSupabasePullTime = now;
       const sbData = await fetchSupabaseStoreData();
       if (sbData && Object.keys(sbData).length > 0) {
+        const arrayKeys = ['gi_users', 'gi_deposits', 'gi_withdrawals', 'gi_investments', 'gi_products', 'gi_support_messages', 'gi_forum_posts'];
         for (const key of Object.keys(sbData)) {
           if (sbData[key] !== undefined && sbData[key] !== null) {
             if (key === "gi_category_schedules") {
@@ -2351,11 +2384,28 @@ const SERVER_DEFAULT_PRODUCTS = [
               if (hasNewer) {
                 storeData["gi_category_schedules"] = merged;
               }
+            } else if (arrayKeys.includes(key) && Array.isArray(storeData[key]) && Array.isArray(sbData[key])) {
+              storeData[key] = mergeEntityLists(storeData[key], sbData[key]);
             } else {
               storeData[key] = sbData[key];
             }
           }
         }
+
+        // Strictly respect deletions
+        const deletedUsers = storeData["gi_deleted_users"] || [];
+        if (Array.isArray(storeData["gi_users"]) && deletedUsers.length > 0) {
+          storeData["gi_users"] = storeData["gi_users"].filter((u: any) => u && !deletedUsers.includes(String(u.id)));
+        }
+        const deletedInvs = storeData["gi_deleted_investments"] || [];
+        if (Array.isArray(storeData["gi_investments"]) && deletedInvs.length > 0) {
+          storeData["gi_investments"] = storeData["gi_investments"].filter((i: any) => i && !deletedInvs.includes(String(i.id)));
+        }
+        const deletedForum = storeData["gi_deleted_forum_posts"] || [];
+        if (Array.isArray(storeData["gi_forum_posts"]) && deletedForum.length > 0) {
+          storeData["gi_forum_posts"] = storeData["gi_forum_posts"].filter((p: any) => p && !deletedForum.includes(String(p.id)));
+        }
+
         saveStoreLocal();
         lastSupabaseSyncTime = Date.now();
         return true;
@@ -2366,6 +2416,77 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
     return false;
   }
+
+  // Server-Sent Events (SSE) for instantaneous, real-time push to admin and users
+  const sseClients = new Set<express.Response>();
+  function broadcastRealtimeEvent(data: any) {
+    const payload = `data: ${JSON.stringify(data)}\n\n`;
+    for (const client of sseClients) {
+      try {
+        client.write(payload);
+      } catch {
+        sseClients.delete(client);
+      }
+    }
+  }
+
+  app.get("/api/realtime-stream", (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    sseClients.add(res);
+    res.write(`data: ${JSON.stringify({ type: "connected", time: Date.now() })}\n\n`);
+
+    const keepAlive = setInterval(() => {
+      try {
+        res.write(": keepalive\n\n");
+      } catch {
+        clearInterval(keepAlive);
+        sseClients.delete(res);
+      }
+    }, 25000);
+
+    req.on("close", () => {
+      clearInterval(keepAlive);
+      sseClients.delete(res);
+    });
+  });
+
+  // Background Supabase Realtime subscription via Admin Service Role Client
+  function startSupabaseRealtimeServer() {
+    const client = getSupabaseAdminClient();
+    if (!client) return;
+    try {
+      client.channel("server-realtime-sync")
+        .on("postgres_changes", { event: "*", schema: "public", table: "deposits" }, async (payload: any) => {
+          console.log("[SUPABASE REALTIME SERVER] Deposit event:", payload.eventType);
+          await syncFromSupabaseIfAvailable(true);
+          broadcastRealtimeEvent({ type: "deposits", event: payload.eventType, time: Date.now() });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals" }, async (payload: any) => {
+          console.log("[SUPABASE REALTIME SERVER] Withdrawal event:", payload.eventType);
+          await syncFromSupabaseIfAvailable(true);
+          broadcastRealtimeEvent({ type: "withdrawals", event: payload.eventType, time: Date.now() });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, async (payload: any) => {
+          console.log("[SUPABASE REALTIME SERVER] Support message event:", payload.eventType);
+          await syncFromSupabaseIfAvailable(true);
+          broadcastRealtimeEvent({ type: "support_messages", event: payload.eventType, time: Date.now() });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "users" }, async (payload: any) => {
+          await syncFromSupabaseIfAvailable(true);
+          broadcastRealtimeEvent({ type: "users", event: payload.eventType, time: Date.now() });
+        })
+        .subscribe((status: string) => {
+          console.log("[SUPABASE REALTIME SERVER] Realtime subscription status:", status);
+        });
+    } catch (err: any) {
+      console.warn("[SUPABASE REALTIME SERVER INIT WARN]", err?.message || err);
+    }
+  }
+  startSupabaseRealtimeServer();
 
   let lastInstallmentProcessing = 0;
   app.get("/api/get-store", async (req, res) => {
@@ -2997,7 +3118,11 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
       storeData["gi_notifications"] = notifications;
 
-      upsertSupabaseUser(newUser).catch(() => {});
+      try {
+        await upsertSupabaseUser(newUser);
+      } catch (sbErr) {
+        console.warn('[SUPABASE REGISTER USER WARN]', sbErr);
+      }
       await saveStore(["gi_users", "gi_notifications"]);
       res.json({ success: true, user: newUser, message: 'Inscription réussie.' });
     } catch (error: any) {
@@ -3138,7 +3263,7 @@ const SERVER_DEFAULT_PRODUCTS = [
       if (!scheduleStatus.isOpen) {
         return res.json({
           success: false,
-          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat'
+          message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat.'
         });
       }
     }
@@ -3210,8 +3335,10 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     // Synchronisation directe du statut avec Supabase (Règle 7)
     try {
-      upsertSupabaseUser(user).catch(e => console.warn('[SUPABASE BUY USER SYNC WARN]', e));
-      upsertSupabaseInvestment(newInvestment).catch(e => console.warn('[SUPABASE BUY INV SYNC WARN]', e));
+      await Promise.allSettled([
+        upsertSupabaseUser(user),
+        upsertSupabaseInvestment(newInvestment)
+      ]);
     } catch (e: any) {
       console.warn('[SUPABASE BUY SYNC WARN]', e);
     }
@@ -3688,6 +3815,15 @@ const SERVER_DEFAULT_PRODUCTS = [
       storeData["gi_users"] = users;
 
       await saveStore(["gi_users", "gi_deposits", "gi_notifications"]);
+      try {
+        await upsertSupabaseDeposit(newDep);
+        if (user) {
+          await upsertSupabaseUser(user);
+        }
+      } catch (sbErr) {
+        console.warn("[SUPABASE DIRECT DEPOSIT WARN]", sbErr);
+      }
+      broadcastRealtimeEvent({ type: 'deposits', action: 'create', depositId: newDep.id });
       res.json({ success: true, deposit: newDep, user: user || undefined });
     } catch (err: any) {
       console.error("[DEPOSIT API ERROR]", err);
@@ -5137,10 +5273,12 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     await saveStore();
 
-    // Règle 7 : Synchronisation Supabase
+    // Règle 7 : Synchronisation Supabase immédiate
     try {
-      upsertSupabaseUser(user).catch(e => console.warn('[SUPABASE WTH USER SYNC WARN]', e));
-      upsertSupabaseWithdrawal(newWth).catch(e => console.warn('[SUPABASE WTH SYNC WARN]', e));
+      await Promise.allSettled([
+        upsertSupabaseUser(user),
+        upsertSupabaseWithdrawal(newWth)
+      ]);
     } catch (e: any) {
       console.warn('[SUPABASE WTH SYNC EXCEPTION]', e);
     }
@@ -5265,7 +5403,36 @@ const SERVER_DEFAULT_PRODUCTS = [
     updatedMsgs.push(newMsg);
     storeData["gi_support_messages"] = updatedMsgs;
     saveStore(["gi_support_messages"]).catch(e => console.warn('[SAVE SUPPORT MSG WARN]', e));
+
+    // Direct synchronous persistence to Supabase Cloud
+    try {
+      await upsertSupabaseSupportMessage(newMsg);
+      if (sender === 'admin') {
+        await markSupabaseSupportMessagesRead(userId, 'admin');
+      }
+    } catch (sbErr: any) {
+      console.warn('[SUPABASE SUPPORT MSG PERSIST WARN]', sbErr?.message || sbErr);
+    }
+
+    broadcastRealtimeEvent({ type: 'support_messages', action: 'new_message', userId, sender, time: Date.now() });
     res.json({ success: true, message: newMsg });
+  });
+
+  // Dedicated Support Messages endpoint for immediate cross-user / admin conversation synchronization
+  app.get("/api/support-messages/:userId", async (req, res) => {
+    try {
+      const uId = String(req.params.userId || '').trim();
+      if (!uId) return res.json({ success: true, messages: [] });
+
+      await syncFromSupabaseIfAvailable(false);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+      const allMsgs = storeData["gi_support_messages"] || [];
+      const userMsgs = allMsgs.filter((m: any) => m && String(m.userId).trim() === uId);
+      res.json({ success: true, messages: userMsgs });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e?.message || String(e) });
+    }
   });
 
   // Dedicated Forum endpoints for immediate cross-user synchronization
@@ -5494,6 +5661,12 @@ const SERVER_DEFAULT_PRODUCTS = [
     if (changed) {
       storeData["gi_support_messages"] = updatedMsgs;
       await saveStore(["gi_support_messages"]);
+      try {
+        await markSupabaseSupportMessagesRead(userId, readerRole);
+      } catch (err: any) {
+        console.warn("[SUPABASE MARK READ WARN]", err);
+      }
+      broadcastRealtimeEvent({ type: "support_messages", action: "read", userId, readerRole, time: Date.now() });
     }
     res.json({ success: true, changed });
   });
@@ -5523,8 +5696,10 @@ const SERVER_DEFAULT_PRODUCTS = [
 
         // Direct update to Supabase Cloud
         try {
-          upsertSupabaseDeposit(deposits[idx]).catch((e) => console.warn('[SUPABASE DEPOSIT APPROVE WARN]', e));
-          upsertSupabaseUser(users[uIdx]).catch((e) => console.warn('[SUPABASE USER UPDATE WARN]', e));
+          await Promise.allSettled([
+            upsertSupabaseDeposit(deposits[idx]),
+            upsertSupabaseUser(users[uIdx])
+          ]);
         } catch (e: any) {
           console.warn('[SUPABASE DEPOSIT APPROVE WARN]', e?.message || e);
         }
@@ -5549,7 +5724,7 @@ const SERVER_DEFAULT_PRODUCTS = [
       deposits[idx].lastModified = Date.now();
 
       try {
-        upsertSupabaseDeposit(deposits[idx]).catch((e) => console.warn('[SUPABASE DEPOSIT REJECT WARN]', e));
+        await upsertSupabaseDeposit(deposits[idx]);
       } catch (e: any) {
         console.warn('[SUPABASE DEPOSIT REJECT WARN]', e?.message || e);
       }
@@ -5572,6 +5747,7 @@ const SERVER_DEFAULT_PRODUCTS = [
     storeData["gi_notifications"] = notifications;
 
     await saveStore();
+    broadcastRealtimeEvent({ type: "deposits", action, depositId, time: Date.now() });
     res.json({ success: true, deposit: deposits[idx] });
   });
 
@@ -5601,8 +5777,10 @@ const SERVER_DEFAULT_PRODUCTS = [
 
         // Direct update to Supabase Cloud
         try {
-          upsertSupabaseWithdrawal(withdrawals[idx]).catch((e) => console.warn('[SUPABASE WITHDRAW APPROVE WARN]', e));
-          upsertSupabaseUser(users[uIdx]).catch((e) => console.warn('[SUPABASE USER UPDATE WARN]', e));
+          await Promise.allSettled([
+            upsertSupabaseWithdrawal(withdrawals[idx]),
+            upsertSupabaseUser(users[uIdx])
+          ]);
         } catch (e: any) {
           console.warn('[SUPABASE WITHDRAW APPROVE WARN]', e?.message || e);
         }
@@ -5627,8 +5805,10 @@ const SERVER_DEFAULT_PRODUCTS = [
         users[uIdx].lastModified = Date.now();
 
         try {
-          upsertSupabaseWithdrawal(withdrawals[idx]).catch((e) => console.warn('[SUPABASE WITHDRAW REJECT WARN]', e));
-          upsertSupabaseUser(users[uIdx]).catch((e) => console.warn('[SUPABASE USER RESTORE WARN]', e));
+          await Promise.allSettled([
+            upsertSupabaseWithdrawal(withdrawals[idx]),
+            upsertSupabaseUser(users[uIdx])
+          ]);
         } catch (e: any) {
           console.warn('[SUPABASE WITHDRAW REJECT WARN]', e?.message || e);
         }

@@ -2384,6 +2384,15 @@ export default function Dashboard({
   const handleBuyProduct = async (product: Product) => {
     if (buyingProductId) return;
 
+    // Disponibilité pour Bien-être et Activités : si fermé ou bloqué aux nouveaux achats, afficher simplement le message requis
+    if (product.category === 'wellbeing' || product.category === 'activity') {
+      const scheduleStatus = DataStore.isCategoryOpen(product.category);
+      if (!scheduleStatus.isOpen || product.isBlocked) {
+        triggerToast('Ce produit est actuellement indisponible à l’achat.', 'info');
+        return;
+      }
+    }
+
     if (product.isBlocked) {
       openAlert('Plan Suspendu', "Ce plan d'investissement VIP est actuellement bloqué ou suspendu temporairement par l'administration.", 'error');
       return;
@@ -2399,19 +2408,8 @@ export default function Dashboard({
       return;
     }
 
-    // 2. Condition d'accès pour Bien-être : Stabilité VIP N payée obligatoire & vérification des horaires
+    // 2. Condition d'accès pour Bien-être : Stabilité VIP N payée obligatoire
     if (product.category === 'wellbeing') {
-      const scheduleStatus = DataStore.isCategoryOpen('wellbeing');
-      if (!scheduleStatus.isOpen) {
-        triggerToast('Ce produit est actuellement indisponible à l’achat', 'info');
-        openAlert(
-          'Information',
-          'Ce produit est actuellement indisponible à l’achat',
-          'info'
-        );
-        return;
-      }
-
       const reqVipLevel = product.vipLevel || 1;
       const accessCheck = DataStore.canUserAccessWellbeingProduct(userState.id, reqVipLevel);
       if (!accessCheck.allowed) {
@@ -5432,6 +5430,7 @@ export default function Dashboard({
               t={t}
               setIsSupportPageOpen={setIsSupportPageOpen}
               unreadSupportCount={unreadSupportCount}
+              triggerToast={triggerToast}
             />
           )}
 

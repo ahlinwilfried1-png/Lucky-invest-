@@ -27,6 +27,7 @@ interface ProductsTabViewProps {
   t: (fr: string, en: string) => string;
   setIsSupportPageOpen?: (open: boolean) => void;
   unreadSupportCount?: number;
+  triggerToast?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
@@ -38,7 +39,8 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
   getCurrency,
   t,
   setIsSupportPageOpen,
-  unreadSupportCount = 0
+  unreadSupportCount = 0,
+  triggerToast
 }) => {
   const stabilityProducts = products
     .filter(p => p.category === 'stability' || (!p.category && !String(p.id).startsWith('well-') && !String(p.id).startsWith('act-')))
@@ -89,10 +91,13 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
   const [closedNotice, setClosedNotice] = useState<string | null>(null);
 
   const showClosedNotice = () => {
-    setClosedNotice('Ce produit est fermé aux nouveaux achats. Les cycles déjà commencés continuent normalement jusqu’à la fin de leur cycle.');
+    if (triggerToast) {
+      triggerToast('Ce produit est actuellement indisponible à l’achat.', 'info');
+    }
+    setClosedNotice('Ce produit est actuellement indisponible à l’achat.');
     setTimeout(() => {
       setClosedNotice(null);
-    }, 4000);
+    }, 3500);
   };
 
   // Les produits Bien-être et Activités restent toujours visibles sur la page Produit, même quand ils sont fermés
@@ -249,14 +254,7 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                 return (
                   <div
                     key={p.id}
-                    onClick={() => {
-                      if (isClosed) {
-                        showClosedNotice();
-                      }
-                    }}
-                    className={`bg-white rounded-3xl shadow-xs hover:shadow-sm overflow-hidden p-3 sm:p-3.5 space-y-2.5 transition-all duration-300 relative flex flex-col justify-between ${
-                      isClosed ? 'cursor-pointer hover:bg-slate-50/60' : ''
-                    }`}
+                    className="bg-white rounded-3xl shadow-xs hover:shadow-sm overflow-hidden p-3 sm:p-3.5 space-y-2.5 transition-all duration-300 relative flex flex-col justify-between"
                     id={`product-card-${p.id}`}
                   >
                     {/* Top Section: Gold Bullion Image Banner */}
@@ -278,11 +276,6 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                             <span>VIP {vipLevel} • {isWellbeing ? 'BIEN-ÊTRE' : isActivity ? 'ACTIVITÉ' : 'STABILITÉ'}</span>
                           </div>
-                          {isClosed && (
-                            <div className="bg-red-600/90 backdrop-blur-xs text-white font-sans font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
-                              <span>Fermé aux nouveaux achats</span>
-                            </div>
-                          )}
                         </div>
 
                         {/* Title Overlay at Bottom of Image */}
@@ -341,35 +334,35 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                           <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
                         </div>
 
-                        {/* Right: Solid Rich Gold Investir Button */}
+                        {/* Right: Solid Rich Gold Investir Button - Toujours Investir */}
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (isClosed) {
-                              showClosedNotice();
-                              return;
+                            if (isWellbeing || isActivity) {
+                              if (isClosed || isBlocked) {
+                                showClosedNotice();
+                                return;
+                              }
                             }
                             handleBuyProduct(p);
                           }}
-                          disabled={isBlocked || buyingProductId === p.id}
-                          className={`flex-1 ${
-                            isClosed
-                              ? 'bg-slate-200 text-slate-500 hover:bg-slate-300 cursor-pointer'
-                              : 'bg-gradient-to-r from-[#d9962a] via-[#e5a836] to-[#f2bb45] hover:from-[#c88519] hover:to-[#dfa025] cursor-pointer text-white'
-                          } active:scale-[0.98] font-black text-xs sm:text-sm uppercase tracking-wider py-2.5 px-3 rounded-2xl flex items-center justify-center gap-1.5 shadow-2xs transition-all border-none outline-none ${
-                            isBlocked || buyingProductId === p.id ? 'opacity-60 cursor-not-allowed' : ''
+                          disabled={buyingProductId === p.id || (!isWellbeing && !isActivity && isBlocked)}
+                          className={`flex-1 bg-gradient-to-r from-[#d9962a] via-[#e5a836] to-[#f2bb45] hover:from-[#c88519] hover:to-[#dfa025] cursor-pointer text-white active:scale-[0.98] font-black text-xs sm:text-sm uppercase tracking-wider py-2.5 px-3 rounded-2xl flex items-center justify-center gap-1.5 shadow-2xs transition-all border-none outline-none ${
+                            buyingProductId === p.id || (!isWellbeing && !isActivity && isBlocked) ? 'opacity-60 cursor-not-allowed' : ''
                           }`}
+                          id={`btn-invest-${p.id}`}
                         >
                           <span className="whitespace-nowrap">
-                            {buyingProductId === p.id ? 'Paiement...' : isClosed ? 'Fermé' : 'INVESTIR'}
+                            {buyingProductId === p.id ? 'Paiement...' : 'INVESTIR'}
                           </span>
                           <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                         </button>
                       </div>
                     </div>
 
-                    {/* Blocked Overlay if Product is Suspended */}
-                    {isBlocked && (
+                    {/* Blocked Overlay if Product is Suspended (only if stability is explicitly blocked) */}
+                    {isBlocked && !isWellbeing && !isActivity && (
                       <div className="absolute inset-0 rounded-3xl bg-slate-900/60 backdrop-blur-xs flex flex-col items-center justify-center p-3 z-10">
                         <div className="bg-red-500 text-white font-bold text-xs uppercase px-3 py-1 rounded-full shadow-sm">
                           Fermé / Suspendu

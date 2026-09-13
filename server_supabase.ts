@@ -181,6 +181,40 @@ export function testSupabaseConnection(): Promise<{
 }
 
 /**
+ * Merges an existing entity list (e.g. from store) with relational rows by ID.
+ * Keeps the newer item if timestamps differ, or merges fields to avoid losing attributes.
+ */
+function mergeEntityArrays(storeList: any[], relationalList: any[], idField = 'id'): any[] {
+  const map = new Map<string, any>();
+  if (Array.isArray(storeList)) {
+    for (const item of storeList) {
+      if (item && item[idField]) {
+        map.set(String(item[idField]).trim(), item);
+      }
+    }
+  }
+  if (Array.isArray(relationalList)) {
+    for (const item of relationalList) {
+      if (!item || !item[idField]) continue;
+      const id = String(item[idField]).trim();
+      const existing = map.get(id);
+      if (!existing) {
+        map.set(id, item);
+      } else {
+        const existingTime = Number(existing.lastModified || new Date(existing.createdAt || 0).getTime() || 0);
+        const incomingTime = Number(item.lastModified || new Date(item.createdAt || 0).getTime() || 0);
+        if (incomingTime >= existingTime) {
+          map.set(id, { ...existing, ...item });
+        } else {
+          map.set(id, { ...item, ...existing });
+        }
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
+/**
  * Fetches authoritative store data from Supabase
  */
 export async function fetchSupabaseStoreData(): Promise<Record<string, any> | null> {
@@ -237,7 +271,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
       .order('created_at', { ascending: true });
 
     if (!userErr && Array.isArray(userRows) && userRows.length > 0) {
-      result['gi_users'] = userRows
+      const mappedUsers = userRows
         .filter(r => !deletedUsers.includes(r.id))
         .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
@@ -262,6 +296,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
             lastModified: Number(r.last_modified || raw.lastModified || Date.now())
           };
         });
+      result['gi_users'] = mergeEntityArrays(result['gi_users'], mappedUsers);
       foundAny = true;
     }
 
@@ -272,7 +307,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
       .order('created_at', { ascending: false });
 
     if (!depErr && Array.isArray(depRows) && depRows.length > 0) {
-      result['gi_deposits'] = depRows
+      const mappedDeps = depRows
         .filter(r => !deletedUsers.includes(r.user_id))
         .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
@@ -294,6 +329,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
             lastModified: Number(r.last_modified || raw.lastModified || Date.now())
           };
         });
+      result['gi_deposits'] = mergeEntityArrays(result['gi_deposits'], mappedDeps);
       foundAny = true;
     }
 
@@ -304,20 +340,24 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
       .order('created_at', { ascending: false });
 
     if (!wthErr && Array.isArray(wthRows) && wthRows.length > 0) {
-      result['gi_withdrawals'] = wthRows
+      const mappedWths = wthRows
         .filter(r => !deletedUsers.includes(r.user_id))
         .map(r => {
           const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+          const fee = Number(r.fee !== null && r.fee !== undefined ? r.fee : (raw.fee !== undefined ? raw.fee : Math.round(Number(r.amount || raw.amount || 0) * 0.12)));
+          const net = Number(r.net_amount !== null && r.net_amount !== undefined ? r.net_amount : (raw.netAmount !== undefined ? raw.netAmount : (Number(r.amount || raw.amount || 0) - fee)));
           return {
             ...raw,
             id: r.id,
             userId: r.user_id || raw.userId,
             userName: r.user_name || raw.userName || 'Investisseur',
             amount: Number(r.amount || raw.amount || 0),
-            netAmount: Number(r.net_amount || raw.netAmount || r.amount || 0),
-            fee: Number(r.fee || raw.fee || 0),
-            method: r.method || raw.method || 'Mobile Money',
-            accountNumber: r.account_number || raw.accountNumber || '',
+            netAmount: net,
+            fee: fee,
+            method: r.method || raw.operator || raw.method || 'Mobile Money',
+            operator: r.method || raw.operator || raw.method || 'Mobile Money',
+            accountNumber: r.account_number || raw.number || raw.accountNumber || '',
+            number: r.account_number || raw.number || raw.accountNumber || '',
             accountName: r.account_name || raw.accountName || '',
             status: r.status || raw.status || 'pending',
             createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
@@ -325,6 +365,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
             lastModified: Number(r.last_modified || raw.lastModified || Date.now())
           };
         });
+      result['gi_withdrawals'] = mergeEntityArrays(result['gi_withdrawals'], mappedWths);
       foundAny = true;
     }
 
@@ -335,7 +376,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
       .order('created_at', { ascending: false });
 
     if (!invErr && Array.isArray(invRows) && invRows.length > 0) {
-      result['gi_investments'] = invRows
+      const mappedInvs = invRows
         .filter(r => 
           !deletedUsers.includes(String(r.user_id).trim()) && 
           !deletedInvestments.includes(String(r.id).trim()) &&
@@ -362,6 +403,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
             lastModified: Number(r.last_modified || raw.lastModified || Date.now())
           };
         });
+      result['gi_investments'] = mergeEntityArrays(result['gi_investments'], mappedInvs);
       foundAny = true;
     }
 
@@ -388,7 +430,7 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
       .order('created_at', { ascending: true });
 
     if (!prodErr && Array.isArray(prodRows) && prodRows.length > 0) {
-      result['gi_products'] = prodRows
+      const mappedProds = prodRows
         .filter(r => r && r.id && !deletedProducts.includes(String(r.id)))
         .map(r => {
         const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
@@ -407,6 +449,34 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
           lastModified: Number(r.last_modified || raw.lastModified || Date.now())
         };
       });
+      result['gi_products'] = mergeEntityArrays(result['gi_products'], mappedProds);
+      foundAny = true;
+    }
+
+    // Support Messages
+    const { data: msgRows, error: msgErr } = await client
+      .from('support_messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (!msgErr && Array.isArray(msgRows) && msgRows.length > 0) {
+      const mappedMsgs = msgRows
+        .filter(r => !deletedUsers.includes(String(r.user_id || '').trim()))
+        .map(r => {
+          const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+          return {
+            ...raw,
+            id: String(r.id),
+            userId: String(r.user_id || raw.userId),
+            sender: (r.sender || raw.sender || 'user') as 'user' | 'admin',
+            message: String(r.message || raw.message || ''),
+            image: r.image || raw.image || undefined,
+            status: (raw.status || (r.read ? 'read' : 'unread')) as 'unread' | 'read' | 'replied',
+            createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+            lastModified: Number(raw.lastModified || new Date(r.created_at || 0).getTime() || Date.now())
+          };
+        });
+      result['gi_support_messages'] = mergeEntityArrays(result['gi_support_messages'], mappedMsgs);
       foundAny = true;
     }
   } catch (err: any) {
@@ -645,6 +715,30 @@ export async function syncSupabaseRelationalTables(storeData: Record<string, any
         }
       }
     }
+
+    // 7. Support Messages
+    if (Array.isArray(storeData['gi_support_messages']) && storeData['gi_support_messages'].length > 0) {
+      const msgPayloads = storeData['gi_support_messages']
+        .filter((m: any) => m && m.id && !deletedUsers.includes(String(m.userId || '').trim()))
+        .map((m: any) => ({
+          id: String(m.id),
+          user_id: String(m.userId),
+          sender: String(m.sender || 'user'),
+          message: String(m.message || ''),
+          image: m.image || null,
+          read: m.status === 'read' || m.status === 'replied',
+          created_at: m.createdAt ? new Date(m.createdAt).toISOString() : new Date().toISOString(),
+          raw_data: m
+        }));
+
+      if (msgPayloads.length > 0) {
+        try {
+          await client.from('support_messages').upsert(msgPayloads, { onConflict: 'id' });
+        } catch (msgErr: any) {
+          console.warn('[SUPABASE SUPPORT MESSAGES RELATIONAL UPSERT WARN]', msgErr?.message || msgErr);
+        }
+      }
+    }
   } catch (err: any) {
     console.warn('[SUPABASE RELATIONAL SYNC WARN]', err?.message || err);
   } finally {
@@ -681,8 +775,23 @@ export async function upsertSupabaseUser(user: any): Promise<boolean> {
       raw_data: user
     };
 
-    const { error } = await client.from('users').upsert(payload, { onConflict: 'id' });
-    return !error;
+    try {
+      await client.from('users').upsert(payload, { onConflict: 'id' });
+    } catch (tblErr) {
+      console.warn('[SUPABASE USERS TABLE UPSERT WARN]', tblErr);
+    }
+
+    // Dual persistence: also guarantee entry in public.store key 'gi_users'
+    try {
+      const { data: sData } = await client.from('store').select('value').eq('key', 'gi_users').maybeSingle();
+      let currentUsers = (sData && Array.isArray(sData.value)) ? sData.value : [];
+      currentUsers = [user, ...currentUsers.filter((u: any) => u && String(u.id).trim() !== String(user.id).trim())];
+      await client.from('store').upsert({ key: 'gi_users', value: currentUsers, updated_at: new Date().toISOString() });
+    } catch (storeErr) {
+      console.warn('[SUPABASE STORE USERS UPSERT WARN]', storeErr);
+    }
+
+    return true;
   } catch {
     return false;
   }
@@ -714,8 +823,23 @@ export async function upsertSupabaseDeposit(deposit: any): Promise<boolean> {
       raw_data: deposit
     };
 
-    const { error } = await client.from('deposits').upsert(payload, { onConflict: 'id' });
-    return !error;
+    try {
+      await client.from('deposits').upsert(payload, { onConflict: 'id' });
+    } catch (tblErr) {
+      console.warn('[SUPABASE DEPOSITS TABLE UPSERT WARN]', tblErr);
+    }
+
+    // Dual persistence: also guarantee entry in public.store key 'gi_deposits'
+    try {
+      const { data: sData } = await client.from('store').select('value').eq('key', 'gi_deposits').maybeSingle();
+      let currentDeps = (sData && Array.isArray(sData.value)) ? sData.value : [];
+      currentDeps = [deposit, ...currentDeps.filter((d: any) => d && String(d.id).trim() !== String(deposit.id).trim())];
+      await client.from('store').upsert({ key: 'gi_deposits', value: currentDeps, updated_at: new Date().toISOString() });
+    } catch (storeErr) {
+      console.warn('[SUPABASE STORE DEPOSITS UPSERT WARN]', storeErr);
+    }
+
+    return true;
   } catch {
     return false;
   }
@@ -729,15 +853,17 @@ export async function upsertSupabaseWithdrawal(withdrawal: any): Promise<boolean
   if (!client || !withdrawal?.id) return false;
 
   try {
+    const fee = Number(withdrawal.fee !== null && withdrawal.fee !== undefined ? withdrawal.fee : Math.round(Number(withdrawal.amount || 0) * 0.12));
+    const net = Number(withdrawal.netAmount !== null && withdrawal.netAmount !== undefined ? withdrawal.netAmount : (Number(withdrawal.amount || 0) - fee));
     const payload = {
       id: withdrawal.id,
       user_id: withdrawal.userId,
       user_name: withdrawal.userName || 'Investisseur',
       amount: Number(withdrawal.amount || 0),
-      net_amount: Number(withdrawal.netAmount || withdrawal.amount || 0),
-      fee: Number(withdrawal.fee || 0),
-      method: withdrawal.method || 'Mobile Money',
-      account_number: withdrawal.accountNumber || '',
+      net_amount: net,
+      fee: fee,
+      method: withdrawal.method || withdrawal.operator || 'Mobile Money',
+      account_number: withdrawal.accountNumber || withdrawal.number || '',
       account_name: withdrawal.accountName || '',
       status: withdrawal.status || 'pending',
       created_at: withdrawal.createdAt ? new Date(withdrawal.createdAt).toISOString() : new Date().toISOString(),
@@ -746,9 +872,103 @@ export async function upsertSupabaseWithdrawal(withdrawal: any): Promise<boolean
       raw_data: withdrawal
     };
 
-    const { error } = await client.from('withdrawals').upsert(payload, { onConflict: 'id' });
-    return !error;
+    try {
+      await client.from('withdrawals').upsert(payload, { onConflict: 'id' });
+    } catch (tblErr) {
+      console.warn('[SUPABASE WITHDRAWALS TABLE UPSERT WARN]', tblErr);
+    }
+
+    // Dual persistence: also guarantee entry in public.store key 'gi_withdrawals'
+    try {
+      const { data: sData } = await client.from('store').select('value').eq('key', 'gi_withdrawals').maybeSingle();
+      let currentWiths = (sData && Array.isArray(sData.value)) ? sData.value : [];
+      currentWiths = [withdrawal, ...currentWiths.filter((w: any) => w && String(w.id).trim() !== String(withdrawal.id).trim())];
+      await client.from('store').upsert({ key: 'gi_withdrawals', value: currentWiths, updated_at: new Date().toISOString() });
+    } catch (storeErr) {
+      console.warn('[SUPABASE STORE WITHDRAWALS UPSERT WARN]', storeErr);
+    }
+
+    return true;
   } catch {
+    return false;
+  }
+}
+
+/**
+ * Direct support message upsert to Supabase
+ */
+export async function upsertSupabaseSupportMessage(message: any): Promise<boolean> {
+  const client = getSupabaseAdminClient();
+  if (!client || !message?.id) return false;
+
+  try {
+    const payload = {
+      id: String(message.id),
+      user_id: String(message.userId),
+      sender: String(message.sender || 'user'),
+      message: String(message.message || ''),
+      image: message.image || null,
+      read: message.status === 'read' || message.status === 'replied',
+      created_at: message.createdAt ? new Date(message.createdAt).toISOString() : new Date().toISOString(),
+      raw_data: message
+    };
+
+    try {
+      await client.from('support_messages').upsert(payload, { onConflict: 'id' });
+    } catch (tblErr: any) {
+      console.warn('[SUPABASE SUPPORT MESSAGES TABLE UPSERT WARN]', tblErr?.message || tblErr);
+    }
+
+    // Dual persistence: also guarantee entry in public.store key 'gi_support_messages'
+    try {
+      const { data: sData } = await client.from('store').select('value').eq('key', 'gi_support_messages').maybeSingle();
+      let currentMsgs = (sData && Array.isArray(sData.value)) ? sData.value : [];
+      currentMsgs = [message, ...currentMsgs.filter((m: any) => m && String(m.id).trim() !== String(message.id).trim())];
+      await client.from('store').upsert({ key: 'gi_support_messages', value: currentMsgs, updated_at: new Date().toISOString() });
+    } catch (storeErr: any) {
+      console.warn('[SUPABASE STORE SUPPORT MESSAGES UPSERT WARN]', storeErr?.message || storeErr);
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark support messages read in Supabase
+ */
+export async function markSupabaseSupportMessagesRead(userId: string, readerRole: 'user' | 'admin'): Promise<boolean> {
+  const client = getSupabaseAdminClient();
+  if (!client || !userId) return false;
+
+  try {
+    const filterSender = readerRole === 'admin' ? 'user' : 'admin';
+    await client
+      .from('support_messages')
+      .update({ read: true })
+      .eq('user_id', String(userId).trim())
+      .eq('sender', filterSender);
+
+    // Also update in public.store
+    try {
+      const { data: sData } = await client.from('store').select('value').eq('key', 'gi_support_messages').maybeSingle();
+      if (sData && Array.isArray(sData.value)) {
+        const updated = sData.value.map((m: any) => {
+          if (m && String(m.userId).trim() === String(userId).trim() && m.sender === filterSender && m.status === 'unread') {
+            return { ...m, status: 'read', lastModified: Date.now() };
+          }
+          return m;
+        });
+        await client.from('store').upsert({ key: 'gi_support_messages', value: updated, updated_at: new Date().toISOString() });
+      }
+    } catch (storeErr: any) {
+      console.warn('[SUPABASE STORE MARK READ WARN]', storeErr?.message || storeErr);
+    }
+
+    return true;
+  } catch (err: any) {
+    console.warn('[SUPABASE MARK READ WARN]', err?.message || err);
     return false;
   }
 }
@@ -780,8 +1000,23 @@ export async function upsertSupabaseInvestment(investment: any): Promise<boolean
       raw_data: investment
     };
 
-    const { error } = await client.from('investments').upsert(payload, { onConflict: 'id' });
-    return !error;
+    try {
+      await client.from('investments').upsert(payload, { onConflict: 'id' });
+    } catch (tblErr) {
+      console.warn('[SUPABASE INVESTMENTS TABLE UPSERT WARN]', tblErr);
+    }
+
+    // Dual persistence: also guarantee entry in public.store key 'gi_investments'
+    try {
+      const { data: sData } = await client.from('store').select('value').eq('key', 'gi_investments').maybeSingle();
+      let currentInvs = (sData && Array.isArray(sData.value)) ? sData.value : [];
+      currentInvs = [investment, ...currentInvs.filter((i: any) => i && String(i.id).trim() !== String(investment.id).trim())];
+      await client.from('store').upsert({ key: 'gi_investments', value: currentInvs, updated_at: new Date().toISOString() });
+    } catch (storeErr) {
+      console.warn('[SUPABASE STORE INVESTMENTS UPSERT WARN]', storeErr);
+    }
+
+    return true;
   } catch {
     return false;
   }
