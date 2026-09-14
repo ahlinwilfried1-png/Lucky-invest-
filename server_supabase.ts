@@ -1,8 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Server-side Supabase credentials (Service Role Key for admin operations - NEVER exposed to browser)
-export const DEFAULT_SUPABASE_URL = 'https://muixbrojlvfbjwnflgot.supabase.co';
-export const DEFAULT_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11aXhicm9qbHZmYmp3bmZsZ290Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTE4NTg2NiwiZXhwIjoyMTA0NzYxODY2fQ.XH4UhUoRvfz1npdEi7pRTT4eH6VtSCs84FT_Eu3qJFU';
+export const DEFAULT_SUPABASE_URL = 'https://tfirruoxiudzukycdsyr.supabase.co';
+export const DEFAULT_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRmaXJydW94aXVkenVreWNkc3lyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTM2MjQ4MiwiZXhwIjoyMTA0OTM4NDgyfQ.hK6WJWfXKY_q1lnHyQSxtGcGnplltB3OvBhtfmO4dNs';
 
 let supabaseAdmin: SupabaseClient | null = null;
 let isSyncingRelational = false;
@@ -21,6 +21,7 @@ export function getSupabaseUrl(): string {
   // If environment points to a valid URL that is not an old superseded project, use it
   if (
     envUrl && 
+    !envUrl.includes("muixbrojlvfbjwnflgot") &&
     !envUrl.includes("ajluqalpxchoshqieuyj") && 
     !envUrl.includes("sjvyhnxklgsgprgkihrr") && 
     envUrl.startsWith("http")
@@ -39,6 +40,7 @@ export function getSupabaseServiceKey(): string {
   // If environment contains a key that is not from an old superseded project, use it
   if (
     envKey && 
+    !envKey.includes("muixbrojlvfbjwnflgot") &&
     !envKey.includes("ajluqalpxchoshqieuyj") && 
     !envKey.includes("sjvyhnxklgsgprgkihrr") && 
     envKey.length > 20
@@ -47,7 +49,7 @@ export function getSupabaseServiceKey(): string {
       const parts = envKey.split(".");
       if (parts.length === 3) {
         const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
-        if (payload && payload.ref && payload.ref !== "ajluqalpxchoshqieuyj" && payload.ref !== "sjvyhnxklgsgprgkihrr") {
+        if (payload && payload.ref && payload.ref !== "muixbrojlvfbjwnflgot" && payload.ref !== "ajluqalpxchoshqieuyj" && payload.ref !== "sjvyhnxklgsgprgkihrr") {
           return envKey;
         }
       }

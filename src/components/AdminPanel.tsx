@@ -4286,7 +4286,7 @@ export default function AdminPanel({
                 </div>
                 {supabaseTestResult.database && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-emerald-800/40 text-[11px]">
-                    <div><span className="text-slate-400">Projet:</span> <span className="text-white font-bold">{supabaseTestResult.project || 'muixbrojlvfbjwnflgot'}</span></div>
+                    <div><span className="text-slate-400">Projet:</span> <span className="text-white font-bold">{supabaseTestResult.project || 'tfirruoxiudzukycdsyr'}</span></div>
                     <div><span className="text-slate-400">Tables trouvées:</span> <span className="text-white font-bold">{supabaseTestResult.tablesCount}</span></div>
                     <div><span className="text-slate-400">Table Store:</span> <span className="text-white font-bold">{supabaseTestResult.storeTableExists ? 'Oui' : 'Non'}</span></div>
                     <div><span className="text-slate-400">Table Users:</span> <span className="text-white font-bold">{supabaseTestResult.usersTableExists ? 'Oui' : 'Non'}</span></div>

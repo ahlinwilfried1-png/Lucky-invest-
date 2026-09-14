@@ -14,14 +14,14 @@ const getEnvVar = (key: string): string => {
 };
 
 const rawUrl = (getEnvVar('NEXT_PUBLIC_SUPABASE_URL') || getEnvVar('VITE_SUPABASE_URL') || '').trim();
-export const SUPABASE_URL = (rawUrl && !rawUrl.includes('ajluqalpxchoshqieuyj') && !rawUrl.includes('sjvyhnxklgsgprgkihrr') && rawUrl.startsWith('http')) 
+export const SUPABASE_URL = (rawUrl && rawUrl.startsWith('http') && !rawUrl.includes('muixbrojlvfbjwnflgot') && !rawUrl.includes('ajluqalpxchoshqieuyj') && !rawUrl.includes('sjvyhnxklgsgprgkihrr')) 
   ? rawUrl 
-  : 'https://muixbrojlvfbjwnflgot.supabase.co';
+  : 'https://tfirruoxiudzukycdsyr.supabase.co';
 
 const rawKey = (getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY') || getEnvVar('VITE_SUPABASE_ANON_KEY') || '').trim();
-export const SUPABASE_ANON_KEY = (rawKey && !rawKey.includes('ajluqalpxchoshqieuyj') && !rawKey.includes('sjvyhnxklgsgprgkihrr') && rawKey.length > 20)
+export const SUPABASE_ANON_KEY = (rawKey && rawKey.length > 20 && !rawKey.includes('muixbrojlvfbjwnflgot') && !rawKey.includes('ajluqalpxchoshqieuyj') && !rawKey.includes('sjvyhnxklgsgprgkihrr'))
   ? rawKey
-  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11aXhicm9qbHZmYmp3bmZsZ290Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxODU4NjYsImV4cCI6MjEwNDc2MTg2Nn0.kvdG6ZZfDzWZF_XItaf10pXrPhCfv2UiZVbPj5jAXY8';
+  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRmaXJydW94aXVkenVreWNkc3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNjI0ODIsImV4cCI6MjEwNDkzODQ4Mn0.aQXbifrFmI8J4nhnHkeK4m5yy4x1btLkBWoPN7tCYNQ';
 
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL.startsWith('http'));
