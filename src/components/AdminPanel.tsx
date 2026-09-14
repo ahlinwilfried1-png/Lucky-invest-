@@ -684,6 +684,7 @@ export default function AdminPanel({
   const [txSearch, setTxSearch] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'Dépôt' | 'Retrait' | 'Commission' | 'Achat VIP'>('all');
   const [txStatusFilter, setTxStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [processingDepositIds, setProcessingDepositIds] = useState<Record<string, boolean>>({});
 
   const isSyncingRef = React.useRef(false);
 
@@ -707,6 +708,19 @@ export default function AdminPanel({
           if (Array.isArray(data['gi_deposits'])) {
             const validDeps = data['gi_deposits'].filter((d: any) => d && (d.id || d.amount));
             setDeposits(validDeps);
+          }
+
+          // Fetch directly from authoritative Supabase deposits table
+          try {
+            const depResp = await apiFetch(getApiUrl('/api/admin/deposits?t=' + Date.now()));
+            if (depResp.ok) {
+              const depData = await depResp.json();
+              if (depData && depData.success && Array.isArray(depData.deposits)) {
+                setDeposits(depData.deposits);
+              }
+            }
+          } catch (depErr) {
+            console.warn('[ADMIN SYNC] Direct deposits fetch warn:', depErr);
           }
           if (Array.isArray(data['gi_withdrawals'])) setWithdrawals(data['gi_withdrawals']);
           if (Array.isArray(data['gi_products'])) setProducts(data['gi_products']);
@@ -1376,36 +1390,75 @@ export default function AdminPanel({
 
   // Finance events
   const handleApproveDeposit = async (id: string) => {
-    DataStore.approveDeposit(id);
-    syncLocalStates();
+    if (processingDepositIds[id]) return;
+    setProcessingDepositIds(prev => ({ ...prev, [id]: true }));
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ depositId: id, action: 'approve' })
       });
-      if (resp.ok) {
-        await executeDirectCentralSync();
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data?.success) {
+        if (data.deposit) {
+          setDeposits(prev => prev.map(d => d.id === data.deposit.id ? { ...d, ...data.deposit } : d));
+        }
+        if (data.user) {
+          setUsers(prev => prev.map(u => u.id === data.user.id ? { ...u, ...data.user } : u));
+          const allUsers = DataStore.getUsers();
+          const uIdx = allUsers.findIndex(u => u.id === data.user.id);
+          if (uIdx !== -1) {
+            allUsers[uIdx] = { ...allUsers[uIdx], ...data.user };
+            DataStore.saveUsers(allUsers);
+          }
+          const curr = DataStore.getCurrentUser();
+          if (curr && curr.id === data.user.id) {
+            DataStore.saveCurrentUser({ ...curr, balance: data.user.balance, totalRecharged: data.user.totalRecharged });
+          }
+        }
+        await executeDirectCentralSync(true);
+      } else {
+        alert(data?.message || "Erreur lors de l'approbation du dépôt.");
+        await executeDirectCentralSync(true);
       }
     } catch (e) {
       console.error("Failed server approval of deposit:", e);
+    } finally {
+      setProcessingDepositIds(prev => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
   const handleRejectDeposit = async (id: string) => {
-    DataStore.rejectDeposit(id);
-    syncLocalStates();
+    if (processingDepositIds[id]) return;
+    setProcessingDepositIds(prev => ({ ...prev, [id]: true }));
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ depositId: id, action: 'reject' })
       });
-      if (resp.ok) {
-        await executeDirectCentralSync();
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data?.success) {
+        if (data.deposit) {
+          setDeposits(prev => prev.map(d => d.id === data.deposit.id ? { ...d, ...data.deposit } : d));
+        }
+        await executeDirectCentralSync(true);
+      } else {
+        alert(data?.message || "Erreur lors du rejet du dépôt.");
+        await executeDirectCentralSync(true);
       }
     } catch (e) {
       console.error("Failed server rejection of deposit:", e);
+    } finally {
+      setProcessingDepositIds(prev => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
@@ -2322,7 +2375,10 @@ export default function AdminPanel({
       {/* TABS SELECTOR - COMPACT HORIZONTAL BAR */}
       <div className="flex border-b border-slate-800 overflow-x-auto gap-1.5 mb-4 scrollbar-none pb-1">
         <button
-          onClick={() => setActiveAdminTab('deposits')}
+          onClick={() => {
+            setActiveAdminTab('deposits');
+            executeDirectCentralSync(true);
+          }}
           className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1.5 ${activeAdminTab === 'deposits' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           <span>Dépôts</span>
@@ -2331,7 +2387,10 @@ export default function AdminPanel({
           )}
         </button>
         <button
-          onClick={() => setActiveAdminTab('withdrawals')}
+          onClick={() => {
+            setActiveAdminTab('withdrawals');
+            executeDirectCentralSync(true);
+          }}
           className={`py-1.5 px-3 text-[11px] font-bold uppercase rounded-lg whitespace-nowrap transition-colors flex items-center space-x-1.5 ${activeAdminTab === 'withdrawals' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           <span>Retraits</span>
@@ -2483,15 +2542,21 @@ export default function AdminPanel({
                         {dep.status === 'pending' ? (
                           <div className="flex items-center justify-center gap-1.5">
                             <button
+                              disabled={!!processingDepositIds[dep.id]}
                               onClick={() => handleApproveDeposit(dep.id)}
-                              className="w-7 h-7 bg-green-500 text-slate-950 flex items-center justify-center rounded-lg hover:scale-115 transition-transform"
+                              className="w-7 h-7 bg-green-500 text-slate-950 flex items-center justify-center rounded-lg hover:scale-115 transition-transform disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                               title="Valider le dépôt"
                             >
-                              <Check className="w-4 h-4 text-slate-950 stroke-[3]" />
+                              {processingDepositIds[dep.id] ? (
+                                <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Check className="w-4 h-4 text-slate-950 stroke-[3]" />
+                              )}
                             </button>
                             <button
+                              disabled={!!processingDepositIds[dep.id]}
                               onClick={() => handleRejectDeposit(dep.id)}
-                              className="w-7 h-7 bg-red-500 text-white flex items-center justify-center rounded-lg hover:scale-115 transition-transform"
+                              className="w-7 h-7 bg-red-500 text-white flex items-center justify-center rounded-lg hover:scale-115 transition-transform disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                               title="Refuser le dépôt"
                             >
                               <X className="w-4 h-4 stroke-[3]" />

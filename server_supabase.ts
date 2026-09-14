@@ -201,13 +201,9 @@ function mergeEntityArrays(storeList: any[], relationalList: any[], idField = 'i
       if (!existing) {
         map.set(id, item);
       } else {
-        const existingTime = Number(existing.lastModified || new Date(existing.createdAt || 0).getTime() || 0);
-        const incomingTime = Number(item.lastModified || new Date(item.createdAt || 0).getTime() || 0);
-        if (incomingTime >= existingTime) {
-          map.set(id, { ...existing, ...item });
-        } else {
-          map.set(id, { ...item, ...existing });
-        }
+        // Relational SQL tables (deposits, users, withdrawals) are the single source of truth.
+        // Incoming relational item fields strictly take precedence over existing JSON store records.
+        map.set(id, { ...existing, ...item });
       }
     }
   }

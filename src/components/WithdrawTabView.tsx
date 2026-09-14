@@ -26,6 +26,7 @@ interface WithdrawTabViewProps {
   setActiveTab: (tab: 'dashboard' | 'products' | 'orders' | 'team' | 'profile' | 'deposit' | 'withdraw' | 'proofs' | 'forum') => void;
   setProfileSubPage?: (page: string | null) => void;
   onNavigate?: (path: string) => void;
+  userWithdrawals?: any[];
   t: (fr: string, en: string) => string;
 }
 
@@ -42,6 +43,7 @@ export const WithdrawTabView: React.FC<WithdrawTabViewProps> = ({
   setActiveTab,
   setProfileSubPage,
   onNavigate,
+  userWithdrawals = [],
   t
 }) => {
   const hasLinkedCard = !!(userState.bankCardNumber || (typeof window !== 'undefined' && localStorage.getItem('mdb_saved_number')));
@@ -369,6 +371,90 @@ export const WithdrawTabView: React.FC<WithdrawTabViewProps> = ({
             </li>
           </ul>
         </div>
+
+        {/* FICHES DE SUIVI DES RETRAITS RÉCENTS */}
+        {userWithdrawals && userWithdrawals.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>{t('Mes fiches de retrait récentes', 'My recent withdrawal records')}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  if (setProfileSubPage) setProfileSubPage('withdraw-history');
+                  setActiveTab('profile');
+                }}
+                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 underline cursor-pointer bg-transparent border-none p-0"
+              >
+                {t('Voir tout', 'View all')}
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {userWithdrawals.slice(0, 3).map((w: any, idx: number) => {
+                const isApproved = w.status === 'approved' || w.status === 'completed' || w.status === 'success';
+                const isPending = (w.status as string) === 'pending' || (w.status as string) === 'processing';
+                const statusBadgeClass = isApproved 
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                  : isPending 
+                  ? 'bg-amber-50 text-amber-800 border border-amber-300 animate-pulse' 
+                  : 'bg-red-50 text-red-700 border border-red-200';
+                const statusLabel = isApproved ? 'Approuvé' : isPending ? 'En attente' : 'Rejeté';
+                const fee = w.fee !== undefined ? w.fee : Math.round(w.amount * 0.12);
+                const netReceived = w.netAmount !== undefined ? w.netAmount : (w.amount - fee);
+                const operatorName = w.operator || w.method || 'Mobile Money';
+                const accountNum = w.number || w.accountNumber || '';
+                const dateObj = new Date(w.createdAt);
+                const formattedInitiationTime = dateObj.toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                });
+                const formattedInitiationDate = dateObj.toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                });
+
+                return (
+                  <div key={w.id || idx} className="bg-white rounded-2xl p-3.5 shadow-2xs border border-slate-100 space-y-2.5">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                      <div>
+                        <span className="font-bold text-xs text-slate-800 block">{operatorName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">Compte: {accountNum || 'Enregistré'}</span>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeClass}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isApproved ? 'bg-emerald-500' : isPending ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                        <span>{statusLabel}</span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="bg-slate-50 p-2 rounded-xl">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase block">Montant du retrait</span>
+                        <span className="font-bold text-slate-900 font-mono mt-0.5 block">{w.amount.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="bg-emerald-50/50 p-2 rounded-xl">
+                        <span className="text-[9px] text-emerald-700 font-bold uppercase block">Montant reçu</span>
+                        <span className="font-bold text-emerald-700 font-mono mt-0.5 block">{netReceived.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="bg-slate-50 p-2 rounded-xl">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase block">Montant des frais</span>
+                        <span className="font-bold text-rose-600 font-mono mt-0.5 block">-{fee.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="bg-slate-50 p-2 rounded-xl">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase block">Heure d'initiation</span>
+                        <span className="font-bold text-slate-800 font-mono mt-0.5 block text-[10px]">{formattedInitiationTime}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

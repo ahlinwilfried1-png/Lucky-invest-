@@ -1439,6 +1439,18 @@ export default function Dashboard({
     const wths = DataStore.getWithdrawals().filter(w => w.userId === currentUser.id);
     setAllWithdrawals(wths);
 
+    // Query direct user withdrawals from Supabase table for 100% cloud authority
+    try {
+      apiFetch(getApiUrl(`/api/user/withdrawals?userId=${currentUser.id}&t=${Date.now()}`))
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.success && Array.isArray(data.withdrawals)) {
+            setAllWithdrawals(data.withdrawals);
+          }
+        })
+        .catch(() => {});
+    } catch {}
+
     const notifs = DataStore.getNotifications().filter(n => n.userId === undefined || n.userId === currentUser.id);
     setNotifications(notifs);
     if (initialLoadedNotifIds.current.size === 0 && notifs.length > 0) {
@@ -1581,8 +1593,27 @@ export default function Dashboard({
       }
     } catch (e) {}
 
+    // Real-time server-sent events for instantaneous user balance and transaction updates
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('/api/realtime-stream');
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload && payload.type !== 'connected') {
+            syncWithBackend(true).then(() => {
+              syncDashboardData();
+            });
+          }
+        } catch {}
+      };
+    } catch {}
+
     return () => {
       clearInterval(interval);
+      if (eventSource) {
+        try { eventSource.close(); } catch {}
+      }
       window.removeEventListener('gi_new_message', handleNewMessage);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
       window.removeEventListener('gi_category_schedules_updated', handleStoreUpdated);
@@ -4550,74 +4581,86 @@ export default function Dashboard({
                         filteredWithdrawals.map((w, idx) => {
                           const isApproved = w.status === 'approved' || w.status === 'completed' || w.status === 'success';
                           const isPending = (w.status as string) === 'pending' || (w.status as string) === 'processing';
-                          const statusColor = isApproved 
-                            ? 'bg-emerald-50 text-emerald-700' 
+                          const statusBadgeClass = isApproved 
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                             : isPending 
-                            ? 'bg-amber-50 text-amber-700' 
-                            : 'bg-red-50 text-red-700';
-                          const statusLabel = isApproved ? 'Réussi' : isPending ? 'En attente' : 'Rejeté';
+                            ? 'bg-amber-50 text-amber-800 border border-amber-300 animate-pulse' 
+                            : 'bg-red-50 text-red-700 border border-red-200';
+                          const statusLabel = isApproved ? 'Approuvé / Effectué' : isPending ? 'En attente de validation' : 'Rejeté / Annulé';
                           const fee = w.fee !== undefined ? w.fee : Math.round(w.amount * 0.12);
                           const netReceived = w.netAmount !== undefined ? w.netAmount : (w.amount - fee);
                           const operatorName = w.operator || w.method || 'Mobile Money';
                           const accountNum = w.number || w.accountNumber || '';
-                          const formattedDate = new Date(w.createdAt).toLocaleString('fr-FR', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
+                          const dateObj = new Date(w.createdAt);
+                          const formattedInitiationTime = dateObj.toLocaleTimeString('fr-FR', {
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
+                            second: '2-digit'
+                          });
+                          const formattedInitiationDate = dateObj.toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
                           });
 
                           return (
-                            <div key={w.id || idx} className="bg-white rounded-2xl p-4 shadow-2xs space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2.5">
-                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ${
+                            <div key={w.id || idx} className="bg-white rounded-2xl p-4 shadow-2xs border border-slate-100 space-y-3">
+                              {/* En-tête Fiche de Retrait */}
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
                                     isApproved ? 'bg-emerald-50 text-emerald-600' : isPending ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
                                   }`}>
-                                    <ArrowDownLeft className="w-4.5 h-4.5 stroke-[2.25]" />
+                                    <ArrowDownLeft className="w-4 h-4 stroke-[2.25]" />
                                   </div>
                                   <div>
-                                    <span className="font-bold text-sm text-slate-800 block leading-tight">
-                                      {operatorName}
-                                    </span>
-                                    <span className="text-[11px] text-slate-400 font-medium">
-                                      {formattedDate}
-                                    </span>
+                                    <span className="font-bold text-xs text-slate-800 block">Fiche de Retrait</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">Réf: {w.id || `WTH-${idx}`}</span>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <span className={`inline-block px-2.5 py-1 rounded-full text-[10.5px] font-bold ${statusColor}`}>
-                                    {statusLabel}
+                                <div>
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold ${statusBadgeClass}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isApproved ? 'bg-emerald-500' : isPending ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                                    <span>{statusLabel}</span>
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="pt-2.5 border-t border-slate-100/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                                <div className="bg-slate-50/70 p-2 rounded-xl">
-                                  <span className="text-[10px] text-slate-400 font-medium uppercase block">Montant du retrait</span>
-                                  <span className="font-bold text-slate-800 font-mono mt-0.5 block">
+                              {/* Les 5 données essentielles du relevé de retrait */}
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Montant du retrait</span>
+                                  <span className="font-extrabold text-slate-900 font-mono mt-0.5 block text-sm">
                                     {w.amount.toLocaleString()} FCFA
                                   </span>
                                 </div>
-                                <div className="bg-slate-50/70 p-2 rounded-xl">
-                                  <span className="text-[10px] text-slate-400 font-medium uppercase block">Frais</span>
-                                  <span className="font-bold text-rose-600 font-mono mt-0.5 block">
-                                    {fee.toLocaleString()} FCFA
-                                  </span>
-                                </div>
-                                <div className="bg-emerald-50/40 p-2 rounded-xl">
-                                  <span className="text-[10px] text-emerald-700 font-medium uppercase block">Montant reçu</span>
-                                  <span className="font-bold text-emerald-700 font-mono mt-0.5 block">
+
+                                <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
+                                  <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block">Montant reçu</span>
+                                  <span className="font-extrabold text-emerald-700 font-mono mt-0.5 block text-sm">
                                     {netReceived.toLocaleString()} FCFA
                                   </span>
                                 </div>
-                                <div className="bg-slate-50/70 p-2 rounded-xl">
-                                  <span className="text-[10px] text-slate-400 font-medium uppercase block">Compte</span>
-                                  <span className="font-bold text-slate-700 font-mono mt-0.5 block truncate" title={accountNum}>
-                                    {accountNum || 'Non spécifié'}
+
+                                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Montant des frais</span>
+                                  <span className="font-bold text-rose-600 font-mono mt-0.5 block">
+                                    -{fee.toLocaleString()} FCFA (12%)
                                   </span>
                                 </div>
+
+                                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Heure d'initiation</span>
+                                  <span className="font-bold text-slate-800 font-mono mt-0.5 block text-[11px]">
+                                    {formattedInitiationTime} ({formattedInitiationDate})
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Compte récepteur */}
+                              <div className="p-2 bg-slate-50/50 rounded-xl flex items-center justify-between text-[11px] text-slate-500 border border-slate-100">
+                                <span>Compte : <strong className="text-slate-700">{operatorName}</strong></span>
+                                <span className="font-mono text-slate-700 font-semibold">{accountNum || 'Non spécifié'}</span>
                               </div>
                             </div>
                           );
@@ -5474,6 +5517,7 @@ export default function Dashboard({
               setActiveTab={setActiveTab}
               setProfileSubPage={setProfileSubPage}
               onNavigate={onNavigate}
+              userWithdrawals={allWithdrawals}
               t={t}
             />
           )}

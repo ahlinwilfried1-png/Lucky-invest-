@@ -2336,13 +2336,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         if (!existing) {
           map.set(id, item);
         } else {
-          const localTime = Number(existing.lastModified || new Date(existing.createdAt || 0).getTime() || 0);
-          const remoteTime = Number(item.lastModified || new Date(item.createdAt || 0).getTime() || 0);
-          if (remoteTime >= localTime) {
-            map.set(id, { ...existing, ...item });
-          } else {
-            map.set(id, { ...item, ...existing });
-          }
+          // Remote data (from Supabase Cloud) is authoritative and strictly overrides local in-memory records
+          map.set(id, { ...existing, ...item });
         }
       }
     }
@@ -5671,167 +5666,704 @@ const SERVER_DEFAULT_PRODUCTS = [
     res.json({ success: true, changed });
   });
 
-  // Admin Account controls
-  app.post("/api/admin/deposit-action", async (req, res) => {
-    const { depositId, action } = req.body; // 'approve' or 'reject'
-    let deposits = storeData["gi_deposits"] || [];
-    let users = storeData["gi_users"] || [];
-    let notifications = storeData["gi_notifications"] || [];
+  // Fast direct deposits endpoint for admin panel from Supabase Cloud
+  app.get("/api/admin/deposits", async (req, res) => {
+    try {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        const { data: depRows, error: depErr } = await client
+          .from('deposits')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-    const idx = deposits.findIndex((d: any) => d.id === depositId);
-    if (idx === -1 || deposits[idx].status !== 'pending') {
-      return res.json({ success: false, message: 'Dépôt introuvable ou déjà traité.' });
-    }
-
-    if (action === 'approve') {
-      deposits[idx].status = 'approved';
-      deposits[idx].approvedAt = new Date().toISOString();
-      deposits[idx].lastModified = Date.now();
-
-      const uIdx = users.findIndex((u: any) => u.id === deposits[idx].userId);
-      if (uIdx !== -1) {
-        users[uIdx].balance = (Number(users[uIdx].balance) || 0) + deposits[idx].amount;
-        users[uIdx].totalRecharged = (Number(users[uIdx].totalRecharged) || 0) + deposits[idx].amount;
-        users[uIdx].lastModified = Date.now();
-
-        // Direct update to Supabase Cloud
-        try {
-          await Promise.allSettled([
-            upsertSupabaseDeposit(deposits[idx]),
-            upsertSupabaseUser(users[uIdx])
-          ]);
-        } catch (e: any) {
-          console.warn('[SUPABASE DEPOSIT APPROVE WARN]', e?.message || e);
+        if (!depErr && Array.isArray(depRows)) {
+          const mapped = depRows.map((r: any) => {
+            const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+            return {
+              ...raw,
+              id: r.id,
+              userId: r.user_id || raw.userId,
+              userName: r.user_name || raw.userName || 'Investisseur',
+              amount: Number(r.amount || raw.amount || 0),
+              operator: r.operator || r.method || raw.operator || 'Mobile Money',
+              method: r.method || raw.method || 'Mobile Money',
+              status: r.status || raw.status || 'pending',
+              receiptImage: r.receipt_image || r.proof_image || raw.receiptImage,
+              proofImage: r.proof_image || raw.proofImage || r.receipt_image,
+              reference: r.reference || raw.reference || `DEP-${r.id}`,
+              createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+              approvedAt: r.approved_at ? new Date(r.approved_at).toISOString() : raw.approvedAt,
+              lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+            };
+          });
+          // Sort: pending first, then by date descending
+          mapped.sort((a: any, b: any) => {
+            if (a.status === 'pending' && b.status !== 'pending') return -1;
+            if (a.status !== 'pending' && b.status === 'pending') return 1;
+            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+          });
+          return res.json({ success: true, deposits: mapped });
         }
       }
-      notifications.unshift({
-        id: `not-dep-app-${Date.now()}`,
-        userId: deposits[idx].userId,
-        title: '💵 Dépôt validé !',
-        message: `Votre versement de ${deposits[idx].amount.toLocaleString()} XOF via ${deposits[idx].operator || deposits[idx].method} a été approuvé. Votre solde principal a été rechargé.`,
-        type: 'deposit',
-        lastModified: Date.now(),
-        createdAt: new Date().toISOString(),
-        read: false
+      // Fallback to storeData
+      let list = storeData["gi_deposits"] || [];
+      list = [...list].sort((a: any, b: any) => {
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (a.status !== 'pending' && b.status === 'pending') return 1;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
       });
-
-      // Distribute MLM commissions automatically upon manual approval (FIRST RECHARGE ONLY)
-      await distributeMlmCommissions(deposits[idx].userId, deposits[idx].amount, 'recharge', deposits[idx].operator || 'Manuel', deposits[idx].id);
-      users = storeData["gi_users"] || users;
-      notifications = storeData["gi_notifications"] || notifications;
-    } else {
-      deposits[idx].status = 'rejected';
-      deposits[idx].lastModified = Date.now();
-
-      try {
-        await upsertSupabaseDeposit(deposits[idx]);
-      } catch (e: any) {
-        console.warn('[SUPABASE DEPOSIT REJECT WARN]', e?.message || e);
-      }
-
-      notifications.unshift({
-        id: `not-dep-rej-${Date.now()}`,
-        userId: deposits[idx].userId,
-        title: '⚠️ Dépôt rejeté',
-        message: `Votre demande de dépôt de ${deposits[idx].amount.toLocaleString()} XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.`,
-        type: 'deposit',
-        lastModified: Date.now(),
-        createdAt: new Date().toISOString(),
-        read: false
-      });
+      return res.json({ success: true, deposits: list });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || String(e) });
     }
-
-    deposits[idx].lastModified = Date.now();
-    storeData["gi_deposits"] = deposits;
-    storeData["gi_users"] = users;
-    storeData["gi_notifications"] = notifications;
-
-    await saveStore();
-    broadcastRealtimeEvent({ type: "deposits", action, depositId, time: Date.now() });
-    res.json({ success: true, deposit: deposits[idx] });
   });
 
+  // Fast direct withdrawals endpoint for user and admin from Supabase Cloud
+  app.get("/api/user/withdrawals", async (req, res) => {
+    try {
+      const userId = req.query.userId ? String(req.query.userId).trim() : null;
+      const client = getSupabaseAdminClient();
+      if (client) {
+        let query = client.from('withdrawals').select('*').order('created_at', { ascending: false });
+        if (userId) {
+          query = query.eq('user_id', userId);
+        }
+        const { data: wthRows, error: wthErr } = await query;
+        if (!wthErr && Array.isArray(wthRows)) {
+          const mapped = wthRows.map((r: any) => {
+            const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+            const fee = Number(r.fee !== null && r.fee !== undefined ? r.fee : (raw.fee !== undefined ? raw.fee : Math.round(Number(r.amount || raw.amount || 0) * 0.12)));
+            const net = Number(r.net_amount !== null && r.net_amount !== undefined ? r.net_amount : (raw.netAmount !== undefined ? raw.netAmount : (Number(r.amount || raw.amount || 0) - fee)));
+            return {
+              ...raw,
+              id: r.id,
+              userId: r.user_id || raw.userId,
+              userName: r.user_name || raw.userName || 'Investisseur',
+              amount: Number(r.amount || raw.amount || 0),
+              netAmount: net,
+              fee: fee,
+              method: r.method || raw.operator || raw.method || 'Mobile Money',
+              operator: r.method || raw.operator || raw.method || 'Mobile Money',
+              accountNumber: r.account_number || raw.number || raw.accountNumber || '',
+              number: r.account_number || raw.number || raw.accountNumber || '',
+              accountName: r.account_name || raw.accountName || '',
+              status: r.status || raw.status || 'pending',
+              createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+              processedAt: r.processed_at ? new Date(r.processed_at).toISOString() : raw.processedAt,
+              lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+            };
+          });
+          return res.json({ success: true, withdrawals: mapped });
+        }
+      }
+      // Fallback
+      let list = storeData["gi_withdrawals"] || [];
+      if (userId) {
+        list = list.filter((w: any) => String(w.userId).trim() === userId);
+      }
+      return res.json({ success: true, withdrawals: list });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || String(e) });
+    }
+  });
+
+  // Admin Account controls: DEPOSIT APPROVAL & REJECTION
+  app.post("/api/admin/deposit-action", async (req, res) => {
+    try {
+      const { depositId, action } = req.body; // 'approve' or 'reject'
+      if (!depositId || !action) {
+        return res.status(400).json({ success: false, message: 'ID de dépôt ou action manquant.' });
+      }
+
+      const client = getSupabaseAdminClient();
+      let targetDeposit: any = null;
+
+      // 1. Fetch deposit from Supabase deposits table first (source of truth)
+      if (client) {
+        try {
+          const { data: dbDep, error: dbDepErr } = await client
+            .from('deposits')
+            .select('*')
+            .eq('id', String(depositId).trim())
+            .maybeSingle();
+          if (!dbDepErr && dbDep) {
+            const raw = (dbDep.raw_data && typeof dbDep.raw_data === 'object') ? dbDep.raw_data : {};
+            targetDeposit = {
+              ...raw,
+              id: dbDep.id,
+              userId: dbDep.user_id || raw.userId,
+              userName: dbDep.user_name || raw.userName || 'Investisseur',
+              amount: Number(dbDep.amount || raw.amount || 0),
+              operator: dbDep.operator || dbDep.method || raw.operator || 'Mobile Money',
+              method: dbDep.method || dbDep.operator || raw.method || 'Mobile Money',
+              status: dbDep.status || 'pending',
+              credited: Boolean(dbDep.status === 'approved' || raw.credited),
+              receiptImage: dbDep.receipt_image || dbDep.proof_image || raw.receiptImage,
+              reference: dbDep.reference || raw.reference,
+              createdAt: dbDep.created_at || raw.createdAt,
+              approvedAt: dbDep.approved_at || raw.approvedAt,
+              lastModified: Number(dbDep.last_modified || raw.lastModified || Date.now())
+            };
+          }
+        } catch (e: any) {
+          console.warn('[DEPOSIT ACTION] Supabase fetch deposit error:', e?.message || e);
+        }
+      }
+
+      // Fallback to storeData if not found in table
+      if (!targetDeposit) {
+        let deposits = storeData["gi_deposits"] || [];
+        targetDeposit = deposits.find((d: any) => String(d.id).trim() === String(depositId).trim());
+      }
+
+      if (!targetDeposit) {
+        return res.status(404).json({ success: false, message: 'Dépôt introuvable.' });
+      }
+
+      const targetUserId = String(targetDeposit.userId || targetDeposit.user_id).trim();
+      const depositAmount = Number(targetDeposit.amount || 0);
+
+      if (action === 'approve') {
+        // IDEMPOTENCY CHECK: If already approved or already credited, do NOT credit again!
+        if (targetDeposit.status === 'approved' && targetDeposit.credited) {
+          return res.json({ 
+            success: true, 
+            message: 'Ce dépôt a déjà été approuvé et crédité sur le compte.', 
+            alreadyApproved: true,
+            deposit: targetDeposit 
+          });
+        }
+
+        const now = Date.now();
+        const nowIso = new Date().toISOString();
+
+        // 2. Fetch authoritative user from Supabase users table
+        let targetUser: any = null;
+        if (client && targetUserId) {
+          try {
+            const { data: dbUser, error: uErr } = await client
+              .from('users')
+              .select('*')
+              .eq('id', targetUserId)
+              .maybeSingle();
+            if (!uErr && dbUser) {
+              const raw = (dbUser.raw_data && typeof dbUser.raw_data === 'object') ? dbUser.raw_data : {};
+              targetUser = {
+                ...raw,
+                id: dbUser.id,
+                name: dbUser.name || raw.name || 'Utilisateur',
+                whatsapp: dbUser.whatsapp || raw.whatsapp || '',
+                balance: Number(dbUser.balance !== null && dbUser.balance !== undefined ? dbUser.balance : (raw.balance || 0)),
+                totalRecharged: Number(dbUser.total_recharged !== null && dbUser.total_recharged !== undefined ? dbUser.total_recharged : (raw.totalRecharged || 0)),
+                totalWithdrawn: Number(dbUser.total_withdrawn !== null && dbUser.total_withdrawn !== undefined ? dbUser.total_withdrawn : (raw.totalWithdrawn || 0)),
+                role: dbUser.role || raw.role || 'user',
+                lastModified: now
+              };
+            }
+          } catch (e: any) {
+            console.warn('[DEPOSIT ACTION] Supabase fetch user error:', e?.message || e);
+          }
+        }
+
+        // Fallback to storeData users if not in table
+        if (!targetUser) {
+          let users = storeData["gi_users"] || [];
+          targetUser = users.find((u: any) => String(u.id).trim() === targetUserId);
+        }
+
+        if (!targetUser) {
+          return res.status(404).json({ success: false, message: 'Utilisateur associé à ce dépôt introuvable.' });
+        }
+
+        // 3. Atomically update user balance and deposit status
+        const oldBalance = Number(targetUser.balance || 0);
+        const oldTotalRecharged = Number(targetUser.totalRecharged || 0);
+        const newBalance = oldBalance + depositAmount;
+        const newTotalRecharged = oldTotalRecharged + depositAmount;
+
+        targetUser.balance = newBalance;
+        targetUser.totalRecharged = newTotalRecharged;
+        targetUser.lastModified = now;
+
+        targetDeposit.status = 'approved';
+        targetDeposit.credited = true;
+        targetDeposit.approvedAt = nowIso;
+        targetDeposit.lastModified = now;
+
+        // 4. Write directly to Supabase as single source of truth
+        if (client) {
+          try {
+            await Promise.all([
+              client.from('users').update({
+                balance: newBalance,
+                total_recharged: newTotalRecharged,
+                last_modified: now,
+                raw_data: {
+                  ...(targetUser.raw_data || {}),
+                  ...targetUser,
+                  balance: newBalance,
+                  totalRecharged: newTotalRecharged,
+                  lastModified: now
+                }
+              }).eq('id', targetUserId),
+
+              client.from('deposits').update({
+                status: 'approved',
+                approved_at: nowIso,
+                last_modified: now,
+                raw_data: {
+                  ...(targetDeposit.raw_data || {}),
+                  ...targetDeposit,
+                  status: 'approved',
+                  credited: true,
+                  approvedAt: nowIso,
+                  lastModified: now
+                }
+              }).eq('id', targetDeposit.id)
+            ]);
+            console.log(`[DEPOSIT APPROVED] Supabase updated: User ${targetUserId} balance credited by +${depositAmount} (New balance: ${newBalance})`);
+          } catch (dbErr: any) {
+            console.error('[DEPOSIT ACTION] Supabase update error:', dbErr?.message || dbErr);
+          }
+        }
+
+        // 5. Update in-memory storeData and local file
+        let deposits = storeData["gi_deposits"] || [];
+        const depIdx = deposits.findIndex((d: any) => String(d.id).trim() === String(targetDeposit.id).trim());
+        if (depIdx !== -1) {
+          deposits[depIdx] = { ...deposits[depIdx], ...targetDeposit };
+        } else {
+          deposits.unshift(targetDeposit);
+        }
+        storeData["gi_deposits"] = deposits;
+
+        let users = storeData["gi_users"] || [];
+        const uIdx = users.findIndex((u: any) => String(u.id).trim() === targetUserId);
+        if (uIdx !== -1) {
+          users[uIdx] = { ...users[uIdx], ...targetUser };
+        } else {
+          users.push(targetUser);
+        }
+        storeData["gi_users"] = users;
+
+        // Add notification
+        let notifications = storeData["gi_notifications"] || [];
+        const notif = {
+          id: `not-dep-app-${now}`,
+          userId: targetUserId,
+          title: '💵 Dépôt validé !',
+          message: `Votre versement de ${depositAmount.toLocaleString()} XOF via ${targetDeposit.operator || targetDeposit.method || 'Mobile Money'} a été approuvé. Votre solde principal a été rechargé de ${depositAmount.toLocaleString()} XOF. Nouveau solde : ${newBalance.toLocaleString()} XOF.`,
+          type: 'deposit',
+          lastModified: now,
+          createdAt: nowIso,
+          read: false
+        };
+        notifications.unshift(notif);
+        storeData["gi_notifications"] = notifications;
+
+        await saveStore(["gi_deposits", "gi_users", "gi_notifications"]);
+
+        // 6. Distribute MLM commissions automatically upon manual approval (FIRST RECHARGE ONLY)
+        try {
+          await distributeMlmCommissions(targetUserId, depositAmount, 'recharge', targetDeposit.operator || 'Manuel', targetDeposit.id);
+        } catch (mlmErr) {
+          console.error('[MLM ERROR ON APPROVE]', mlmErr);
+        }
+
+        // 7. Broadcast Realtime SSE events so all devices update instantly
+        broadcastRealtimeEvent({ 
+          type: 'deposits', 
+          action: 'approve', 
+          depositId: targetDeposit.id, 
+          userId: targetUserId, 
+          amount: depositAmount,
+          newBalance, 
+          time: now 
+        });
+        broadcastRealtimeEvent({ 
+          type: 'user_balance', 
+          userId: targetUserId, 
+          balance: newBalance, 
+          totalRecharged: newTotalRecharged,
+          time: now 
+        });
+
+        return res.json({ 
+          success: true, 
+          message: `Dépôt de ${depositAmount.toLocaleString()} XOF approuvé avec succès. Le compte de l'utilisateur a été crédité.`,
+          deposit: targetDeposit, 
+          user: targetUser 
+        });
+
+      } else if (action === 'reject') {
+        const now = Date.now();
+        const nowIso = new Date().toISOString();
+
+        targetDeposit.status = 'rejected';
+        targetDeposit.lastModified = now;
+
+        if (client) {
+          try {
+            await client.from('deposits').update({
+              status: 'rejected',
+              last_modified: now,
+              raw_data: {
+                ...(targetDeposit.raw_data || {}),
+                ...targetDeposit,
+                status: 'rejected',
+                lastModified: now
+              }
+            }).eq('id', targetDeposit.id);
+          } catch (dbErr: any) {
+            console.error('[DEPOSIT REJECT] Supabase update error:', dbErr?.message || dbErr);
+          }
+        }
+
+        let deposits = storeData["gi_deposits"] || [];
+        const depIdx = deposits.findIndex((d: any) => String(d.id).trim() === String(targetDeposit.id).trim());
+        if (depIdx !== -1) {
+          deposits[depIdx] = { ...deposits[depIdx], ...targetDeposit };
+        } else {
+          deposits.unshift(targetDeposit);
+        }
+        storeData["gi_deposits"] = deposits;
+
+        let notifications = storeData["gi_notifications"] || [];
+        notifications.unshift({
+          id: `not-dep-rej-${now}`,
+          userId: targetUserId,
+          title: '⚠️ Dépôt rejeté',
+          message: `Votre demande de dépôt de ${depositAmount.toLocaleString()} XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.`,
+          type: 'deposit',
+          lastModified: now,
+          createdAt: nowIso,
+          read: false
+        });
+        storeData["gi_notifications"] = notifications;
+
+        await saveStore(["gi_deposits", "gi_notifications"]);
+
+        broadcastRealtimeEvent({ 
+          type: 'deposits', 
+          action: 'reject', 
+          depositId: targetDeposit.id, 
+          userId: targetUserId, 
+          time: now 
+        });
+
+        return res.json({ 
+          success: true, 
+          message: 'Dépôt rejeté.',
+          deposit: targetDeposit 
+        });
+      } else {
+        return res.status(400).json({ success: false, message: 'Action non reconnue.' });
+      }
+
+    } catch (err: any) {
+      console.error('[DEPOSIT ACTION CRITICAL ERROR]', err);
+      return res.status(500).json({ success: false, error: err?.message || String(err) });
+    }
+  });
+
+  // Admin Account controls: WITHDRAWAL APPROVAL & REJECTION
   app.post("/api/admin/withdrawal-action", async (req, res) => {
-    const { withdrawalId, action } = req.body; // 'approve' or 'reject'
-    let withdrawals = storeData["gi_withdrawals"] || [];
-    let users = storeData["gi_users"] || [];
-    let notifications = storeData["gi_notifications"] || [];
+    try {
+      const { withdrawalId, action } = req.body; // 'approve' or 'reject'
+      if (!withdrawalId || !action) {
+        return res.status(400).json({ success: false, message: 'ID de retrait ou action manquant.' });
+      }
 
-    const idx = withdrawals.findIndex((w: any) => w.id === withdrawalId);
-    if (idx === -1 || withdrawals[idx].status !== 'pending') {
-      return res.json({ success: false, message: 'Retrait introuvable ou déjà traité.' });
-    }
+      const client = getSupabaseAdminClient();
+      let targetWithdrawal: any = null;
 
-    const withdrawal = withdrawals[idx];
-
-    if (action === 'approve') {
-      withdrawals[idx].status = 'approved';
-      withdrawals[idx].processedAt = new Date().toISOString();
-      withdrawals[idx].reference = `man-${Date.now()}`;
-      withdrawals[idx].lastModified = Date.now();
-
-      const uIdx = users.findIndex((u: any) => u.id === withdrawal.userId);
-      if (uIdx !== -1) {
-        users[uIdx].totalWithdrawn = (Number(users[uIdx].totalWithdrawn) || 0) + withdrawal.amount;
-        users[uIdx].lastModified = Date.now();
-
-        // Direct update to Supabase Cloud
+      // 1. Fetch withdrawal from Supabase withdrawals table first (source of truth)
+      if (client) {
         try {
-          await Promise.allSettled([
-            upsertSupabaseWithdrawal(withdrawals[idx]),
-            upsertSupabaseUser(users[uIdx])
-          ]);
+          const { data: dbWth, error: dbWthErr } = await client
+            .from('withdrawals')
+            .select('*')
+            .eq('id', String(withdrawalId).trim())
+            .maybeSingle();
+          if (!dbWthErr && dbWth) {
+            const raw = (dbWth.raw_data && typeof dbWth.raw_data === 'object') ? dbWth.raw_data : {};
+            const fee = Number(dbWth.fee !== null && dbWth.fee !== undefined ? dbWth.fee : (raw.fee !== undefined ? raw.fee : Math.round(Number(dbWth.amount || raw.amount || 0) * 0.12)));
+            const net = Number(dbWth.net_amount !== null && dbWth.net_amount !== undefined ? dbWth.net_amount : (raw.netAmount !== undefined ? raw.netAmount : (Number(dbWth.amount || raw.amount || 0) - fee)));
+            targetWithdrawal = {
+              ...raw,
+              id: dbWth.id,
+              userId: dbWth.user_id || raw.userId,
+              userName: dbWth.user_name || raw.userName || 'Investisseur',
+              amount: Number(dbWth.amount || raw.amount || 0),
+              netAmount: net,
+              fee: fee,
+              method: dbWth.method || raw.operator || raw.method || 'Mobile Money',
+              operator: dbWth.method || raw.operator || raw.method || 'Mobile Money',
+              accountNumber: dbWth.account_number || raw.number || raw.accountNumber || '',
+              number: dbWth.account_number || raw.number || raw.accountNumber || '',
+              accountName: dbWth.account_name || raw.accountName || '',
+              status: dbWth.status || raw.status || 'pending',
+              createdAt: dbWth.created_at || raw.createdAt,
+              processedAt: dbWth.processed_at || raw.processedAt,
+              lastModified: Number(dbWth.last_modified || raw.lastModified || Date.now())
+            };
+          }
         } catch (e: any) {
-          console.warn('[SUPABASE WITHDRAW APPROVE WARN]', e?.message || e);
+          console.warn('[WITHDRAW ACTION] Supabase fetch withdrawal error:', e?.message || e);
         }
       }
 
-      notifications.unshift({
-        id: `not-wth-manual-app-${Date.now()}`,
-        userId: withdrawal.userId,
-        title: '💸 Retrait Approuvé',
-        message: `Votre demande de retrait de ${withdrawal.amount.toLocaleString()} XOF a été approuvée manuellement par l'administration.`,
-        type: 'withdraw',
-        lastModified: Date.now(),
-        createdAt: new Date().toISOString(),
-        read: false
-      });
-    } else {
-      withdrawals[idx].status = 'rejected';
-      withdrawals[idx].lastModified = Date.now();
-      const uIdx = users.findIndex((u: any) => u.id === withdrawals[idx].userId);
-      if (uIdx !== -1) {
-        users[uIdx].balance += withdrawals[idx].amount;
-        users[uIdx].lastModified = Date.now();
+      // Fallback to storeData
+      if (!targetWithdrawal) {
+        let withdrawals = storeData["gi_withdrawals"] || [];
+        targetWithdrawal = withdrawals.find((w: any) => String(w.id).trim() === String(withdrawalId).trim());
+      }
 
+      if (!targetWithdrawal) {
+        return res.status(404).json({ success: false, message: 'Retrait introuvable.' });
+      }
+
+      const targetUserId = String(targetWithdrawal.userId || targetWithdrawal.user_id).trim();
+      const withdrawAmount = Number(targetWithdrawal.amount || 0);
+      const now = Date.now();
+      const nowIso = new Date().toISOString();
+
+      // Fetch user from Supabase
+      let targetUser: any = null;
+      if (client && targetUserId) {
         try {
-          await Promise.allSettled([
-            upsertSupabaseWithdrawal(withdrawals[idx]),
-            upsertSupabaseUser(users[uIdx])
-          ]);
+          const { data: dbUser } = await client.from('users').select('*').eq('id', targetUserId).maybeSingle();
+          if (dbUser) {
+            const raw = (dbUser.raw_data && typeof dbUser.raw_data === 'object') ? dbUser.raw_data : {};
+            targetUser = {
+              ...raw,
+              id: dbUser.id,
+              name: dbUser.name || raw.name,
+              balance: Number(dbUser.balance ?? raw.balance ?? 0),
+              totalRecharged: Number(dbUser.total_recharged ?? raw.totalRecharged ?? 0),
+              totalWithdrawn: Number(dbUser.total_withdrawn ?? raw.totalWithdrawn ?? 0),
+              lastModified: now
+            };
+          }
         } catch (e: any) {
-          console.warn('[SUPABASE WITHDRAW REJECT WARN]', e?.message || e);
+          console.warn('[WITHDRAW ACTION] Supabase fetch user error:', e?.message || e);
         }
       }
-      notifications.unshift({
-        id: `not-wth-rej-${Date.now()}`,
-        userId: withdrawals[idx].userId,
-        title: '❌ Retrait rejeté',
-        message: `Votre retrait de ${withdrawals[idx].amount.toLocaleString()} XOF a été refusé. Les fonds ont été intégralement restitués à votre solde principal.`,
-        type: 'withdraw',
-        lastModified: Date.now(),
-        createdAt: new Date().toISOString(),
-        read: false
-      });
+
+      if (!targetUser) {
+        let users = storeData["gi_users"] || [];
+        targetUser = users.find((u: any) => String(u.id).trim() === targetUserId);
+      }
+
+      if (action === 'approve') {
+        if (targetWithdrawal.status === 'approved') {
+          return res.json({ success: true, message: 'Ce retrait a déjà été approuvé.', alreadyProcessed: true, withdrawal: targetWithdrawal });
+        }
+
+        targetWithdrawal.status = 'approved';
+        targetWithdrawal.processedAt = nowIso;
+        targetWithdrawal.lastModified = now;
+
+        if (targetUser) {
+          targetUser.totalWithdrawn = (Number(targetUser.totalWithdrawn) || 0) + withdrawAmount;
+          targetUser.lastModified = now;
+        }
+
+        if (client) {
+          try {
+            await Promise.all([
+              client.from('withdrawals').update({
+                status: 'approved',
+                processed_at: nowIso,
+                last_modified: now,
+                raw_data: {
+                  ...(targetWithdrawal.raw_data || {}),
+                  ...targetWithdrawal,
+                  status: 'approved',
+                  processedAt: nowIso,
+                  lastModified: now
+                }
+              }).eq('id', targetWithdrawal.id),
+
+              targetUser ? client.from('users').update({
+                total_withdrawn: targetUser.totalWithdrawn,
+                last_modified: now,
+                raw_data: {
+                  ...(targetUser.raw_data || {}),
+                  ...targetUser,
+                  totalWithdrawn: targetUser.totalWithdrawn,
+                  lastModified: now
+                }
+              }).eq('id', targetUserId) : Promise.resolve()
+            ]);
+            console.log(`[WITHDRAW APPROVED] Supabase updated: Withdrawal ${targetWithdrawal.id} approved. User ${targetUserId} totalWithdrawn updated.`);
+          } catch (dbErr: any) {
+            console.error('[WITHDRAW APPROVE DB ERROR]', dbErr);
+          }
+        }
+
+        // Update in-memory store
+        let withdrawals = storeData["gi_withdrawals"] || [];
+        const wIdx = withdrawals.findIndex((w: any) => String(w.id).trim() === String(targetWithdrawal.id).trim());
+        if (wIdx !== -1) {
+          withdrawals[wIdx] = { ...withdrawals[wIdx], ...targetWithdrawal };
+        } else {
+          withdrawals.unshift(targetWithdrawal);
+        }
+        storeData["gi_withdrawals"] = withdrawals;
+
+        if (targetUser) {
+          let users = storeData["gi_users"] || [];
+          const uIdx = users.findIndex((u: any) => String(u.id).trim() === targetUserId);
+          if (uIdx !== -1) {
+            users[uIdx] = { ...users[uIdx], ...targetUser };
+          }
+          storeData["gi_users"] = users;
+        }
+
+        let notifications = storeData["gi_notifications"] || [];
+        notifications.unshift({
+          id: `not-wth-manual-app-${now}`,
+          userId: targetUserId,
+          title: '💸 Retrait Approuvé',
+          message: `Votre demande de retrait de ${withdrawAmount.toLocaleString()} XOF a été approuvée avec succès. Les fonds ont été envoyés vers votre compte ${targetWithdrawal.method || targetWithdrawal.operator || 'Mobile Money'}.`,
+          type: 'withdraw',
+          lastModified: now,
+          createdAt: nowIso,
+          read: false
+        });
+        storeData["gi_notifications"] = notifications;
+
+        await saveStore(["gi_withdrawals", "gi_users", "gi_notifications"]);
+
+        broadcastRealtimeEvent({ 
+          type: 'withdrawals', 
+          action: 'approve', 
+          withdrawalId: targetWithdrawal.id, 
+          userId: targetUserId, 
+          time: now 
+        });
+
+        return res.json({ 
+          success: true, 
+          message: `Retrait de ${withdrawAmount.toLocaleString()} XOF validé.`,
+          withdrawal: targetWithdrawal,
+          user: targetUser
+        });
+
+      } else if (action === 'reject') {
+        if (targetWithdrawal.status === 'rejected') {
+          return res.json({ success: true, message: 'Ce retrait a déjà été rejeté.', alreadyProcessed: true, withdrawal: targetWithdrawal });
+        }
+
+        targetWithdrawal.status = 'rejected';
+        targetWithdrawal.processedAt = nowIso;
+        targetWithdrawal.lastModified = now;
+
+        // Refund balance to user
+        let newBalance = 0;
+        if (targetUser) {
+          targetUser.balance = (Number(targetUser.balance) || 0) + withdrawAmount;
+          targetUser.lastModified = now;
+          newBalance = targetUser.balance;
+        }
+
+        if (client) {
+          try {
+            await Promise.all([
+              client.from('withdrawals').update({
+                status: 'rejected',
+                processed_at: nowIso,
+                last_modified: now,
+                raw_data: {
+                  ...(targetWithdrawal.raw_data || {}),
+                  ...targetWithdrawal,
+                  status: 'rejected',
+                  processedAt: nowIso,
+                  lastModified: now
+                }
+              }).eq('id', targetWithdrawal.id),
+
+              targetUser ? client.from('users').update({
+                balance: targetUser.balance,
+                last_modified: now,
+                raw_data: {
+                  ...(targetUser.raw_data || {}),
+                  ...targetUser,
+                  balance: targetUser.balance,
+                  lastModified: now
+                }
+              }).eq('id', targetUserId) : Promise.resolve()
+            ]);
+            console.log(`[WITHDRAW REJECTED] Supabase updated: Withdrawal ${targetWithdrawal.id} rejected. User ${targetUserId} refunded ${withdrawAmount} (New balance: ${targetUser?.balance})`);
+          } catch (dbErr: any) {
+            console.error('[WITHDRAW REJECT DB ERROR]', dbErr);
+          }
+        }
+
+        let withdrawals = storeData["gi_withdrawals"] || [];
+        const wIdx = withdrawals.findIndex((w: any) => String(w.id).trim() === String(targetWithdrawal.id).trim());
+        if (wIdx !== -1) {
+          withdrawals[wIdx] = { ...withdrawals[wIdx], ...targetWithdrawal };
+        } else {
+          withdrawals.unshift(targetWithdrawal);
+        }
+        storeData["gi_withdrawals"] = withdrawals;
+
+        if (targetUser) {
+          let users = storeData["gi_users"] || [];
+          const uIdx = users.findIndex((u: any) => String(u.id).trim() === targetUserId);
+          if (uIdx !== -1) {
+            users[uIdx] = { ...users[uIdx], ...targetUser };
+          }
+          storeData["gi_users"] = users;
+        }
+
+        let notifications = storeData["gi_notifications"] || [];
+        notifications.unshift({
+          id: `not-wth-rej-${now}`,
+          userId: targetUserId,
+          title: '❌ Retrait refusé',
+          message: `Votre demande de retrait de ${withdrawAmount.toLocaleString()} XOF a été refusée. Les fonds (${withdrawAmount.toLocaleString()} XOF) ont été intégralement restitués sur votre solde.`,
+          type: 'withdraw',
+          lastModified: now,
+          createdAt: nowIso,
+          read: false
+        });
+        storeData["gi_notifications"] = notifications;
+
+        await saveStore(["gi_withdrawals", "gi_users", "gi_notifications"]);
+
+        broadcastRealtimeEvent({ 
+          type: 'withdrawals', 
+          action: 'reject', 
+          withdrawalId: targetWithdrawal.id, 
+          userId: targetUserId, 
+          time: now 
+        });
+        if (targetUser) {
+          broadcastRealtimeEvent({ 
+            type: 'user_balance', 
+            userId: targetUserId, 
+            balance: newBalance, 
+            time: now 
+          });
+        }
+
+        return res.json({ 
+          success: true, 
+          message: `Retrait rejeté. Les ${withdrawAmount.toLocaleString()} XOF ont été restitués au solde de l'utilisateur.`,
+          withdrawal: targetWithdrawal,
+          user: targetUser
+        });
+      } else {
+        return res.status(400).json({ success: false, message: 'Action non reconnue.' });
+      }
+
+    } catch (err: any) {
+      console.error('[WITHDRAW ACTION CRITICAL ERROR]', err);
+      return res.status(500).json({ success: false, error: err?.message || String(err) });
     }
-
-    withdrawals[idx].lastModified = Date.now();
-    storeData["gi_withdrawals"] = withdrawals;
-    storeData["gi_users"] = users;
-    storeData["gi_notifications"] = notifications;
-
-    await saveStore();
-    res.json({ success: true, withdrawal: withdrawals[idx] });
   });
 
   app.post("/api/admin/update-user", async (req, res) => {
