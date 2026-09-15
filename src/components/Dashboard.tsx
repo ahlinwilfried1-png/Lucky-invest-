@@ -87,6 +87,7 @@ import CountdownTimer from './CountdownTimer';
 import { InvestmentItem } from './InvestmentItem';
 import { OnlineSupportPage } from './OnlineSupportPage';
 import { getMaskedAnonymousId, deduplicateForumPosts } from '../lib/forumUtils';
+import { supabaseUpsertDeposit, supabaseGetInvestments, supabaseUpsertInvestment } from '../supabase';
 
 
 const compressImage = (file: File, maxWidth: number = 500, quality: number = 0.45): Promise<string> => {
@@ -434,6 +435,7 @@ export default function Dashboard({
 
   // Custom check for stability product activation
   const hasStabilityActivation = activeInvestments.some(inv => {
+    if (inv.status !== 'active') return false;
     const p = products.find(prod => prod.id === inv.productId || prod.name === inv.productName);
     if (p) {
       return (p.category === 'stability' || !p.category) && !p.isCyclic;
@@ -817,6 +819,7 @@ export default function Dashboard({
   const [showOldPwd, setShowOldPwd] = useState<boolean>(false);
   const [showNewPwd, setShowNewPwd] = useState<boolean>(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState<boolean>(false);
+  const [orderFilterTab, setOrderFilterTab] = useState<'all' | 'active' | 'completed'>('all');
 
   useEffect(() => {
     setProfileSubPage(null);
@@ -1429,6 +1432,23 @@ export default function Dashboard({
     // Sort investments, commissions and operations by recent
     const invs = DataStore.getInvestments().filter(i => i.userId === currentUser.id);
     setActiveInvestments(invs);
+
+    // Synchronize investments directly from Supabase for cross-device/refresh resilience
+    try {
+      supabaseGetInvestments(currentUser.id).then(sbInvs => {
+        if (sbInvs && sbInvs.length > 0) {
+          setActiveInvestments(prev => {
+            const map = new Map<string, Investment>();
+            prev.forEach(i => map.set(i.id, i));
+            sbInvs.forEach(i => {
+              const existing = map.get(i.id);
+              map.set(i.id, { ...existing, ...i });
+            });
+            return Array.from(map.values());
+          });
+        }
+      }).catch(() => {});
+    } catch {}
 
     const comms = DataStore.getCommissions().filter(c => c.userId === currentUser.id);
     setCommissions(comms);
@@ -2155,6 +2175,7 @@ export default function Dashboard({
 
         deposits.unshift(newDep);
         DataStore.saveDeposits(deposits);
+        supabaseUpsertDeposit(newDep).catch(() => {});
 
         const notifications = DataStore.getNotifications();
         notifications.unshift({
@@ -5356,6 +5377,54 @@ export default function Dashboard({
                       </span>
                     </div>
                   </div>
+
+                  {/* Filter Sub-Tabs: Tous / En cours / Terminés */}
+                  <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-xl border border-white/[0.06] mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setOrderFilterTab('all')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        orderFilterTab === 'all'
+                          ? 'bg-rose-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span>{t('Tous', 'All')}</span>
+                      <span className="text-[10px] py-0.2 px-1.5 rounded-full bg-white/20 font-mono">
+                        {activeInvestments.length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOrderFilterTab('active')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        orderFilterTab === 'active'
+                          ? 'bg-amber-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span>{t('En cours', 'Active')}</span>
+                      <span className="text-[10px] py-0.2 px-1.5 rounded-full bg-white/20 font-mono">
+                        {activeInvestments.filter(i => i.status === 'active' && (i.daysPassed || 0) < (i.durationDays || 0)).length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOrderFilterTab('completed')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        orderFilterTab === 'completed'
+                          ? 'bg-emerald-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span>{t('Terminés', 'Completed')}</span>
+                      <span className="text-[10px] py-0.2 px-1.5 rounded-full bg-white/20 font-mono">
+                        {activeInvestments.filter(i => i.status === 'completed' || (i.daysPassed || 0) >= (i.durationDays || 0)).length}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* List of Orders Organized in 3 Categories */}
@@ -5404,6 +5473,16 @@ export default function Dashboard({
                     <div className="space-y-6 pt-1">
                       {categoriesList.map((cat) => {
                         const CatIcon = cat.icon;
+                        const filteredItems = cat.items.filter((inv) => {
+                          const isDone = inv.status === 'completed' || (inv.daysPassed || 0) >= (inv.durationDays || 0);
+                          if (orderFilterTab === 'active') return !isDone;
+                          if (orderFilterTab === 'completed') return isDone;
+                          return true;
+                        });
+
+                        const activeCount = cat.items.filter(i => i.status === 'active' && (i.daysPassed || 0) < (i.durationDays || 0)).length;
+                        const completedCount = cat.items.filter(i => i.status === 'completed' || (i.daysPassed || 0) >= (i.durationDays || 0)).length;
+
                         return (
                           <div key={cat.key} className="space-y-2.5">
                             {/* Section Header */}
@@ -5416,16 +5495,25 @@ export default function Dashboard({
                                   {cat.title}
                                 </h3>
                               </div>
-                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${cat.badgeBg}`}>
-                                {cat.items.length} {cat.items.length > 1 ? 'produits' : 'produit'}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${cat.badgeBg}`}>
+                                  {activeCount > 0 && `${activeCount} actif${activeCount > 1 ? 's' : ''}`}
+                                  {activeCount > 0 && completedCount > 0 && ' • '}
+                                  {completedCount > 0 && `${completedCount} terminé${completedCount > 1 ? 's' : ''}`}
+                                  {activeCount === 0 && completedCount === 0 && '0 produit'}
+                                </span>
+                              </div>
                             </div>
 
                             {/* Section Items or Empty Message */}
-                            {cat.items.length === 0 ? (
+                            {filteredItems.length === 0 ? (
                               <div className="p-5 rounded-2xl bg-slate-900/30 border border-white/[0.03] text-center text-xs text-slate-400 space-y-2">
                                 <p className="font-medium text-[11.5px] text-slate-400">
-                                  Aucun produit n'a été souscrit dans cette catégorie.
+                                  {orderFilterTab === 'completed' 
+                                    ? t("Aucun cycle terminé dans cette catégorie pour le moment.", "No completed cycles in this category yet.")
+                                    : orderFilterTab === 'active'
+                                    ? t("Aucun cycle actif en cours dans cette catégorie.", "No active cycles running in this category.")
+                                    : t("Aucun produit n'a été souscrit dans cette catégorie.", "No products subscribed in this category.")}
                                 </p>
                                 <button
                                   type="button"
@@ -5435,19 +5523,38 @@ export default function Dashboard({
                                   }}
                                   className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer inline-flex items-center gap-1"
                                 >
-                                  <span>Découvrir les offres</span>
+                                  <span>{t('Découvrir les offres', 'Explore offers')}</span>
                                   <ChevronRight className="w-3 h-3" />
                                 </button>
                               </div>
                             ) : (
-                              <div className="space-y-2.5">
-                                {cat.items.map((inv) => (
-                                  <InvestmentItem 
-                                    key={inv.id}
-                                    investment={inv}
-                                    onClaim={handleClaimReturn}
-                                  />
-                                ))}
+                              <div className="space-y-3">
+                                {filteredItems.map((inv) => {
+                                  const isDone = inv.status === 'completed' || (inv.daysPassed || 0) >= (inv.durationDays || 0);
+                                  return (
+                                    <div key={inv.id} className="space-y-1.5">
+                                      <InvestmentItem 
+                                        investment={inv}
+                                        onClaim={handleClaimReturn}
+                                      />
+                                      {isDone && (
+                                        <div className="flex justify-end pt-0.5 px-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setProductSubTab(cat.key);
+                                              setActiveTab('products');
+                                            }}
+                                            className="text-[11px] font-bold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 rounded-xl transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                                          >
+                                            <span>🔄 {t('Recommencer un nouveau cycle', 'Start a new cycle')}</span>
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -6230,7 +6337,7 @@ export default function Dashboard({
                         <span className="text-[#ea580c]">1.</span> Inscription Directe & Sécurisée
                       </h5>
                       <p className="text-[12px] text-slate-600 font-medium leading-relaxed pl-5">
-                        Créez votre compte investisseur instantanément avec votre numéro WhatsApp actif. Aucun frais d'entrée ! Obtenez immédiatement votre bonus de départ de 200 FCFA.
+                        Créez votre compte investisseur instantanément avec votre numéro WhatsApp actif. Aucun frais d'entrée ! Commencez à investir dès maintenant.
                       </p>
                     </div>
 

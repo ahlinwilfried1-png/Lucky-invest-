@@ -98,6 +98,143 @@ export async function supabaseRegisterUser(userData: Partial<User>): Promise<{ s
 }
 
 /**
+ * Fetches all deposits directly from Supabase (client-side fail-safe)
+ */
+export async function supabaseGetDeposits(userId?: string): Promise<Deposit[]> {
+  try {
+    const client = getSupabaseClient();
+    let query = client.from('deposits').select('*').order('created_at', { ascending: false });
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    const { data, error } = await query;
+    if (error || !Array.isArray(data)) return [];
+
+    return data.map((r: any) => {
+      const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+      return {
+        ...raw,
+        id: r.id,
+        userId: r.user_id || raw.userId,
+        userName: r.user_name || raw.userName || 'Investisseur',
+        amount: Number(r.amount || raw.amount || 0),
+        operator: r.operator || r.method || raw.operator || 'Mobile Money',
+        method: r.method || raw.method || 'Mobile Money',
+        status: r.status || raw.status || 'pending',
+        receiptImage: r.receipt_image || r.proof_image || raw.receiptImage,
+        proofImage: r.proof_image || raw.proofImage || r.receipt_image,
+        reference: r.reference || raw.reference || `DEP-${r.id}`,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+        approvedAt: r.approved_at ? new Date(r.approved_at).toISOString() : raw.approvedAt,
+        lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Direct client-side deposit submission to Supabase
+ */
+export async function supabaseUpsertDeposit(deposit: Partial<Deposit>): Promise<boolean> {
+  try {
+    const client = getSupabaseClient();
+    if (!deposit?.id) return false;
+    const payload = {
+      id: deposit.id,
+      user_id: deposit.userId,
+      user_name: deposit.userName || 'Investisseur',
+      amount: Number(deposit.amount || 0),
+      operator: deposit.operator || 'Mobile Money',
+      method: (deposit as any).method || deposit.operator || 'Mobile Money',
+      status: deposit.status || 'pending',
+      receipt_image: deposit.receiptImage || null,
+      proof_image: (deposit as any).proofImage || deposit.receiptImage || null,
+      reference: deposit.reference || `DEP-${deposit.id}`,
+      created_at: deposit.createdAt ? new Date(deposit.createdAt).toISOString() : new Date().toISOString(),
+      last_modified: Number(deposit.lastModified || Date.now()),
+      raw_data: deposit
+    };
+    const { error } = await client.from('deposits').upsert(payload, { onConflict: 'id' });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetches user investments directly from Supabase (client-side fail-safe)
+ */
+export async function supabaseGetInvestments(userId?: string): Promise<Investment[]> {
+  try {
+    const client = getSupabaseClient();
+    let query = client.from('investments').select('*').order('created_at', { ascending: false });
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    const { data, error } = await query;
+    if (error || !Array.isArray(data)) return [];
+
+    return data.map((r: any) => {
+      const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+      return {
+        ...raw,
+        id: r.id,
+        userId: r.user_id || raw.userId,
+        productId: r.product_id || raw.productId,
+        productName: r.product_name || raw.productName || 'Plan Investissement',
+        price: Number(r.price || raw.price || 0),
+        dailyReturn: Number(r.daily_return || raw.dailyReturn || 0),
+        daysPassed: Number(r.days_passed || raw.daysPassed || 0),
+        durationDays: Number(r.duration_days || raw.durationDays || 30),
+        totalReturnClaimed: Number(r.total_return_claimed || raw.totalReturnClaimed || 0),
+        status: (r.status || raw.status || 'active') as any,
+        isCyclic: Boolean(r.is_cyclic ?? raw.isCyclic ?? true),
+        category: (r.category || raw.category || 'stability') as any,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+        lastClaimDate: r.last_claim_date ? new Date(r.last_claim_date).toISOString() : raw.lastClaimDate,
+        lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Direct client-side investment update / sync to Supabase
+ */
+export async function supabaseUpsertInvestment(inv: Investment): Promise<boolean> {
+  try {
+    const client = getSupabaseClient();
+    if (!inv?.id) return false;
+    const payload = {
+      id: inv.id,
+      user_id: inv.userId,
+      product_id: inv.productId,
+      product_name: inv.productName || 'Plan Investissement',
+      price: Number(inv.price || 0),
+      daily_return: Number(inv.dailyReturn || 0),
+      days_passed: Number(inv.daysPassed || 0),
+      duration_days: Number(inv.durationDays || 30),
+      total_return_claimed: Number(inv.totalReturnClaimed || 0),
+      status: inv.status || 'active',
+      is_cyclic: Boolean(inv.isCyclic ?? true),
+      category: inv.category || 'stability',
+      created_at: inv.createdAt ? new Date(inv.createdAt).toISOString() : new Date().toISOString(),
+      last_claim_date: inv.lastClaimDate ? new Date(inv.lastClaimDate).toISOString() : null,
+      last_modified: Number(inv.lastModified || Date.now()),
+      raw_data: inv
+    };
+    const { error } = await client.from('investments').upsert(payload, { onConflict: 'id' });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Fetches single user data from Supabase
  */
 export async function supabaseGetUser(userId: string): Promise<User | null> {

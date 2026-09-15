@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules, Announcement } from '../types';
 import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore, setToStoreLocalOnly } from '../dataStore';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, subscribeToSupabaseRealtime } from '../supabase';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, subscribeToSupabaseRealtime, supabaseGetDeposits } from '../supabase';
 
 const maskUserPhone = (str: string): string => {
   if (!str) return str;
@@ -712,15 +712,34 @@ export default function AdminPanel({
 
           // Fetch directly from authoritative Supabase deposits table
           try {
-            const depResp = await apiFetch(getApiUrl('/api/admin/deposits?t=' + Date.now()));
+            const adminHeaders: Record<string, string> = {
+              'x-user-id': currentUser?.id || 'u-admin',
+              'x-user-role': currentUser?.role || 'admin',
+              'x-user-password': currentUser?.password || 'admin'
+            };
+            const depResp = await apiFetch(getApiUrl('/api/admin/deposits?t=' + Date.now()), {
+              headers: adminHeaders
+            });
             if (depResp.ok) {
               const depData = await depResp.json();
               if (depData && depData.success && Array.isArray(depData.deposits)) {
                 setDeposits(depData.deposits);
               }
+            } else {
+              // Fail-safe direct Supabase client query
+              const directDeps = await supabaseGetDeposits();
+              if (directDeps && directDeps.length > 0) {
+                setDeposits(directDeps);
+              }
             }
           } catch (depErr) {
-            console.warn('[ADMIN SYNC] Direct deposits fetch warn:', depErr);
+            console.warn('[ADMIN SYNC] Direct deposits fetch warn, falling back to direct Supabase:', depErr);
+            try {
+              const directDeps = await supabaseGetDeposits();
+              if (directDeps && directDeps.length > 0) {
+                setDeposits(directDeps);
+              }
+            } catch {}
           }
           if (Array.isArray(data['gi_withdrawals'])) setWithdrawals(data['gi_withdrawals']);
           if (Array.isArray(data['gi_products'])) setProducts(data['gi_products']);
@@ -1393,9 +1412,15 @@ export default function AdminPanel({
     if (processingDepositIds[id]) return;
     setProcessingDepositIds(prev => ({ ...prev, [id]: true }));
     try {
+      const adminHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUser?.id || 'u-admin',
+        'x-user-role': currentUser?.role || 'admin',
+        'x-user-password': currentUser?.password || 'admin'
+      };
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders,
         body: JSON.stringify({ depositId: id, action: 'approve' })
       });
       const data = await resp.json().catch(() => null);
@@ -1436,9 +1461,15 @@ export default function AdminPanel({
     if (processingDepositIds[id]) return;
     setProcessingDepositIds(prev => ({ ...prev, [id]: true }));
     try {
+      const adminHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUser?.id || 'u-admin',
+        'x-user-role': currentUser?.role || 'admin',
+        'x-user-password': currentUser?.password || 'admin'
+      };
       const resp = await apiFetch(getApiUrl('/api/admin/deposit-action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders,
         body: JSON.stringify({ depositId: id, action: 'reject' })
       });
       const data = await resp.json().catch(() => null);

@@ -172,18 +172,26 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
           </span>
         </div>
 
-        {/* Notice explicative sur les règles du cycle Bien-être / Activité */}
-        {(isWellbeing || isActivity) && (
+        {/* Notice explicative sur les règles du cycle Bien-être / Activité / Stabilité */}
+        {(isWellbeing || isActivity || isCompleted) && (
           <div className="rounded-xl bg-[#0a1426] p-2.5 border border-amber-400/20 text-[11px] text-slate-300 flex items-start gap-2">
-            <span className="text-amber-400 shrink-0 text-xs mt-0.5">ℹ️</span>
+            <span className="text-amber-400 shrink-0 text-xs mt-0.5">{isCompleted ? '✅' : 'ℹ️'}</span>
             {isCompleted ? (
-              <p className="leading-relaxed">
-                <strong className="text-emerald-400">{t('Cycle terminé avec succès :', 'Cycle successfully completed:')}</strong>{' '}
-                {t(
-                  'Le revenu total a été versé sur votre solde. Pour démarrer un nouveau cycle, vous devez effectuer un nouvel investissement/achat.',
-                  'Total return has been credited to your balance. To start a new cycle, you must make a new investment/purchase.'
-                )}
-              </p>
+              <div className="leading-relaxed space-y-1 w-full">
+                <p>
+                  <strong className="text-emerald-400">{t('Cycle terminé avec succès :', 'Cycle successfully completed:')}</strong>{' '}
+                  {t(
+                    'Le montant total du revenu a été versé sur votre solde. Ce produit est désormais terminé et archivé dans votre historique de commandes.',
+                    'The total return has been credited to your balance. This product cycle is now completed and recorded in your order history.'
+                  )}
+                </p>
+                <p className="text-[10px] text-amber-300/90">
+                  {t(
+                    '💡 Pour démarrer un nouveau cycle, vous devez effectuer un nouvel achat/investissement.',
+                    '💡 To start a new cycle, you must make a new purchase/investment.'
+                  )}
+                </p>
+              </div>
             ) : (
               <p className="leading-relaxed">
                 <strong className="text-amber-300">{t('Règle du cycle :', 'Cycle rule:')}</strong>{' '}

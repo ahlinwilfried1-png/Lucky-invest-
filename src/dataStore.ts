@@ -19,7 +19,11 @@ import { deduplicateForumPosts } from './lib/forumUtils';
 import { 
   SUPABASE_URL, 
   SUPABASE_ANON_KEY, 
-  supabaseRegisterUser 
+  supabaseRegisterUser,
+  supabaseUpsertDeposit,
+  supabaseGetDeposits,
+  supabaseGetInvestments,
+  supabaseUpsertInvestment
 } from './supabase';
 
 export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
@@ -1730,6 +1734,14 @@ export class DataStore {
     const deletedInvestments = getFromStore<string[]>('gi_deleted_investments', []).map(String);
     const filtered = investments.filter(i => i && i.id && !deletedInvestments.includes(String(i.id).trim()));
     setToStore<Investment[]>('gi_investments', filtered);
+    // Background cloud sync to Supabase investments table
+    try {
+      filtered.forEach(inv => {
+        if (inv && inv.id) {
+          supabaseUpsertInvestment(inv).catch(() => {});
+        }
+      });
+    } catch {}
   }
 
   static getCommissions(): Commission[] {
@@ -2566,7 +2578,7 @@ export class DataStore {
           balance: 1000,
           dailyEarnings: 0,
           totalEarnings: 0,
-          bonus: 200,
+          bonus: 0,
           referralCode: codeClean,
           referredBy: '72AGR',
           role: 'user',
@@ -2586,10 +2598,10 @@ export class DataStore {
       whatsapp: data.whatsapp,
       password: data.password || 'user123',
       country: data.country || 'Cameroun',
-      balance: 200, // 200 XAF Welcome Signup bonus
+      balance: 0, // Registration bonus is 0 for all new accounts
       dailyEarnings: 0,
       totalEarnings: 0,
-      bonus: 200,
+      bonus: 0,
       referralCode,
       referredBy: refereeId,
       role: isWpAdmin ? 'admin' : 'user',
@@ -2608,7 +2620,7 @@ export class DataStore {
       id: `not-${Date.now()}`,
       userId: newUser.id,
       title: 'Bienvenue sur Dreampod !',
-      message: 'Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.',
+      message: 'Félicitations pour votre inscription ! Votre compte est activé avec succès.',
       type: 'bonus',
       createdAt: new Date().toISOString(),
       read: false
@@ -2658,6 +2670,7 @@ export class DataStore {
           if (res.user) {
             this.saveCurrentUser(res.user);
           }
+          supabaseUpsertDeposit(res.deposit).catch(() => {});
           await syncWithBackend();
           return res.deposit;
         }
@@ -2684,6 +2697,7 @@ export class DataStore {
 
     deposits.unshift(newDep);
     this.saveDeposits(deposits);
+    supabaseUpsertDeposit(newDep).catch(() => {});
 
     // Add user notification
     const notifications = this.getNotifications();
