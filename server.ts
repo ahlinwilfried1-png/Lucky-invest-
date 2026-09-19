@@ -633,6 +633,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         "BF_34": "+226 70 90 33 19 (Orange Money)",
         "BF_33": "+226 60 00 00 00 (Moov Money)"
       },
+      "gi_online_payment_link": "https://tchin.tech/pay/cm63en28qn",
       "gi_category_schedules": JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES))
     };
 
