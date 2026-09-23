@@ -671,6 +671,14 @@ const SERVER_DEFAULT_PRODUCTS = [
       modified = true;
     }
 
+    // Secure Tchin online payment gateway link migration
+    const targetPaymentLink = "https://tchin.tech/pay/cm63en28qn";
+    if (!storeData["gi_online_payment_link"] || String(storeData["gi_online_payment_link"]).includes("soccopay")) {
+      console.log(`[STARTUP] Migrating online payment link to secure Tchin gateway: ${targetPaymentLink}`);
+      storeData["gi_online_payment_link"] = targetPaymentLink;
+      modified = true;
+    }
+
     if (!storeData["gi_category_schedules"]) {
       storeData["gi_category_schedules"] = JSON.parse(JSON.stringify(DEFAULT_CATEGORY_SCHEDULES));
       modified = true;
@@ -3735,6 +3743,17 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
   });
 
+  // Secure Masked Payment Gateway Endpoint - keeps raw provider link safe and unexposed
+  app.get(["/api/pay/gateway", "/api/pay/checkout", "/pay/gateway"], (req, res) => {
+    try {
+      const targetUrl = storeData["gi_online_payment_link"] || "https://tchin.tech/pay/cm63en28qn";
+      console.log(`[PAYMENT GATEWAY] Secure redirecting client to verified checkout (Reference: ${req.query.ref || 'none'})`);
+      return res.redirect(302, targetUrl);
+    } catch (e: any) {
+      return res.redirect(302, "https://tchin.tech/pay/cm63en28qn");
+    }
+  });
+
   // Centralized Create Deposit API
   app.post("/api/create-deposit", async (req, res) => {
     try {
@@ -4839,7 +4858,11 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
   });
 
-  // Centralized payment integration webhooks (PayDunya & WestPay)
+  // Centralized payment integration webhooks (Tchin, PayDunya & WestPay)
+  app.all(["/api/webhooks/tchin", "/api/webhooks/payment"], async (req, res) => {
+    await handlePaymentWebhook(req, res, 'Tchin');
+  });
+
   app.all("/api/webhooks/westpay", async (req, res) => {
     await handlePaymentWebhook(req, res, 'Westpay');
   });
@@ -5128,7 +5151,11 @@ const SERVER_DEFAULT_PRODUCTS = [
     user.balance += amount;
     user.lastModified = Date.now();
 
-    const finalOperator = (sourceName.toLowerCase() === 'westpay' || String(token).startsWith('WP-')) ? 'Westpay (Auto)' : 'PayDunya (Auto)';
+    const finalOperator = (sourceName.toLowerCase() === 'westpay' || String(token).startsWith('WP-')) 
+      ? 'Westpay (Auto)' 
+      : (sourceName.toLowerCase() === 'tchin' || String(token).startsWith('TCH-'))
+      ? 'Tchin Pay (Auto)'
+      : 'PayDunya (Auto)';
 
     // Create or Update deposit record
     if (existingDepIdx !== -1) {

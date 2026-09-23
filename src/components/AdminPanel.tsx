@@ -1157,7 +1157,8 @@ export default function AdminPanel({
   const [whatsappGroup, setWhatsappGroup] = useState<string>(() => DataStore.getWhatsAppGroup());
   const [whatsappChannel, setWhatsappChannel] = useState<string>(() => DataStore.getWhatsAppChannel());
   const [whatsappSupportNumber, setWhatsappSupportNumber] = useState<string>(() => DataStore.getWhatsAppSupportNumber());
-  const [onlinePaymentLink, setOnlinePaymentLink] = useState<string>(() => DataStore.getOnlinePaymentLink());
+  const [onlinePaymentLink, setOnlinePaymentLink] = useState<string>(() => DataStore.getRawOnlinePaymentLink());
+  const [showPaymentLink, setShowPaymentLink] = useState<boolean>(false);
   const [manualDepositNumbers, setManualDepositNumbers] = useState<Record<string, string>>(() => DataStore.getManualDepositNumbers());
   const [canalsSuccess, setCanalsSuccess] = useState<string | null>(null);
 
@@ -1181,7 +1182,7 @@ export default function AdminPanel({
       image1: officialBanner1,
       image2: officialBanner2
     });
-    alert('Réglages système (MLM, domaine, WhatsApp, Support, Lien SoccoPay, Numéros Dépôt, Images) enregistrés avec succès !');
+    alert('Réglages système (MLM, domaine, WhatsApp, Support, Lien de paiement sécurisé, Numéros Dépôt, Images) enregistrés avec succès !');
   };
 
   const handleSaveManualDepositNumbers = async (e: React.FormEvent) => {
@@ -4085,19 +4086,28 @@ export default function AdminPanel({
               </div>
 
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80">
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <span className="text-amber-400">💳</span>
-                  <span>Lien de Paiement en Ligne Officiel (SoccoPay)</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="text-amber-400">💳</span>
+                    <span>Lien de Paiement en Ligne Sécurisé (Tchin / Mobile Money)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentLink(!showPaymentLink)}
+                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer select-none"
+                  >
+                    {showPaymentLink ? 'Masquer' : 'Afficher'}
+                  </button>
+                </div>
                 <input
-                  type="text"
-                  placeholder="https://soccopay.com/pay_link.php?id=..."
+                  type={showPaymentLink ? "text" : "password"}
+                  placeholder="https://tchin.tech/pay/..."
                   value={onlinePaymentLink}
                   onChange={(e) => setOnlinePaymentLink(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 focus:border-yellow-500/40 rounded-xl py-2.5 px-4 text-sm text-amber-300 font-mono focus:outline-none"
                 />
                 <span className="text-[10px] text-slate-500 mt-1.5 block leading-relaxed">
-                  Lien de paiement SoccoPay officiel utilisé pour toutes les recharges en ligne des membres (actuel : <code>https://soccopay.com/pay_link.php?id=1e60369611cde7bfcdd182951ca88fd1</code>).
+                  Lien de paiement officiel Tchin Pay utilisé pour les recharges en ligne. Ce lien est sécurisé et masqué côté client pour protéger la passerelle contre toute exposition non autorisée.
                 </span>
               </div>
 

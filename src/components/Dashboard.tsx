@@ -2108,8 +2108,12 @@ export default function Dashboard({
       return;
     }
 
-    const redirectUrl = DataStore.getOnlinePaymentLink();
-    // Ouvrir immédiatement la page de paiement dès le clic utilisateur pour garantir l'autorisation par le navigateur (évite le blocage popup après await)
+    const reference = `TCH-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+    const formattedOperator = `Tchin Pay (${depositCountry} ${depositCountryCode} ${depositPhone.trim()})`;
+
+    // Passerelle sécurisée masquée côté serveur (ne révèle jamais le lien direct au client)
+    const redirectUrl = getApiUrl(`/api/pay/gateway?ref=${encodeURIComponent(reference)}&amt=${encodeURIComponent(amt)}`);
+    // Ouvrir immédiatement la passerelle sécurisée dès le clic utilisateur pour garantir l'autorisation par le navigateur
     try {
       window.open(redirectUrl, '_blank');
     } catch (popupErr) {
@@ -2118,8 +2122,6 @@ export default function Dashboard({
 
     setIsSubmittingDeposit(true);
     try {
-      const reference = `SOC-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
-      const formattedOperator = `SoccoPay (${depositCountry} ${depositCountryCode} ${depositPhone.trim()})`;
       let succeeded = false;
       try {
         const response = await apiFetch(getApiUrl('/api/create-deposit'), {
@@ -2132,7 +2134,7 @@ export default function Dashboard({
             amount: amt,
             operator: formattedOperator,
             reference: reference,
-            receiptImage: 'soccopay_link'
+            receiptImage: 'tchin_link'
           })
         });
         if (response && response.ok) {
@@ -2142,19 +2144,19 @@ export default function Dashboard({
           }
         }
       } catch (err) {
-        console.warn("[SoccoPay API failover] Server API failed, falling back to local/Supabase store:", err);
+        console.warn("[Tchin API failover] Server API failed, falling back to local/Supabase store:", err);
       }
 
       if (succeeded) {
         setDepositRedirectUrl('');
-        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! L'interface de paiement s'est ouverte automatiquement.`);
+        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! La passerelle de paiement sécurisée s'est ouverte automatiquement.`);
         syncDashboardData();
         if (typeof syncWithBackend === 'function') {
           syncWithBackend().catch(() => {});
         }
       } else {
         // --- CLIENT-SIDE FAILOVER STRATEGY ---
-        console.log("[SoccoPay Fallback] Executing robust direct-to-Supabase deposit register...");
+        console.log("[Tchin Fallback] Executing direct deposit register...");
         
         const deposits = DataStore.getDeposits();
         const users = DataStore.getUsers();
@@ -2167,7 +2169,7 @@ export default function Dashboard({
           amount: amt,
           operator: formattedOperator,
           reference: reference,
-          receiptImage: 'soccopay_link',
+          receiptImage: 'tchin_link',
           status: 'pending' as const,
           lastModified: Date.now(),
           createdAt: new Date().toISOString()
@@ -2182,7 +2184,7 @@ export default function Dashboard({
           id: `not-dep-${Date.now()}`,
           userId: userState.id,
           title: 'Dépôt soumis',
-          message: `Votre demande de dépôt de ${amt.toLocaleString()} F en ligne via SoccoPay (Réf: ${reference}) est en cours de vérification par l'administration.`,
+          message: `Votre demande de dépôt de ${amt.toLocaleString()} F en ligne via Tchin Pay (Réf: ${reference}) est en cours de validation automatique.`,
           type: 'deposit',
           lastModified: Date.now(),
           createdAt: new Date().toISOString(),
@@ -2191,11 +2193,11 @@ export default function Dashboard({
         DataStore.saveNotifications(notifications);
 
         setDepositRedirectUrl('');
-        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! L'interface de paiement s'est ouverte automatiquement.`);
+        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! La passerelle de paiement sécurisée s'est ouverte automatiquement.`);
         syncDashboardData();
       }
     } catch (error: any) {
-      console.error("SoccoPay deposit error:", error);
+      console.error("Payment deposit error:", error);
       setDepositError(`Erreur : ${error?.message || "Veuillez réessayer."}`);
     } finally {
       setIsSubmittingDeposit(false);

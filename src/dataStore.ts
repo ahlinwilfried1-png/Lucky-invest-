@@ -1508,14 +1508,22 @@ export class DataStore {
     }).catch(err => console.error("Error saving official banners to server", err));
   }
 
-  static getOnlinePaymentLink(): string {
-    const DEFAULT_LINK = 'https://soccopay.com/pay_link.php?id=1e60369611cde7bfcdd182951ca88fd1';
+  static getRawOnlinePaymentLink(): string {
+    const DEFAULT_LINK = 'https://tchin.tech/pay/cm63en28qn';
     const stored = getFromStore<string>('gi_online_payment_link', DEFAULT_LINK);
-    return stored && typeof stored === 'string' && stored.trim().length > 0 ? stored.trim() : DEFAULT_LINK;
+    if (!stored || typeof stored !== 'string' || stored.includes('soccopay')) {
+      return DEFAULT_LINK;
+    }
+    return stored.trim();
+  }
+
+  static getOnlinePaymentLink(): string {
+    // Return the secure masked gateway endpoint so the external link is NEVER exposed in the frontend
+    return '/api/pay/gateway';
   }
 
   static async saveOnlinePaymentLink(url: string): Promise<any> {
-    const cleanUrl = url.trim();
+    const cleanUrl = url.trim() || 'https://tchin.tech/pay/cm63en28qn';
     setToStore<string>('gi_online_payment_link', cleanUrl);
     return apiFetch(getApiUrl('/api/save-store'), {
       method: 'POST',
