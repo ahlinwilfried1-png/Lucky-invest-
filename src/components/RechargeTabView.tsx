@@ -29,6 +29,7 @@ interface RechargeTabViewProps {
   setDepositCountryCode: (val: string) => void;
   depositPhone: string;
   setDepositPhone: (val: string) => void;
+  depositRedirectUrl?: string;
   depositError: string | null;
   depositSuccess: string | null;
   isSubmittingDeposit: boolean;
@@ -51,6 +52,7 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
   setDepositCountryCode,
   depositPhone,
   setDepositPhone,
+  depositRedirectUrl,
   depositError,
   depositSuccess,
   isSubmittingDeposit,
@@ -164,6 +166,19 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
             <p className="text-xs text-emerald-800 font-medium">
               {depositSuccess}
             </p>
+            {depositRedirectUrl && (
+              <div className="pt-2">
+                <a
+                  href={depositRedirectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F3C75F] via-[#D49A22] to-[#C88A16] text-white text-xs font-black shadow-xs hover:brightness-105 transition-all cursor-pointer"
+                >
+                  <span>👉 {t('Ouvrir la page de paiement sécurisée', 'Open Secure Payment Page')}</span>
+                  <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                </a>
+              </div>
+            )}
           </div>
         )}
 

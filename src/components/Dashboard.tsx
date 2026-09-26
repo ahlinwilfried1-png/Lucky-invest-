@@ -1688,11 +1688,8 @@ export default function Dashboard({
       return formatted.replace(/\/+$/, '');
     }
 
-    const origin = window.location.origin;
-    if (!origin || origin.includes('aistudio.google.com')) {
-      return 'https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app';
-    }
-    return origin;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return origin || '';
   };
   const referralURL = `${getReferralBaseURL()}/?ref=${userState.referralCode}`;
   

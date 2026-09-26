@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app/api/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -413,43 +413,46 @@ export const safeLocalStorage = {
   }
 };
 
-// LocalStorage Helper functions with automatic in-memory fallback
+// LocalStorage & API URL Helper functions with automatic environment detection
 export function getApiUrl(endpoint: string): string {
-  if (typeof window !== "undefined" && window.location) {
-    const host = window.location.hostname;
-    const isCloudRun = host.endsWith('.run.app');
-    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.');
-    
-    // Always use relative URLs on live Cloud Run containers or local development
-    if (isCloudRun || isLocalhost) {
-      return endpoint;
-    }
-  }
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
+  // Clean any stale poisoned backend URLs from previous AI Studio preview containers
   try {
-    const custom = localStorage.getItem('gi_custom_backend_url');
-    if (custom) {
-      const base = custom.trim().replace(/\/+$/, '');
-      if (base) {
-        return `${base}${endpoint}`;
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('gi_custom_backend_url');
+      if (stored && (stored.includes('ais-pre-') || stored.includes('ais-dev-') || stored.includes('473372860465'))) {
+        localStorage.removeItem('gi_custom_backend_url');
       }
     }
   } catch (e) {}
 
-  // If the host is an external domain (like gold_avenue-lac.vercel.app)
-  // we must automatically route requests to the live Cloud Run production instance
-  if (typeof window !== "undefined" && window.location) {
-    const host = window.location.hostname;
-    const isCloudRun = host.endsWith('.run.app');
-    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.');
-    
-    if (!isCloudRun && !isLocalhost) {
-      // Automatic fallback to our stable, centralized production backend URL!
-      return `https://ais-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app${endpoint}`;
+  // 1. Explicit environment variable set at build/deploy time
+  try {
+    const envBackend = (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL)) as string | undefined;
+    if (envBackend && typeof envBackend === 'string' && envBackend.trim()) {
+      const base = envBackend.trim().replace(/\/+$/, '');
+      if (base && !base.includes('ais-pre-') && !base.includes('ais-dev-')) {
+        return `${base}${cleanEndpoint}`;
+      }
     }
-  }
+  } catch (e) {}
 
-  return endpoint;
+  // 2. Custom backend URL configured dynamically by admin in localStorage
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const custom = localStorage.getItem('gi_custom_backend_url');
+      if (custom && typeof custom === 'string') {
+        const base = custom.trim().replace(/\/+$/, '');
+        if (base && !base.includes('ais-pre-') && !base.includes('ais-dev-') && !base.includes('473372860465')) {
+          return `${base}${cleanEndpoint}`;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 3. Standard relative URL: works consistently across Cloud Run, Vercel, Docker, VPS, and local dev
+  return cleanEndpoint;
 }
 
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -457,14 +460,9 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
   if (url.startsWith('/') && typeof window !== 'undefined' && window.location) {
     activeUrl = `${window.location.origin}${url}`;
   }
-  let isRetried = false;
 
-  const hasPre = activeUrl.includes('-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app') || activeUrl.includes('-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
-  const hasDev = activeUrl.includes('-dev-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app') || activeUrl.includes('-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
-  const isSyncEndpoint = activeUrl.includes('/api/get-store') || activeUrl.includes('/api/save-store');
   const isSendavaPay = activeUrl.includes('/sendavapay');
 
-  // Try to use the standard backend first (getApiUrl)
   try {
     const userItem = (typeof window !== 'undefined' ? (sessionStorage.getItem('gi_current_user') || inMemorySessionStore['gi_current_user']) : null) || inMemorySessionStore['gi_current_user'];
     const userHeaders: Record<string, string> = {};
@@ -487,84 +485,17 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
         ...(init?.headers || {})
       }
     };
-    let response = await fetch(activeUrl, fetchOptions);
-    let contentType = response.headers.get('content-type') || "";
-    
-    // If we get an error response or a HTML page (like Google's proxy/Cloud Run sleeping/error page),
-    // and we have an alternate Cloud Run URL, let's try the other one.
-    if ((!response.ok || contentType.includes('text/html')) && (hasPre || hasDev) && !isRetried) {
-      isRetried = true;
-      const fallbackHost = hasPre 
-        ? 'https://ais-dev-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app'
-        : 'https://ais-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app';
-      
-      try {
-        let parsedUrl: URL;
-        try {
-          parsedUrl = new URL(activeUrl);
-        } catch (e) {
-          parsedUrl = new URL(activeUrl, typeof window !== 'undefined' ? window.location.origin : undefined);
-        }
-        const fallbackUrl = `${fallbackHost}${parsedUrl.pathname}${parsedUrl.search}`;
-        console.log(`[apiFetch Failover] Primary backend non-responsive. Retrying with alternate backend: ${fallbackUrl}`);
-        
-        const fallbackResp = await fetch(fallbackUrl, fetchOptions);
-        const fallbackContentType = fallbackResp.headers.get('content-type') || "";
-        
-        if ((fallbackResp.ok || !isSyncEndpoint || isSendavaPay) && !fallbackContentType.includes('text/html')) {
-          try {
-            localStorage.setItem('gi_custom_backend_url', fallbackHost);
-          } catch (e) {}
-          return fallbackResp;
-        }
-      } catch (retryErr) {
-        console.warn(`[apiFetch Failover] Alternate backend failed too:`, retryErr);
-      }
-    }
+    const response = await fetch(activeUrl, fetchOptions);
+    const contentType = response.headers.get('content-type') || "";
 
-    // Always return valid JSON responses (even on HTTP errors) so callers receive real server messages
     if (!contentType.includes('text/html')) {
       return response;
     } else {
-      console.warn(`[apiFetch] Received HTML from API call for URL: ${url}. Triggering fallback check.`);
+      console.warn(`[apiFetch] Received HTML from API call for URL: ${url}.`);
+      return response;
     }
   } catch (error) {
-    console.warn(`[apiFetch] API fetch threw error: ${error instanceof Error ? error.message : String(error)} for URL: ${url}. Triggering failover check.`);
-    
-    // If it threw a network error (like Failed to fetch), try the alternate backend!
-    if ((hasPre || hasDev) && !isRetried) {
-      isRetried = true;
-      const fallbackHost = hasPre 
-        ? 'https://ais-dev-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app'
-        : 'https://ais-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app';
-      
-      try {
-        let parsedUrl: URL;
-        try {
-          parsedUrl = new URL(activeUrl);
-        } catch (e) {
-          parsedUrl = new URL(activeUrl, typeof window !== 'undefined' ? window.location.origin : undefined);
-        }
-        const fallbackUrl = `${fallbackHost}${parsedUrl.pathname}${parsedUrl.search}`;
-        console.log(`[apiFetch Network Failover] Retrying on network error with: ${fallbackUrl}`);
-        
-        const fetchOptions: RequestInit = {
-          credentials: 'same-origin',
-          ...init
-        };
-        const response = await fetch(fallbackUrl, fetchOptions);
-        const contentType = response.headers.get('content-type') || "";
-        
-        if (!contentType.includes('text/html')) {
-          try {
-            localStorage.setItem('gi_custom_backend_url', fallbackHost);
-          } catch (e) {}
-          return response;
-        }
-      } catch (retryErr) {
-        console.warn(`[apiFetch Network Failover] Retry failed too:`, retryErr);
-      }
-    }
+    console.warn(`[apiFetch] API fetch threw error: ${error instanceof Error ? error.message : String(error)} for URL: ${url}.`);
 
     if (isSendavaPay) {
       return new Response(JSON.stringify({ success: false, error: "Erreur de connexion. Le serveur de paiement est temporairement indisponible." }), {
@@ -572,6 +503,7 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
         headers: { 'Content-Type': 'application/json' }
       });
     }
+    throw error;
   }
 
   if (isSendavaPay) {
