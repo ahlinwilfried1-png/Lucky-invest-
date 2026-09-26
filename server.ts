@@ -1297,8 +1297,25 @@ const SERVER_DEFAULT_PRODUCTS = [
                     };
                     mergedMap.set(idStr, mergedUser);
                   } else {
-                    if (incomingTime >= existingTime) {
-                      mergedMap.set(idStr, item);
+                    if (key === "gi_deposits") {
+                      let finalStatus = item.status || existingItem.status;
+                      if ((existingItem.status === 'approved' || existingItem.status === 'rejected') && item.status === 'pending') {
+                        finalStatus = existingItem.status;
+                      } else if ((item.status === 'approved' || item.status === 'rejected') && existingItem.status === 'pending') {
+                        finalStatus = item.status;
+                      }
+                      const useIncoming = incomingTime >= existingTime;
+                      const base = useIncoming ? item : existingItem;
+                      mergedMap.set(idStr, {
+                        ...base,
+                        status: finalStatus,
+                        credited: Boolean(base.credited || existingItem.credited || item.credited || finalStatus === 'approved'),
+                        lastModified: Math.max(existingTime, incomingTime)
+                      });
+                    } else {
+                      if (incomingTime >= existingTime) {
+                        mergedMap.set(idStr, item);
+                      }
                     }
                   }
                 }
@@ -2091,11 +2108,18 @@ const SERVER_DEFAULT_PRODUCTS = [
       storeData["gi_deposits"] = filtered;
       saveStoreLocal();
 
-      if (supabase) {
-        await supabase.from('store').upsert({
-          key: "gi_deposits",
-          value: filtered
-        });
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          await client.from('deposits').delete().in('status', ['rejected', 'failed', 'cancelled']);
+          await client.from('store').upsert({
+            key: "gi_deposits",
+            value: filtered,
+            updated_at: new Date().toISOString()
+          });
+        } catch (sbErr) {
+          console.warn("[API CLEANUP] Supabase delete refused deposits error:", sbErr);
+        }
       }
 
       res.json({
@@ -2120,11 +2144,18 @@ const SERVER_DEFAULT_PRODUCTS = [
       storeData["gi_deposits"] = filtered;
       saveStoreLocal();
 
-      if (supabase) {
-        await supabase.from('store').upsert({
-          key: "gi_deposits",
-          value: filtered
-        });
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          await client.from('deposits').delete().eq('status', 'pending');
+          await client.from('store').upsert({
+            key: "gi_deposits",
+            value: filtered,
+            updated_at: new Date().toISOString()
+          });
+        } catch (sbErr) {
+          console.warn("[API CLEANUP] Supabase delete pending deposits error:", sbErr);
+        }
       }
 
       res.json({
@@ -2156,11 +2187,18 @@ const SERVER_DEFAULT_PRODUCTS = [
       storeData["gi_withdrawal_proofs"] = [];
       saveStoreLocal();
 
-      if (supabase) {
-        console.log("[API CLEANUP] Overwriting Supabase remote collections with empty arrays...");
-        await supabase.from('store').upsert({ key: "gi_deposits", value: [] });
-        await supabase.from('store').upsert({ key: "gi_withdrawals", value: [] });
-        await supabase.from('store').upsert({ key: "gi_withdrawal_proofs", value: [] });
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          console.log("[API CLEANUP] Overwriting Supabase remote collections with empty arrays...");
+          await client.from('deposits').delete().neq('id', 'keep-none');
+          await client.from('withdrawals').delete().neq('id', 'keep-none');
+          await client.from('store').upsert({ key: "gi_deposits", value: [] });
+          await client.from('store').upsert({ key: "gi_withdrawals", value: [] });
+          await client.from('store').upsert({ key: "gi_withdrawal_proofs", value: [] });
+        } catch (sbErr) {
+          console.warn("[API CLEANUP] Supabase reset error:", sbErr);
+        }
       }
 
       res.json({
@@ -2347,7 +2385,19 @@ const SERVER_DEFAULT_PRODUCTS = [
           map.set(id, item);
         } else {
           // Remote data (from Supabase Cloud) is authoritative and strictly overrides local in-memory records
-          map.set(id, { ...existing, ...item });
+          // BUT once a deposit or withdrawal is approved or rejected, NEVER revert to pending!
+          let finalStatus = item.status || existing.status;
+          if ((existing.status === 'approved' || existing.status === 'rejected') && item.status === 'pending') {
+            finalStatus = existing.status;
+          } else if ((item.status === 'approved' || item.status === 'rejected') && existing.status === 'pending') {
+            finalStatus = item.status;
+          }
+          map.set(id, {
+            ...existing,
+            ...item,
+            status: finalStatus,
+            credited: Boolean(existing.credited || item.credited || finalStatus === 'approved')
+          });
         }
       }
     }
@@ -2890,8 +2940,21 @@ const SERVER_DEFAULT_PRODUCTS = [
                         }
                       }
                     }
-                    if (incomingTime > existingTime) {
-                      mergedMap.set(idStr, item);
+                    if (key === "gi_deposits") {
+                      let finalStatus = existingItem.status;
+                      if (existingItem.status === 'pending' && (item.status === 'approved' || item.status === 'rejected')) {
+                        finalStatus = isGenuineAdmin ? item.status : 'pending';
+                      }
+                      mergedMap.set(idStr, {
+                        ...existingItem,
+                        ...(incomingTime > existingTime ? item : {}),
+                        status: finalStatus,
+                        credited: Boolean(existingItem.credited || item.credited || finalStatus === 'approved')
+                      });
+                    } else {
+                      if (incomingTime > existingTime) {
+                        mergedMap.set(idStr, item);
+                      }
                     }
                   }
                 }
@@ -3236,7 +3299,7 @@ const SERVER_DEFAULT_PRODUCTS = [
       return res.json({ success: false, message: 'Votre solde est insuffisant. Veuillez effectuer un investissement/rechargement avant d’activer un produit.' });
     }
 
-    // Horaires d'ouverture / fermeture et règles d'accès pour Bien-être (sécurisé côté serveur)
+    // Accès libre aux produits Bien-être sans condition préalable de Stabilité
     if (targetProduct.category === 'wellbeing') {
       const schedules = storeData["gi_category_schedules"] || DEFAULT_CATEGORY_SCHEDULES;
       const scheduleStatus = evaluateCategorySchedule('wellbeing', schedules);
@@ -3244,19 +3307,6 @@ const SERVER_DEFAULT_PRODUCTS = [
         return res.json({
           success: false,
           message: scheduleStatus.reason
-        });
-      }
-
-      // Règle d'accès technique : Stabilité VIP N payée obligatoire pour accéder au Bien-être VIP N
-      const reqVipLevel = targetProduct.vipLevel || 1;
-      const hasPaidCorrespondingStability = investments.some(
-        (inv: any) => inv.userId === userId && inv.category === 'stability' && (inv.vipLevel === reqVipLevel || inv.productId === `stab-${reqVipLevel}`)
-      );
-
-      if (!hasPaidCorrespondingStability) {
-        return res.json({
-          success: false,
-          message: `Accès non autorisé : Vous devez d'abord payer le plan Stabilité VIP ${reqVipLevel} correspondant pour débloquer l'accès au Bien-être VIP ${reqVipLevel}.`
         });
       }
     }
@@ -5693,50 +5743,106 @@ const SERVER_DEFAULT_PRODUCTS = [
     res.json({ success: true, changed });
   });
 
-  // Fast direct deposits endpoint for admin panel from Supabase Cloud
+  // Fast direct deposits endpoint for admin panel from Supabase Cloud (reconciled and authoritative)
   app.get("/api/admin/deposits", async (req, res) => {
     try {
       const client = getSupabaseAdminClient();
+      let supabaseDeps: any[] = [];
       if (client) {
-        const { data: depRows, error: depErr } = await client
-          .from('deposits')
-          .select('*')
-          .order('created_at', { ascending: false });
+        try {
+          const { data: depRows, error: depErr } = await client
+            .from('deposits')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-        if (!depErr && Array.isArray(depRows)) {
-          const mapped = depRows.map((r: any) => {
-            const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
-            return {
-              ...raw,
-              id: r.id,
-              userId: r.user_id || raw.userId,
-              userName: r.user_name || raw.userName || 'Investisseur',
-              amount: Number(r.amount || raw.amount || 0),
-              operator: r.operator || r.method || raw.operator || 'Mobile Money',
-              method: r.method || raw.method || 'Mobile Money',
-              status: r.status || raw.status || 'pending',
-              receiptImage: r.receipt_image || r.proof_image || raw.receiptImage,
-              proofImage: r.proof_image || raw.proofImage || r.receipt_image,
-              reference: r.reference || raw.reference || `DEP-${r.id}`,
-              createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
-              approvedAt: r.approved_at ? new Date(r.approved_at).toISOString() : raw.approvedAt,
-              lastModified: Number(r.last_modified || raw.lastModified || Date.now())
-            };
-          });
-          // Sort: pending first, then by date descending
-          mapped.sort((a: any, b: any) => {
-            if (a.status === 'pending' && b.status !== 'pending') return -1;
-            if (a.status !== 'pending' && b.status === 'pending') return 1;
-            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-          });
-          return res.json({ success: true, deposits: mapped });
+          if (!depErr && Array.isArray(depRows)) {
+            supabaseDeps = depRows.map((r: any) => {
+              const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+              return {
+                ...raw,
+                id: r.id,
+                userId: r.user_id || raw.userId,
+                userName: r.user_name || raw.userName || 'Investisseur',
+                amount: Number(r.amount || raw.amount || 0),
+                operator: r.operator || r.method || raw.operator || 'Mobile Money',
+                method: r.method || raw.method || 'Mobile Money',
+                status: r.status || raw.status || 'pending',
+                credited: Boolean(r.status === 'approved' || raw.credited),
+                receiptImage: r.receipt_image || r.proof_image || raw.receiptImage,
+                proofImage: r.proof_image || raw.proofImage || r.receipt_image,
+                reference: r.reference || raw.reference || `DEP-${r.id}`,
+                createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+                approvedAt: r.approved_at ? new Date(r.approved_at).toISOString() : raw.approvedAt,
+                lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+              };
+            });
+          }
+        } catch (sbErr) {
+          console.warn("[ADMIN DEPOSITS] Supabase query warn:", sbErr);
         }
       }
-      // Fallback to storeData
-      let list = storeData["gi_deposits"] || [];
-      list = [...list].sort((a: any, b: any) => {
+
+      // Reconcile and merge with server memory storeData["gi_deposits"]
+      const localDeps = storeData["gi_deposits"] || [];
+      const depMap = new Map<string, any>();
+
+      // 1. Populate from local storeData
+      for (const d of localDeps) {
+        if (d && d.id) {
+          depMap.set(String(d.id).trim(), d);
+        }
+      }
+
+      // 2. Merge from Supabase deposits table (source of truth)
+      for (const d of supabaseDeps) {
+        if (!d || !d.id) continue;
+        const id = String(d.id).trim();
+        const existing = depMap.get(id);
+        if (!existing) {
+          depMap.set(id, d);
+        } else {
+          // If either is approved or rejected, preserve that status!
+          let finalStatus = d.status || existing.status;
+          if ((existing.status === 'approved' || existing.status === 'rejected') && d.status === 'pending') {
+            finalStatus = existing.status;
+          } else if ((d.status === 'approved' || d.status === 'rejected') && existing.status === 'pending') {
+            finalStatus = d.status;
+          }
+          depMap.set(id, {
+            ...existing,
+            ...d,
+            status: finalStatus,
+            credited: Boolean(existing.credited || d.credited || finalStatus === 'approved'),
+            approvedAt: existing.approvedAt || d.approvedAt
+          });
+        }
+      }
+
+      const mergedList = Array.from(depMap.values());
+      storeData["gi_deposits"] = mergedList;
+
+      // Sort: pending first, then by date descending
+      mergedList.sort((a: any, b: any) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (a.status !== 'pending' && b.status === 'pending') return 1;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
+
+      return res.json({ success: true, deposits: mergedList });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || String(e) });
+    }
+  });
+
+  // Fast direct deposits endpoint for users
+  app.get("/api/user/deposits", async (req, res) => {
+    try {
+      const userId = req.query.userId ? String(req.query.userId).trim() : null;
+      let list = storeData["gi_deposits"] || [];
+      if (userId) {
+        list = list.filter((d: any) => d.userId === userId);
+      }
+      list = [...list].sort((a: any, b: any) => {
         return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
       });
       return res.json({ success: true, deposits: list });
@@ -5803,10 +5909,11 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
 
       const client = getSupabaseAdminClient();
-      let targetDeposit: any = null;
+      let deposits = storeData["gi_deposits"] || [];
+      let targetDeposit = deposits.find((d: any) => String(d.id).trim() === String(depositId).trim());
 
-      // 1. Fetch deposit from Supabase deposits table first (source of truth)
-      if (client) {
+      // 1. If not found in memory, fetch from Supabase
+      if (!targetDeposit && client) {
         try {
           const { data: dbDep, error: dbDepErr } = await client
             .from('deposits')
@@ -5837,12 +5944,6 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
       }
 
-      // Fallback to storeData if not found in table
-      if (!targetDeposit) {
-        let deposits = storeData["gi_deposits"] || [];
-        targetDeposit = deposits.find((d: any) => String(d.id).trim() === String(depositId).trim());
-      }
-
       if (!targetDeposit) {
         return res.status(404).json({ success: false, message: 'Dépôt introuvable.' });
       }
@@ -5864,9 +5965,11 @@ const SERVER_DEFAULT_PRODUCTS = [
         const now = Date.now();
         const nowIso = new Date().toISOString();
 
-        // 2. Fetch authoritative user from Supabase users table
-        let targetUser: any = null;
-        if (client && targetUserId) {
+        // 2. Resolve target user from memory first (0ms), fallback to Supabase
+        let users = storeData["gi_users"] || [];
+        let targetUser = users.find((u: any) => String(u.id).trim() === targetUserId);
+
+        if (!targetUser && client && targetUserId) {
           try {
             const { data: dbUser, error: uErr } = await client
               .from('users')
@@ -5892,17 +5995,11 @@ const SERVER_DEFAULT_PRODUCTS = [
           }
         }
 
-        // Fallback to storeData users if not in table
-        if (!targetUser) {
-          let users = storeData["gi_users"] || [];
-          targetUser = users.find((u: any) => String(u.id).trim() === targetUserId);
-        }
-
         if (!targetUser) {
           return res.status(404).json({ success: false, message: 'Utilisateur associé à ce dépôt introuvable.' });
         }
 
-        // 3. Atomically update user balance and deposit status
+        // 3. Atomically update user balance and deposit status in memory
         const oldBalance = Number(targetUser.balance || 0);
         const oldTotalRecharged = Number(targetUser.totalRecharged || 0);
         const newBalance = oldBalance + depositAmount;
@@ -5917,45 +6014,7 @@ const SERVER_DEFAULT_PRODUCTS = [
         targetDeposit.approvedAt = nowIso;
         targetDeposit.lastModified = now;
 
-        // 4. Write directly to Supabase as single source of truth
-        if (client) {
-          try {
-            await Promise.all([
-              client.from('users').update({
-                balance: newBalance,
-                total_recharged: newTotalRecharged,
-                last_modified: now,
-                raw_data: {
-                  ...(targetUser.raw_data || {}),
-                  ...targetUser,
-                  balance: newBalance,
-                  totalRecharged: newTotalRecharged,
-                  lastModified: now
-                }
-              }).eq('id', targetUserId),
-
-              client.from('deposits').update({
-                status: 'approved',
-                approved_at: nowIso,
-                last_modified: now,
-                raw_data: {
-                  ...(targetDeposit.raw_data || {}),
-                  ...targetDeposit,
-                  status: 'approved',
-                  credited: true,
-                  approvedAt: nowIso,
-                  lastModified: now
-                }
-              }).eq('id', targetDeposit.id)
-            ]);
-            console.log(`[DEPOSIT APPROVED] Supabase updated: User ${targetUserId} balance credited by +${depositAmount} (New balance: ${newBalance})`);
-          } catch (dbErr: any) {
-            console.error('[DEPOSIT ACTION] Supabase update error:', dbErr?.message || dbErr);
-          }
-        }
-
-        // 5. Update in-memory storeData and local file
-        let deposits = storeData["gi_deposits"] || [];
+        // 4. Update in-memory storeData and local cache immediately
         const depIdx = deposits.findIndex((d: any) => String(d.id).trim() === String(targetDeposit.id).trim());
         if (depIdx !== -1) {
           deposits[depIdx] = { ...deposits[depIdx], ...targetDeposit };
@@ -5964,7 +6023,6 @@ const SERVER_DEFAULT_PRODUCTS = [
         }
         storeData["gi_deposits"] = deposits;
 
-        let users = storeData["gi_users"] || [];
         const uIdx = users.findIndex((u: any) => String(u.id).trim() === targetUserId);
         if (uIdx !== -1) {
           users[uIdx] = { ...users[uIdx], ...targetUser };
@@ -5990,12 +6048,46 @@ const SERVER_DEFAULT_PRODUCTS = [
 
         await saveStore(["gi_deposits", "gi_users", "gi_notifications"]);
 
-        // 6. Distribute MLM commissions automatically upon manual approval (FIRST RECHARGE ONLY)
-        try {
-          await distributeMlmCommissions(targetUserId, depositAmount, 'recharge', targetDeposit.operator || 'Manuel', targetDeposit.id);
-        } catch (mlmErr) {
-          console.error('[MLM ERROR ON APPROVE]', mlmErr);
+        // 5. Persist to Supabase in background / parallel
+        if (client) {
+          Promise.all([
+            client.from('users').update({
+              balance: newBalance,
+              total_recharged: newTotalRecharged,
+              last_modified: now,
+              raw_data: {
+                ...(targetUser.raw_data || {}),
+                ...targetUser,
+                balance: newBalance,
+                totalRecharged: newTotalRecharged,
+                lastModified: now
+              }
+            }).eq('id', targetUserId),
+
+            client.from('deposits').update({
+              status: 'approved',
+              approved_at: nowIso,
+              last_modified: now,
+              raw_data: {
+                ...(targetDeposit.raw_data || {}),
+                ...targetDeposit,
+                status: 'approved',
+                credited: true,
+                approvedAt: nowIso,
+                lastModified: now
+              }
+            }).eq('id', targetDeposit.id)
+          ]).then(() => {
+            console.log(`[DEPOSIT APPROVED] Supabase updated: User ${targetUserId} balance credited by +${depositAmount} (New balance: ${newBalance})`);
+          }).catch((dbErr: any) => {
+            console.error('[DEPOSIT ACTION] Supabase update error:', dbErr?.message || dbErr);
+          });
         }
+
+        // 6. Distribute MLM commissions in background
+        distributeMlmCommissions(targetUserId, depositAmount, 'recharge', targetDeposit.operator || 'Manuel', targetDeposit.id).catch(mlmErr => {
+          console.error('[MLM ERROR ON APPROVE]', mlmErr);
+        });
 
         // 7. Broadcast Realtime SSE events so all devices update instantly
         broadcastRealtimeEvent({ 
@@ -6030,8 +6122,8 @@ const SERVER_DEFAULT_PRODUCTS = [
         targetDeposit.lastModified = now;
 
         if (client) {
-          try {
-            await client.from('deposits').update({
+          Promise.resolve(
+            client.from('deposits').update({
               status: 'rejected',
               last_modified: now,
               raw_data: {
@@ -6040,10 +6132,10 @@ const SERVER_DEFAULT_PRODUCTS = [
                 status: 'rejected',
                 lastModified: now
               }
-            }).eq('id', targetDeposit.id);
-          } catch (dbErr: any) {
+            }).eq('id', targetDeposit.id)
+          ).catch((dbErr: any) => {
             console.error('[DEPOSIT REJECT] Supabase update error:', dbErr?.message || dbErr);
-          }
+          });
         }
 
         let deposits = storeData["gi_deposits"] || [];

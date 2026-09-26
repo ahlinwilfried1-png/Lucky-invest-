@@ -205,7 +205,19 @@ function mergeEntityArrays(storeList: any[], relationalList: any[], idField = 'i
       } else {
         // Relational SQL tables (deposits, users, withdrawals) are the single source of truth.
         // Incoming relational item fields strictly take precedence over existing JSON store records.
-        map.set(id, { ...existing, ...item });
+        let finalStatus = item.status || existing.status;
+        // Never allow reverting approved or rejected status to pending
+        if ((existing.status === 'approved' || existing.status === 'rejected') && item.status === 'pending') {
+          finalStatus = existing.status;
+        } else if ((item.status === 'approved' || item.status === 'rejected') && existing.status === 'pending') {
+          finalStatus = item.status;
+        }
+        map.set(id, {
+          ...existing,
+          ...item,
+          status: finalStatus,
+          credited: Boolean(item.credited || existing.credited || finalStatus === 'approved')
+        });
       }
     }
   }

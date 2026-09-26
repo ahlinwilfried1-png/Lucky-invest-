@@ -819,7 +819,7 @@ export default function Dashboard({
   const [showOldPwd, setShowOldPwd] = useState<boolean>(false);
   const [showNewPwd, setShowNewPwd] = useState<boolean>(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState<boolean>(false);
-  const [orderFilterTab, setOrderFilterTab] = useState<'all' | 'active' | 'completed'>('all');
+  const [orderFilterTab, setOrderFilterTab] = useState<'all' | 'active' | 'completed'>('active');
 
   useEffect(() => {
     setProfileSubPage(null);
@@ -2123,6 +2123,9 @@ export default function Dashboard({
     setIsSubmittingDeposit(true);
     try {
       let succeeded = false;
+      let returnedDeposit: any = null;
+      let returnedUser: any = null;
+
       try {
         const response = await apiFetch(getApiUrl('/api/create-deposit'), {
           method: 'POST',
@@ -2139,62 +2142,33 @@ export default function Dashboard({
         });
         if (response && response.ok) {
           const data = await response.json();
-          if (data && data.success) {
+          if (data && data.success && data.deposit) {
             succeeded = true;
+            returnedDeposit = data.deposit;
+            returnedUser = data.user;
           }
         }
       } catch (err) {
-        console.warn("[Tchin API failover] Server API failed, falling back to local/Supabase store:", err);
+        console.warn("[Tchin API] Server API request failed:", err);
       }
 
-      if (succeeded) {
+      if (succeeded && returnedDeposit) {
+        if (returnedUser) {
+          DataStore.saveCurrentUser(returnedUser);
+          setUserState(returnedUser);
+        }
+        const currentDeps = DataStore.getDeposits();
+        const filtered = currentDeps.filter(d => d.id !== returnedDeposit.id && d.reference !== returnedDeposit.reference);
+        DataStore.saveDeposits([returnedDeposit, ...filtered]);
+
         setDepositRedirectUrl('');
-        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! La passerelle de paiement sécurisée s'est ouverte automatiquement.`);
+        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée définitivement dans la base de données ! La passerelle de paiement sécurisée s'est ouverte automatiquement.`);
         syncDashboardData();
         if (typeof syncWithBackend === 'function') {
-          syncWithBackend().catch(() => {});
+          syncWithBackend(true).catch(() => {});
         }
       } else {
-        // --- CLIENT-SIDE FAILOVER STRATEGY ---
-        console.log("[Tchin Fallback] Executing direct deposit register...");
-        
-        const deposits = DataStore.getDeposits();
-        const users = DataStore.getUsers();
-        const user = users.find(u => u.id === userState.id);
-
-        const newDep = {
-          id: `dep-${Date.now()}`,
-          userId: userState.id,
-          userName: user ? user.name : (userState.name || 'Utilisateur'),
-          amount: amt,
-          operator: formattedOperator,
-          reference: reference,
-          receiptImage: 'tchin_link',
-          status: 'pending' as const,
-          lastModified: Date.now(),
-          createdAt: new Date().toISOString()
-        };
-
-        deposits.unshift(newDep);
-        DataStore.saveDeposits(deposits);
-        supabaseUpsertDeposit(newDep).catch(() => {});
-
-        const notifications = DataStore.getNotifications();
-        notifications.unshift({
-          id: `not-dep-${Date.now()}`,
-          userId: userState.id,
-          title: 'Dépôt soumis',
-          message: `Votre demande de dépôt de ${amt.toLocaleString()} F en ligne via Tchin Pay (Réf: ${reference}) est en cours de validation automatique.`,
-          type: 'deposit',
-          lastModified: Date.now(),
-          createdAt: new Date().toISOString(),
-          read: false
-        });
-        DataStore.saveNotifications(notifications);
-
-        setDepositRedirectUrl('');
-        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès ! La passerelle de paiement sécurisée s'est ouverte automatiquement.`);
-        syncDashboardData();
+        setDepositError("Impossible d'enregistrer la demande de recharge dans la base de données principale. Veuillez vérifier votre connexion et réessayer.");
       }
     } catch (error: any) {
       console.error("Payment deposit error:", error);
@@ -2462,21 +2436,7 @@ export default function Dashboard({
       return;
     }
 
-    // 2. Condition d'accès pour Bien-être : Stabilité VIP N payée obligatoire
-    if (product.category === 'wellbeing') {
-      const reqVipLevel = product.vipLevel || 1;
-      const accessCheck = DataStore.canUserAccessWellbeingProduct(userState.id, reqVipLevel);
-      if (!accessCheck.allowed) {
-        openAlert(
-          'Accès Non Autorisé',
-          accessCheck.reason || `Pour accéder au Bien-être VIP ${reqVipLevel}, vous devez obligatoirement avoir payé le plan Stabilité VIP ${reqVipLevel} correspondant.`,
-          'error'
-        );
-        return;
-      }
-    }
-
-    // 3. Paiement direct et ultra-rapide sans confirmation intermédiaire
+    // 2. Paiement direct et ultra-rapide sans confirmation intermédiaire
     try {
       setBuyingProductId(product.id);
       const res = await DataStore.buyProduct(userState.id, product.id);
@@ -3753,10 +3713,10 @@ export default function Dashboard({
 
             // 0. MES COMMANDES (DEDICATED FULL PAGE IN PORTEFEUILLE)
             if (profileSubPage === 'orders') {
-              const activeInvs = activeInvestments.filter(i => i.status === 'active');
-              const completedInvs = activeInvestments.filter(i => i.status === 'completed');
-              const totalInvested = activeInvestments.reduce((acc, i) => acc + (i.price || 0), 0);
-              const totalExpectedPayout = activeInvestments.reduce((acc, i) => {
+              const ongoingInvs = activeInvestments.filter(i => !(i.status === 'completed' || i.payoutCredited || (i.daysPassed || 0) >= (i.durationDays || 0)));
+              const completedInvs = activeInvestments.filter(i => (i.status === 'completed' || i.payoutCredited || (i.daysPassed || 0) >= (i.durationDays || 0)));
+              const totalInvested = ongoingInvs.reduce((acc, i) => acc + (i.price || 0), 0);
+              const totalExpectedPayout = ongoingInvs.reduce((acc, i) => {
                 const payout = (i as any).totalReturn || (i.price + ((i.dailyReturn || 0) * (i.durationDays || 0)));
                 return acc + payout;
               }, 0);
@@ -3789,7 +3749,7 @@ export default function Dashboard({
                             Suivi des Cycles d'Investissement
                           </h3>
                           <span className="text-[10px] sm:text-[11px] text-rose-200/90 font-medium">
-                            Revenus bloqués & versements à terme
+                            Évolutions en cours
                           </span>
                         </div>
                       </div>
@@ -3810,40 +3770,54 @@ export default function Dashboard({
                         <div className="bg-rose-950/60 rounded-xl p-2.5 border border-rose-800/40">
                           <span className="text-[9px] sm:text-[10px] text-rose-300 font-bold uppercase tracking-wider block">En Cours</span>
                           <span className="text-xs sm:text-sm font-black text-white font-mono block mt-0.5">
-                            {activeInvs.length} {activeInvs.length > 1 ? 'plans' : 'plan'}
+                            {ongoingInvs.length} {ongoingInvs.length > 1 ? 'plans' : 'plan'}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Orders List */}
+                    {/* Orders List: Ongoing cycles only */}
                     <div className="space-y-3">
-                      {activeInvestments.length === 0 ? (
+                      {ongoingInvs.length === 0 ? (
                         <div className="text-center py-10 px-4 rounded-2xl bg-white border border-rose-100 shadow-xs max-w-sm mx-auto space-y-3">
                           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
                             <ShoppingBag className="w-6 h-6 stroke-[1.75]" />
                           </div>
                           <div className="space-y-1">
                             <h4 className="font-bold text-slate-800 text-sm">
-                              Aucune commande enregistrée
+                              {completedInvs.length > 0 ? "Tous vos cycles sont terminés et versés" : "Aucune commande en cours"}
                             </h4>
                             <p className="text-[11px] sm:text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                              Vous n'avez pas encore d'équipement actif. Découvrez nos plans d'investissement pour générer des gains quotidiens.
+                              {completedInvs.length > 0 
+                                ? "Vos produits arrivés à échéance ont été versés avec succès sur votre solde. Vous pouvez démarrer un nouveau cycle ou consulter vos gains."
+                                : "Vous n'avez aucun cycle en cours. Découvrez nos forfaits d'investissement pour générer des gains."}
                             </p>
                           </div>
-                          <button
-                            onClick={() => {
-                              setProfileSubPage(null);
-                              setActiveTab('products');
-                            }}
-                            className="bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-xs cursor-pointer border-none mt-1"
-                          >
-                            Découvrir les Produits 🚀
-                          </button>
+                          <div className="flex flex-col sm:flex-row gap-2 justify-center pt-1">
+                            <button
+                              onClick={() => {
+                                setProfileSubPage(null);
+                                setActiveTab('products');
+                              }}
+                              className="bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-xs cursor-pointer border-none"
+                            >
+                              Découvrir les Produits 🚀
+                            </button>
+                            {completedInvs.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  setProfileSubPage('revenue-history');
+                                }}
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all cursor-pointer border-none"
+                              >
+                                Historique des gains 📜
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          {activeInvestments.map((inv) => (
+                          {ongoingInvs.map((inv) => (
                             <InvestmentItem 
                               key={inv.id}
                               investment={inv}
@@ -5408,7 +5382,7 @@ export default function Dashboard({
                     >
                       <span>{t('En cours', 'Active')}</span>
                       <span className="text-[10px] py-0.2 px-1.5 rounded-full bg-white/20 font-mono">
-                        {activeInvestments.filter(i => i.status === 'active' && (i.daysPassed || 0) < (i.durationDays || 0)).length}
+                        {activeInvestments.filter(i => !(i.status === 'completed' || i.payoutCredited || (i.daysPassed || 0) >= (i.durationDays || 0))).length}
                       </span>
                     </button>
 
@@ -5423,7 +5397,7 @@ export default function Dashboard({
                     >
                       <span>{t('Terminés', 'Completed')}</span>
                       <span className="text-[10px] py-0.2 px-1.5 rounded-full bg-white/20 font-mono">
-                        {activeInvestments.filter(i => i.status === 'completed' || (i.daysPassed || 0) >= (i.durationDays || 0)).length}
+                        {activeInvestments.filter(i => i.status === 'completed' || i.payoutCredited || (i.daysPassed || 0) >= (i.durationDays || 0)).length}
                       </span>
                     </button>
                   </div>
@@ -5476,14 +5450,14 @@ export default function Dashboard({
                       {categoriesList.map((cat) => {
                         const CatIcon = cat.icon;
                         const filteredItems = cat.items.filter((inv) => {
-                          const isDone = inv.status === 'completed' || (inv.daysPassed || 0) >= (inv.durationDays || 0);
+                          const isDone = inv.status === 'completed' || inv.payoutCredited || (inv.daysPassed || 0) >= (inv.durationDays || 0);
                           if (orderFilterTab === 'active') return !isDone;
                           if (orderFilterTab === 'completed') return isDone;
                           return true;
                         });
 
-                        const activeCount = cat.items.filter(i => i.status === 'active' && (i.daysPassed || 0) < (i.durationDays || 0)).length;
-                        const completedCount = cat.items.filter(i => i.status === 'completed' || (i.daysPassed || 0) >= (i.durationDays || 0)).length;
+                        const activeCount = cat.items.filter(i => !(i.status === 'completed' || i.payoutCredited || (i.daysPassed || 0) >= (i.durationDays || 0))).length;
+                        const completedCount = cat.items.filter(i => i.status === 'completed' || i.payoutCredited || (i.daysPassed || 0) >= (i.durationDays || 0)).length;
 
                         return (
                           <div key={cat.key} className="space-y-2.5">

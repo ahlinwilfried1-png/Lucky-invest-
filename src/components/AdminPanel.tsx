@@ -724,12 +724,14 @@ export default function AdminPanel({
               const depData = await depResp.json();
               if (depData && depData.success && Array.isArray(depData.deposits)) {
                 setDeposits(depData.deposits);
+                DataStore.saveDeposits(depData.deposits);
               }
             } else {
               // Fail-safe direct Supabase client query
               const directDeps = await supabaseGetDeposits();
               if (directDeps && directDeps.length > 0) {
                 setDeposits(directDeps);
+                DataStore.saveDeposits(directDeps);
               }
             }
           } catch (depErr) {
@@ -738,6 +740,7 @@ export default function AdminPanel({
               const directDeps = await supabaseGetDeposits();
               if (directDeps && directDeps.length > 0) {
                 setDeposits(directDeps);
+                DataStore.saveDeposits(directDeps);
               }
             } catch {}
           }
@@ -1409,9 +1412,36 @@ export default function AdminPanel({
   };
 
   // Finance events
+  // Finance events: Instant 0ms response time with optimistic UI updates
   const handleApproveDeposit = async (id: string) => {
     if (processingDepositIds[id]) return;
     setProcessingDepositIds(prev => ({ ...prev, [id]: true }));
+
+    // 1. INSTANT OPTIMISTIC UPDATE: 0ms visual feedback
+    const existingDep = deposits.find(d => d.id === id);
+    const now = Date.now();
+    const nowIso = new Date().toISOString();
+
+    setDeposits(prev => prev.map(d => d.id === id ? { ...d, status: 'approved' as const, approvedAt: nowIso, lastModified: now } : d));
+
+    if (existingDep && existingDep.userId) {
+      const amt = Number(existingDep.amount || 0);
+      setUsers(prev => prev.map(u => u.id === existingDep.userId ? {
+        ...u,
+        balance: (u.balance || 0) + amt,
+        totalRecharged: (u.totalRecharged || 0) + amt,
+        lastModified: now
+      } : u));
+    }
+
+    const allDeps = DataStore.getDeposits();
+    const dIdx = allDeps.findIndex(d => d.id === id);
+    if (dIdx !== -1) {
+      allDeps[dIdx] = { ...allDeps[dIdx], status: 'approved', approvedAt: nowIso, lastModified: now };
+      DataStore.saveDeposits(allDeps);
+    }
+
+    // 2. Server persistence in background
     try {
       const adminHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -1427,28 +1457,48 @@ export default function AdminPanel({
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
         if (data.deposit) {
-          setDeposits(prev => prev.map(d => d.id === data.deposit.id ? { ...d, ...data.deposit } : d));
+          const approvedDep = { ...data.deposit, status: 'approved' as const };
+          setDeposits(prev => prev.map(d => d.id === approvedDep.id ? { ...d, ...approvedDep } : d));
+          const currentDeps = DataStore.getDeposits();
+          const curIdx = currentDeps.findIndex(d => d.id === approvedDep.id);
+          if (curIdx !== -1) {
+            currentDeps[curIdx] = { ...currentDeps[curIdx], ...approvedDep };
+          } else {
+            currentDeps.unshift(approvedDep);
+          }
+          DataStore.saveDeposits(currentDeps);
         }
         if (data.user) {
           setUsers(prev => prev.map(u => u.id === data.user.id ? { ...u, ...data.user } : u));
-          const allUsers = DataStore.getUsers();
-          const uIdx = allUsers.findIndex(u => u.id === data.user.id);
+          const currentUsers = DataStore.getUsers();
+          const uIdx = currentUsers.findIndex(u => u.id === data.user.id);
           if (uIdx !== -1) {
-            allUsers[uIdx] = { ...allUsers[uIdx], ...data.user };
-            DataStore.saveUsers(allUsers);
+            currentUsers[uIdx] = { ...currentUsers[uIdx], ...data.user };
+            DataStore.saveUsers(currentUsers);
           }
           const curr = DataStore.getCurrentUser();
           if (curr && curr.id === data.user.id) {
             DataStore.saveCurrentUser({ ...curr, balance: data.user.balance, totalRecharged: data.user.totalRecharged });
           }
         }
-        await executeDirectCentralSync(true);
+        // Non-blocking background sync without freezing the UI
+        executeDirectCentralSync(false).catch(() => {});
       } else {
+        // Rollback optimistic update on failure
+        if (existingDep) {
+          setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
+          if (dIdx !== -1) {
+            allDeps[dIdx] = existingDep;
+            DataStore.saveDeposits(allDeps);
+          }
+        }
         alert(data?.message || "Erreur lors de l'approbation du dépôt.");
-        await executeDirectCentralSync(true);
       }
     } catch (e) {
       console.error("Failed server approval of deposit:", e);
+      if (existingDep) {
+        setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
+      }
     } finally {
       setProcessingDepositIds(prev => {
         const copy = { ...prev };
@@ -1461,6 +1511,21 @@ export default function AdminPanel({
   const handleRejectDeposit = async (id: string) => {
     if (processingDepositIds[id]) return;
     setProcessingDepositIds(prev => ({ ...prev, [id]: true }));
+
+    // 1. INSTANT OPTIMISTIC UPDATE: 0ms visual feedback
+    const existingDep = deposits.find(d => d.id === id);
+    const now = Date.now();
+
+    setDeposits(prev => prev.map(d => d.id === id ? { ...d, status: 'rejected' as const, lastModified: now } : d));
+
+    const allDeps = DataStore.getDeposits();
+    const dIdx = allDeps.findIndex(d => d.id === id);
+    if (dIdx !== -1) {
+      allDeps[dIdx] = { ...allDeps[dIdx], status: 'rejected', lastModified: now };
+      DataStore.saveDeposits(allDeps);
+    }
+
+    // 2. Server persistence in background
     try {
       const adminHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -1476,15 +1541,33 @@ export default function AdminPanel({
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
         if (data.deposit) {
-          setDeposits(prev => prev.map(d => d.id === data.deposit.id ? { ...d, ...data.deposit } : d));
+          const rejectedDep = { ...data.deposit, status: 'rejected' as const };
+          setDeposits(prev => prev.map(d => d.id === rejectedDep.id ? { ...d, ...rejectedDep } : d));
+          const currentDeps = DataStore.getDeposits();
+          const curIdx = currentDeps.findIndex(d => d.id === rejectedDep.id);
+          if (curIdx !== -1) {
+            currentDeps[curIdx] = { ...currentDeps[curIdx], ...rejectedDep };
+          } else {
+            currentDeps.unshift(rejectedDep);
+          }
+          DataStore.saveDeposits(currentDeps);
         }
-        await executeDirectCentralSync(true);
+        executeDirectCentralSync(false).catch(() => {});
       } else {
+        if (existingDep) {
+          setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
+          if (dIdx !== -1) {
+            allDeps[dIdx] = existingDep;
+            DataStore.saveDeposits(allDeps);
+          }
+        }
         alert(data?.message || "Erreur lors du rejet du dépôt.");
-        await executeDirectCentralSync(true);
       }
     } catch (e) {
       console.error("Failed server rejection of deposit:", e);
+      if (existingDep) {
+        setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
+      }
     } finally {
       setProcessingDepositIds(prev => {
         const copy = { ...prev };
@@ -1495,8 +1578,11 @@ export default function AdminPanel({
   };
 
   const handleApproveWithdrawal = async (id: string) => {
+    // 1. Instant optimistic local update
     DataStore.approveWithdrawal(id);
     syncLocalStates();
+
+    // 2. Server persistence in background
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/withdrawal-action'), {
         method: 'POST',
@@ -1504,7 +1590,7 @@ export default function AdminPanel({
         body: JSON.stringify({ withdrawalId: id, action: 'approve' })
       });
       if (resp.ok) {
-        await executeDirectCentralSync();
+        executeDirectCentralSync(false).catch(() => {});
       }
     } catch (e) {
       console.error("Failed server approval of withdrawal:", e);
@@ -1512,8 +1598,11 @@ export default function AdminPanel({
   };
 
   const handleRejectWithdrawal = async (id: string) => {
+    // 1. Instant optimistic local update
     DataStore.rejectWithdrawal(id);
     syncLocalStates();
+
+    // 2. Server persistence in background
     try {
       const resp = await apiFetch(getApiUrl('/api/admin/withdrawal-action'), {
         method: 'POST',
@@ -1521,7 +1610,7 @@ export default function AdminPanel({
         body: JSON.stringify({ withdrawalId: id, action: 'reject' })
       });
       if (resp.ok) {
-        await executeDirectCentralSync();
+        executeDirectCentralSync(false).catch(() => {});
       }
     } catch (e) {
       console.error("Failed server rejection of withdrawal:", e);
@@ -3404,13 +3493,6 @@ export default function AdminPanel({
                   </div>
                 </div>
 
-                {/* Information Card confirming investments guarantee */}
-                <div className="bg-slate-950/35 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-slate-400 shadow-xs">
-                  <span className="text-amber-400 text-sm leading-none mt-0.5">ℹ️</span>
-                  <p className="text-[11.5px] leading-relaxed">
-                    <strong className="text-slate-200">Règle Bien-être :</strong> Lorsqu’un utilisateur achète un produit, son revenu total est versé uniquement à la fin du cycle. Même si le produit est ensuite fermé aux nouveaux achats, les produits déjà achetés continuent leur cycle normalement et le revenu total est versé à la fin du cycle. Une fois le cycle terminé, pour faire un nouveau Bien-être, l’utilisateur doit effectuer un nouvel investissement/achat pour démarrer un nouveau cycle. La fermeture concerne uniquement les nouveaux achats et n'interrompt jamais les cycles en cours.
-                  </p>
-                </div>
               </div>
             );
           })()}
@@ -3507,13 +3589,6 @@ export default function AdminPanel({
                   </div>
                 </div>
 
-                {/* Information Card confirming investments guarantee */}
-                <div className="bg-slate-950/35 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-slate-400 shadow-xs">
-                  <span className="text-purple-400 text-sm leading-none mt-0.5">ℹ️</span>
-                  <p className="text-[11.5px] leading-relaxed">
-                    <strong className="text-slate-200">Règle Activité :</strong> Lorsqu’un utilisateur achète un produit, son revenu total est versé uniquement à la fin du cycle. Même si le produit est ensuite fermé aux nouveaux achats, les produits déjà achetés continuent leur cycle normalement et le revenu total est versé à la fin du cycle. Une fois le cycle terminé, pour faire une nouvelle Activité, l’utilisateur doit effectuer un nouvel investissement/achat pour démarrer un nouveau cycle. La fermeture concerne uniquement les nouveaux achats et n'interrompt jamais les cycles en cours.
-                  </p>
-                </div>
               </div>
             );
           })()}

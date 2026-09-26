@@ -459,8 +459,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
   }
   let isRetried = false;
 
-  const hasPre = activeUrl.includes('-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
-  const hasDev = activeUrl.includes('-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
+  const hasPre = activeUrl.includes('-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app') || activeUrl.includes('-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
+  const hasDev = activeUrl.includes('-dev-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app') || activeUrl.includes('-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app');
   const isSyncEndpoint = activeUrl.includes('/api/get-store') || activeUrl.includes('/api/save-store');
   const isSendavaPay = activeUrl.includes('/sendavapay');
 
@@ -495,8 +495,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
     if ((!response.ok || contentType.includes('text/html')) && (hasPre || hasDev) && !isRetried) {
       isRetried = true;
       const fallbackHost = hasPre 
-        ? 'https://ais-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app'
-        : 'https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app';
+        ? 'https://ais-dev-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app'
+        : 'https://ais-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app';
       
       try {
         let parsedUrl: URL;
@@ -522,21 +522,11 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
       }
     }
 
-    // For SendavaPay, return the response directly as long as it is not a Google proxy HTML page
-    if (isSendavaPay && !contentType.includes('text/html')) {
-      return response;
-    }
-
-    // If the response is protected by google proxy or returned as text/html from unhandled errors,
-    // protect the caller from trying to parse HTML as JSON.
-    if ((response.ok || !isSyncEndpoint) && !response.redirected && !contentType.includes('text/html')) {
+    // Always return valid JSON responses (even on HTTP errors) so callers receive real server messages
+    if (!contentType.includes('text/html')) {
       return response;
     } else {
-      if (contentType.includes('text/html')) {
-        console.warn(`[apiFetch] Received HTML from API call for URL: ${url}. Triggering local fallback to prevent JSON parsing error.`);
-      } else {
-        console.warn(`[apiFetch] API call returned non-OK status: ${response.status} for URL: ${url}. Triggering fallback.`);
-      }
+      console.warn(`[apiFetch] Received HTML from API call for URL: ${url}. Triggering fallback check.`);
     }
   } catch (error) {
     console.warn(`[apiFetch] API fetch threw error: ${error instanceof Error ? error.message : String(error)} for URL: ${url}. Triggering failover check.`);
@@ -545,8 +535,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
     if ((hasPre || hasDev) && !isRetried) {
       isRetried = true;
       const fallbackHost = hasPre 
-        ? 'https://ais-dev-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app'
-        : 'https://ais-pre-gymdtdpbwifj6pqjbdravq-473372860465.europe-west1.run.app';
+        ? 'https://ais-dev-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app'
+        : 'https://ais-pre-wax3ctm5ycravc7jfp2zxd-473372860465.europe-west1.run.app';
       
       try {
         let parsedUrl: URL;
@@ -565,7 +555,7 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
         const response = await fetch(fallbackUrl, fetchOptions);
         const contentType = response.headers.get('content-type') || "";
         
-        if ((response.ok || !isSyncEndpoint || isSendavaPay) && !contentType.includes('text/html')) {
+        if (!contentType.includes('text/html')) {
           try {
             localStorage.setItem('gi_custom_backend_url', fallbackHost);
           } catch (e) {}
@@ -778,8 +768,8 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // Reject with status 400 for specific endpoints to trigger client-side local fallback flow
-  return new Response(JSON.stringify({ success: false, message: "Use local database fallback" }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  // Reject unhandled offline requests with 503 Service Unavailable
+  return new Response(JSON.stringify({ success: false, message: "Serveur de base de données temporairement inaccessible." }), { status: 503, headers: { 'Content-Type': 'application/json' } });
 }
 
 export const dispatchStoreUpdated = () => {
@@ -860,6 +850,12 @@ export const setToStore = <T>(key: string, value: T): void => {
 
     // Dispatch event safely deferred for other views/components to react immediately in real-time
     dispatchStoreUpdated();
+
+    // For gi_deposits: DO NOT push full array to save-store or Supabase direct store!
+    // Deposits are centrally created via /api/create-deposit and managed via /api/admin/deposit-action.
+    if (key === 'gi_deposits') {
+      return;
+    }
 
     // Asynchronously send update to central Express database or KVdb
     let userId = '';
@@ -1206,6 +1202,23 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
                         mergedMap.set(idStr, mergedUser);
                         localHasNewItems = true;
                       }
+                    } else if (key === "gi_deposits") {
+                      // Status must never revert from approved/rejected to pending!
+                      let finalStatus = existingItem.status || item.status || 'pending';
+                      if ((existingItem.status === 'approved' || existingItem.status === 'rejected') && item.status === 'pending') {
+                        finalStatus = existingItem.status;
+                      } else if ((item.status === 'approved' || item.status === 'rejected') && existingItem.status === 'pending') {
+                        finalStatus = item.status;
+                      }
+                      const useIncoming = incomingTime > existingTime;
+                      const base = useIncoming ? item : existingItem;
+                      mergedMap.set(idStr, {
+                        ...base,
+                        status: finalStatus,
+                        credited: Boolean(base.credited || existingItem.credited || item.credited || finalStatus === 'approved'),
+                        approvedAt: existingItem.approvedAt || item.approvedAt || base.approvedAt,
+                        lastModified: Math.max(existingTime, incomingTime)
+                      });
                     } else {
                       if (incomingTime >= existingTime) {
                         if (JSON.stringify(existingItem) !== JSON.stringify(item)) {
@@ -1231,7 +1244,8 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
             }
             
             // If local storage had newer items that the server didn't have, push merged updates to server asynchronously
-            if (localHasNewItems) {
+            // Exclude gi_deposits: deposits are strictly managed via /api/create-deposit and /api/admin/deposit-action
+            if (localHasNewItems && key !== 'gi_deposits') {
               console.log(`[CLIENT SYNC] Client has newer local changes for key "${key}". Pushing merged changes to server...`);
               apiFetch(getApiUrl('/api/save-store'), {
                 method: 'POST',
@@ -1686,7 +1700,8 @@ export class DataStore {
   }
 
   static saveDeposits(deposits: Deposit[]): void {
-    setToStore<Deposit[]>('gi_deposits', deposits);
+    setToStoreLocalOnly<Deposit[]>('gi_deposits', deposits);
+    dispatchStoreUpdated();
   }
 
   static getWithdrawals(): Withdrawal[] {
@@ -2664,133 +2679,87 @@ export class DataStore {
     return { success: true, user: newUser, message: 'Inscription réussie.' };
   }
 
-  // Deposit logic
+  // Deposit logic - Authoritative Main Database Only (No local fallback)
   static async createDeposit(userId: string, amount: number, operator: string, reference: string, receiptImage: string): Promise<Deposit> {
-    try {
-      const response = await apiFetch(getApiUrl('/api/create-deposit'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, amount, operator, reference, receiptImage })
-      });
-      if (response.ok) {
-        const res = await response.json();
-        if (res.success && res.deposit) {
-          if (res.user) {
-            this.saveCurrentUser(res.user);
+    const payload = { userId, amount, operator, reference, receiptImage };
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await apiFetch(getApiUrl('/api/create-deposit'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+          const res = await response.json();
+          if (res.success && res.deposit) {
+            if (res.user) {
+              this.saveCurrentUser(res.user);
+            }
+            // Update local memory & storage cleanly without broadcasting full array overwrite
+            const currentDeps = this.getDeposits();
+            const filtered = currentDeps.filter(d => d.id !== res.deposit.id && d.reference !== res.deposit.reference);
+            setToStoreLocalOnly('gi_deposits', [res.deposit, ...filtered]);
+            dispatchStoreUpdated();
+            
+            // Add user notification locally if not already present
+            const notifications = this.getNotifications();
+            if (!notifications.some(n => n.id === `not-dep-${res.deposit.id}`)) {
+              notifications.unshift({
+                id: `not-dep-${res.deposit.id}`,
+                userId,
+                title: 'Dépôt soumis',
+                message: `Votre demande de dépôt de ${amount.toLocaleString()} XOF via ${operator} (Réf: ${reference}) est enregistrée définitivement et en attente de vérification par l'administration.`,
+                type: 'deposit',
+                createdAt: new Date().toISOString(),
+                read: false
+              });
+              setToStoreLocalOnly('gi_notifications', notifications);
+            }
+
+            return res.deposit;
+          } else {
+            lastError = new Error(res.message || res.error || "Échec de l'enregistrement du dépôt.");
           }
-          supabaseUpsertDeposit(res.deposit).catch(() => {});
-          await syncWithBackend();
-          return res.deposit;
+        } else {
+          const errData = await response.json().catch(() => null);
+          lastError = new Error(errData?.error || errData?.message || `Erreur serveur (${response.status})`);
         }
+      } catch (err: any) {
+        lastError = err;
       }
-    } catch (error) {
-      console.error('Create deposit API error, using local fallback:', error);
+      if (attempt === 0) {
+        await new Promise(r => setTimeout(r, 600));
+      }
     }
 
-    const deposits = this.getDeposits();
-    const users = this.getUsers();
-    const user = users.find(u => u.id === userId);
-
-    const newDep: Deposit = {
-      id: `dep-${Date.now()}`,
-      userId,
-      userName: user ? user.name : 'Utilisateur',
-      amount,
-      operator,
-      reference,
-      receiptImage,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    deposits.unshift(newDep);
-    this.saveDeposits(deposits);
-    supabaseUpsertDeposit(newDep).catch(() => {});
-
-    // Add user notification
-    const notifications = this.getNotifications();
-    notifications.unshift({
-      id: `not-dep-${Date.now()}`,
-      userId,
-      title: 'Dépôt soumis',
-      message: `Votre demande de dépôt de ${amount.toLocaleString()} XOF via ${operator} (Réf: ${reference}) est en cours de vérification par l'administration.`,
-      type: 'deposit',
-      createdAt: new Date().toISOString(),
-      read: false
-    });
-    this.saveNotifications(notifications);
-
-    return newDep;
+    throw lastError || new Error("Impossible d'enregistrer le dépôt dans la base de données principale. Veuillez réessayer.");
   }
 
   static async createAutomaticDeposit(userId: string, amount: number, operator: string): Promise<Deposit> {
     const randomHex = Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase();
     const reference = `SPY-${randomHex}`;
 
-    try {
-      const response = await apiFetch(getApiUrl('/api/create-deposit'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, amount, operator, reference, receiptImage: 'automated' })
-      });
-      if (response.ok) {
-        const res = await response.json();
-        if (res.success && res.deposit) {
-          if (res.user) {
-            this.saveCurrentUser(res.user);
-          }
-          await syncWithBackend();
-          return res.deposit;
-        }
-      }
-    } catch (error) {
-      console.error('Create automatic deposit API error, using local fallback:', error);
-    }
-
-    const deposits = this.getDeposits();
-    const users = this.getUsers();
-    const user = users.find(u => u.id === userId);
-
-    const newDep: Deposit = {
-      id: `dep-${Date.now()}`,
-      userId,
-      userName: user ? user.name : 'Utilisateur',
-      amount,
-      operator,
-      reference,
-      receiptImage: 'automated',
-      status: 'approved',
-      createdAt: new Date().toISOString()
-    };
-
-    deposits.unshift(newDep);
-    this.saveDeposits(deposits);
-
-    if (user) {
-      user.balance += amount;
-      this.saveUsers(users);
-
-      const cached = this.getCurrentUser();
-      if (cached && cached.id === userId) {
-        cached.balance = user.balance;
-        this.saveCurrentUser(cached);
-      }
-    }
-
-    // Add user notification
-    const notifications = this.getNotifications();
-    notifications.unshift({
-      id: `not-dep-${Date.now()}`,
-      userId,
-      title: 'Dépôt approved automatiquement',
-      message: `Votre versement de ${amount.toLocaleString()} XOF via SoinaPay (Réf: ${reference}) a été crédité instantanément et automatiquement.`,
-      type: 'deposit',
-      createdAt: new Date().toISOString(),
-      read: false
+    const response = await apiFetch(getApiUrl('/api/create-deposit'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, amount, operator, reference, receiptImage: 'automated' })
     });
-    this.saveNotifications(notifications);
-
-    return newDep;
+    if (response.ok) {
+      const res = await response.json();
+      if (res.success && res.deposit) {
+        if (res.user) {
+          this.saveCurrentUser(res.user);
+        }
+        const currentDeps = this.getDeposits();
+        const filtered = currentDeps.filter(d => d.id !== res.deposit.id && d.reference !== res.deposit.reference);
+        setToStoreLocalOnly('gi_deposits', [res.deposit, ...filtered]);
+        dispatchStoreUpdated();
+        return res.deposit;
+      }
+    }
+    throw new Error("Échec de la validation automatique du dépôt.");
   }
 
   static async createSoinaPayDeposit(userId: string, amount: number, reference: string, operator: string = 'SoinaPay'): Promise<Deposit | null> {
@@ -2806,7 +2775,10 @@ export class DataStore {
           if (res.user) {
             this.saveCurrentUser(res.user);
           }
-          await syncWithBackend();
+          const currentDeps = this.getDeposits();
+          const filtered = currentDeps.filter(d => d.id !== res.deposit.id && d.reference !== res.deposit.reference);
+          setToStoreLocalOnly('gi_deposits', [res.deposit, ...filtered]);
+          dispatchStoreUpdated();
           return res.deposit;
         } else {
           return null;
@@ -2831,65 +2803,16 @@ export class DataStore {
           if (res.user) {
             this.saveCurrentUser(res.user);
           }
-          await syncWithBackend();
+          const currentDeps = this.getDeposits();
+          const filtered = currentDeps.filter(d => d.id !== res.deposit.id && d.reference !== res.deposit.reference);
+          setToStoreLocalOnly('gi_deposits', [res.deposit, ...filtered]);
+          dispatchStoreUpdated();
           return res.deposit;
-        } else {
-          // If server actively returned false (such as duplicate transaction), do not fallback locally!
-          return null;
         }
       }
     } catch (error) {
-      console.error('Create WestPay deposit API error, using local fallback:', error);
+      console.error('Create WestPay deposit API error:', error);
     }
-
-    const deposits = this.getDeposits();
-    if (deposits.some(d => d.reference === reference)) {
-      return null; // Already processed
-    }
-
-    const users = this.getUsers();
-    const user = users.find(u => u.id === userId);
-
-    const newDep: Deposit = {
-      id: `dep-${Date.now()}`,
-      userId,
-      userName: user ? user.name : 'Utilisateur',
-      amount,
-      operator,
-      reference,
-      receiptImage: 'automated_westpay',
-      status: 'approved',
-      createdAt: new Date().toISOString()
-    };
-
-    deposits.unshift(newDep);
-    this.saveDeposits(deposits);
-
-    if (user) {
-      user.balance += amount;
-      this.saveUsers(users);
-
-      const cached = this.getCurrentUser();
-      if (cached && cached.id === userId) {
-        cached.balance = user.balance;
-        this.saveCurrentUser(cached);
-      }
-    }
-
-    // Add user notification
-    const notifications = this.getNotifications();
-    notifications.unshift({
-      id: `not-dep-wp-${Date.now()}`,
-      userId,
-      title: 'Dépôt Automatique',
-      message: `Votre versement de ${amount.toLocaleString()} XOF (Réf: ${reference}) a été crédité instantanément et automatiquement à 100%.`,
-      type: 'deposit',
-      createdAt: new Date().toISOString(),
-      read: false
-    });
-    this.saveNotifications(notifications);
-
-    return newDep;
   }
 
   // Withdrawal logic
@@ -3005,26 +2928,8 @@ export class DataStore {
     return { success: true, withdrawal: newWth };
   }
 
-  // Vérifie si l'utilisateur a payé le niveau Stabilité correspondant avant d'accéder au Bien-être
-  static canUserAccessWellbeingProduct(userId: string, targetVipLevel: number): { allowed: boolean; reason?: string } {
-    const userInvs = this.getInvestments().filter(i => i.userId === userId);
-    const products = this.getProducts();
-
-    // Cherche un produit Stabilité payé correspondant au même niveau VIP
-    const hasPaidStabilityLevel = userInvs.some(inv => {
-      const prod = products.find(p => p.id === inv.productId);
-      const isStability = inv.category === 'stability' || prod?.category === 'stability' || (!inv.category && !inv.productName.toLowerCase().includes('bien-être'));
-      if (!isStability) return false;
-      const vip = prod?.vipLevel ?? inv.vipLevel ?? 1;
-      return Number(vip) === Number(targetVipLevel);
-    });
-
-    if (!hasPaidStabilityLevel) {
-      return {
-        allowed: false,
-        reason: `Accès refusé : Pour investir dans le produit Bien-être VIP ${targetVipLevel}, vous devez obligatoirement avoir payé le plan Stabilité VIP ${targetVipLevel} correspondant.`
-      };
-    }
+  // Accès libre aux produits Bien-être sans condition de Stabilité
+  static canUserAccessWellbeingProduct(_userId: string, _targetVipLevel: number): { allowed: boolean; reason?: string } {
     return { allowed: true };
   }
 
@@ -3102,22 +3007,13 @@ export class DataStore {
       return { success: false, message: 'Votre solde est insuffisant. Veuillez effectuer un investissement/rechargement avant d’activer un produit.' };
     }
 
-    // Règle d'accès technique pour les produits Bien-être:
-    // Stabilité VIP N payée obligatoire pour accéder au Bien-être VIP N
+    // Disponibilité pour les produits Bien-être
     if (targetProduct.category === 'wellbeing') {
       const scheduleStatus = this.isCategoryOpen('wellbeing');
       if (!scheduleStatus.isOpen) {
         return {
           success: false,
           message: scheduleStatus.reason || 'Ce produit est actuellement indisponible à l’achat.'
-        };
-      }
-
-      const accessCheck = this.canUserAccessWellbeingProduct(userId, targetProduct.vipLevel || 1);
-      if (!accessCheck.allowed) {
-        return {
-          success: false,
-          message: accessCheck.reason || `Vous devez d'abord payer le plan Stabilité VIP ${targetProduct.vipLevel} correspondant.`
         };
       }
     }

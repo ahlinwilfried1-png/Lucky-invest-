@@ -119,91 +119,56 @@ export const InvestmentItem: React.FC<InvestmentItemProps> = ({ investment }) =>
         </div>
       </div>
 
-      {/* 2. Suivi Détaillé de l'Évolution / Progression du Produit */}
-      <div className="space-y-2 bg-[#08101e] rounded-xl p-3 border border-white/[0.03]">
-        {/* Progression Header with Percentage and Days Count */}
-        <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider">
-          <span className="text-slate-300 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>{t('Progression du cycle', 'Cycle progression')}</span>
-          </span>
-          <div className="flex items-center gap-2 font-mono">
-            <span className="text-slate-400 font-semibold text-[11px]">
-              {daysPassed} / {duration} {t('jours', 'days')}
-            </span>
-            <span className="text-amber-300 font-black text-xs bg-amber-400/10 px-2 py-0.5 rounded">
-              {totalProgressPercent}%
-            </span>
+      {/* 2. Suivi de l'Évolution / Progression du Produit (disparaît une fois terminé et versé) */}
+      {isCompleted ? (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-2.5 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="text-emerald-300 font-bold">{t('Cycle terminé & montant total versé', 'Cycle completed & total amount paid')}</span>
           </div>
+          <span className="font-mono font-black text-emerald-400 text-xs sm:text-sm">+{totalExpectedPayout.toLocaleString()} F</span>
         </div>
-
-        {/* Visual Multi-step Progress Bar */}
-        <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden p-0.5 relative">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${
-              isCompleted
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                : 'bg-gradient-to-r from-amber-500 to-yellow-400'
-            }`}
-            style={{ width: `${totalProgressPercent}%` }}
-          />
-        </div>
-
-        {/* Status note below progress bar */}
-        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-          <span>
-            {isCompleted ? (
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" />
-                {t('Cycle de rendement atteint à 100%', 'Yield cycle 100% reached')}
+      ) : (
+        <div className="space-y-2 bg-[#08101e] rounded-xl p-3 border border-white/[0.03]">
+          {/* Progression Header with Percentage and Days Count */}
+          <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider">
+            <span className="text-slate-300 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>{t('Progression du cycle', 'Cycle progression')}</span>
+            </span>
+            <div className="flex items-center gap-2 font-mono">
+              <span className="text-slate-400 font-semibold text-[11px]">
+                {daysPassed} / {duration} {t('jours', 'days')}
               </span>
-            ) : (
+              <span className="text-amber-300 font-black text-xs bg-amber-400/10 px-2 py-0.5 rounded">
+                {totalProgressPercent}%
+              </span>
+            </div>
+          </div>
+
+          {/* Visual Multi-step Progress Bar */}
+          <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden p-0.5 relative">
+            <div
+              className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-amber-500 to-yellow-400"
+              style={{ width: `${totalProgressPercent}%` }}
+            />
+          </div>
+
+          {/* Status note below progress bar */}
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+            <span>
               <span className="text-amber-300/80 font-medium">
                 ⏳ {daysRemaining} {t('jour(s) restant(s) pour achever le cycle', 'day(s) remaining to complete cycle')}
               </span>
-            )}
-          </span>
-          <span className="text-slate-400 font-medium">
-            {isCompleted 
-              ? t('Revenu total versé', 'Total return paid') 
-              : (isWellbeing || isActivity)
-              ? t('Revenu total versé uniquement à la fin du cycle', 'Total return paid only at end of cycle')
-              : t('Gain versé quotidiennement', 'Gain paid daily')}
-          </span>
-        </div>
-
-        {/* Notice explicative sur les règles du cycle Bien-être / Activité / Stabilité */}
-        {(isWellbeing || isActivity || isCompleted) && (
-          <div className="rounded-xl bg-[#0a1426] p-2.5 border border-amber-400/20 text-[11px] text-slate-300 flex items-start gap-2">
-            <span className="text-amber-400 shrink-0 text-xs mt-0.5">{isCompleted ? '✅' : 'ℹ️'}</span>
-            {isCompleted ? (
-              <div className="leading-relaxed space-y-1 w-full">
-                <p>
-                  <strong className="text-emerald-400">{t('Cycle terminé avec succès :', 'Cycle successfully completed:')}</strong>{' '}
-                  {t(
-                    'Le montant total du revenu a été versé sur votre solde. Ce produit est désormais terminé et archivé dans votre historique de commandes.',
-                    'The total return has been credited to your balance. This product cycle is now completed and recorded in your order history.'
-                  )}
-                </p>
-                <p className="text-[10px] text-amber-300/90">
-                  {t(
-                    '💡 Pour démarrer un nouveau cycle, vous devez effectuer un nouvel achat/investissement.',
-                    '💡 To start a new cycle, you must make a new purchase/investment.'
-                  )}
-                </p>
-              </div>
-            ) : (
-              <p className="leading-relaxed">
-                <strong className="text-amber-300">{t('Règle du cycle :', 'Cycle rule:')}</strong>{' '}
-                {t(
-                  'Le revenu total est versé uniquement à la fin du cycle. Même si ce produit est fermé aux nouveaux achats, votre cycle continue normalement et le montant total vous sera versé à la fin.',
-                  'Total earnings are paid only at the end of the cycle. Even if this product is closed to new purchases, your cycle continues normally and the full amount will be paid at the end.'
-                )}
-              </p>
-            )}
+            </span>
+            <span className="text-slate-400 font-medium">
+              {(isWellbeing || isActivity)
+                ? t('Revenu total versé uniquement à la fin du cycle', 'Total return paid only at end of cycle')
+                : t('Gain versé quotidiennement', 'Gain paid daily')}
+            </span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 3. Grille d'Évolution Financière (Investi, Gain Quotidien, Déjà généré, Total prévu) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left">
