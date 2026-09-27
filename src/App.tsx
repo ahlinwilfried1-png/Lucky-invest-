@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import HistoriquePage from './components/HistoriquePage';
 import { User, Product } from './types';
 import { DataStore, syncWithBackend, safeLocalStorage } from './dataStore';
+import { subscribeToSupabaseRealtime } from './supabase';
 
 export default function App() {
   // Navigation Path & URL Syncing
@@ -27,7 +28,7 @@ export default function App() {
     setCurrentPath(path);
   };
 
-  // Periodic background synchronization with central server
+  // Periodic background synchronization with central server & direct Supabase Realtime
   useEffect(() => {
     const handleStoreUpdated = () => {
       const active = DataStore.getCurrentUser();
@@ -54,12 +55,18 @@ export default function App() {
     // Run sync immediately on mount
     performSync();
 
+    // Active Supabase Realtime listener to reflect admin approvals/updates instantaneously
+    const unsubSupabase = subscribeToSupabaseRealtime((table) => {
+      performSync();
+    });
+
     // Poll every 3 seconds to fetch new users, deposits, and status modifications
     const interval = setInterval(performSync, 3000);
 
     window.addEventListener('gi_store_updated', handleStoreUpdated);
 
     return () => {
+      unsubSupabase();
       clearInterval(interval);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
     };

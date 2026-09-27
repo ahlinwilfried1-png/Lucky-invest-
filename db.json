@@ -11,7 +11,7 @@
       "whatsapp": "+237600000000",
       "createdAt": "2026-09-04T07:23:51.262Z",
       "isBlocked": false,
-      "lastModified": 1790407711250,
+      "lastModified": 1790493008665,
       "referralCode": "72AGR",
       "checkInStreak": 1,
       "dailyEarnings": 180,
@@ -37,7 +37,7 @@
       "createdAt": "2026-09-06T09:59:40.049Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "83DFW",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -55,20 +55,20 @@
       "device": "iPhone",
       "balance": 5000,
       "country": "Togo",
+      "credited": false,
       "password": "123456",
       "whatsapp": "+22870903319",
       "createdAt": "2026-09-06T09:59:40.155Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "80SET",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1788687193755",
@@ -78,20 +78,20 @@
       "device": "Android",
       "balance": 5000,
       "country": "Togo",
+      "credited": false,
       "password": "123456",
       "whatsapp": "+22897145409",
       "createdAt": "2026-09-06T09:59:40.282Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "87VHA",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1788691110265",
@@ -101,20 +101,20 @@
       "device": "iPhone",
       "balance": 200,
       "country": "Togo",
+      "credited": false,
       "password": "Merloo",
       "whatsapp": "+228970903319",
       "createdAt": "2026-09-06T10:38:30.265Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "49TGT",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1788772165789",
@@ -124,13 +124,14 @@
       "device": "iPhone",
       "balance": 200,
       "country": "Togo",
+      "credited": false,
       "password": "123456",
       "whatsapp": "+22897783067",
       "createdAt": "2026-09-07T09:09:25.789Z",
       "isBlocked": false,
       "referredBy": "u-admin",
       "bankCardName": "Merlo Willy",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "75NTC",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -139,8 +140,7 @@
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
       "bankCardOperator": "Moov Money",
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1788855342924",
@@ -150,20 +150,20 @@
       "device": "Android",
       "balance": 200,
       "country": "Cameroun",
+      "credited": false,
       "password": "55555y",
       "whatsapp": "+237655555555",
       "createdAt": "2026-09-08T08:15:42.924Z",
       "isBlocked": false,
       "referredBy": "u-1788772165789",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "64WRT",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1789203373696",
@@ -173,13 +173,14 @@
       "device": "iPhone",
       "balance": 1000,
       "country": "Togo",
+      "credited": false,
       "password": "123456",
       "whatsapp": "+22897783065",
       "createdAt": "2026-09-12T08:56:13.696Z",
       "isBlocked": false,
       "referredBy": "u-admin",
       "bankCardName": "Merlo",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "61DIF",
       "dailyEarnings": 0,
       "totalEarnings": 0,
@@ -188,8 +189,7 @@
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
       "bankCardOperator": "T-Money (TG)",
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1789205775553",
@@ -199,20 +199,20 @@
       "device": "iPhone",
       "balance": 0,
       "country": "Togo",
+      "credited": false,
       "password": "123456",
       "whatsapp": "+22870903318",
       "createdAt": "2026-09-12T09:36:15.553Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "28XUE",
       "dailyEarnings": 180,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1789226922120",
@@ -222,20 +222,20 @@
       "device": "Android",
       "balance": 200,
       "country": "Côte d’Ivoire",
+      "credited": false,
       "password": "lemessi",
       "whatsapp": "+225152261631",
       "createdAt": "2026-09-12T15:28:42.120Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "77EQW",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1789374638013",
@@ -268,20 +268,20 @@
       "device": "Android",
       "balance": 5000,
       "country": "Togo",
+      "credited": false,
       "password": "00000000",
       "whatsapp": "+22897561188",
       "createdAt": "2026-09-09T09:53:29.815Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "13WVY",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1789820326454",
@@ -291,20 +291,20 @@
       "device": "Android",
       "balance": 0,
       "country": "Cameroun",
+      "credited": false,
       "password": "lovelove1",
       "whatsapp": "+237652330326",
       "createdAt": "2026-09-19T12:18:46.454Z",
       "isBlocked": false,
       "referredBy": "u-1788772165789",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "77SPX",
       "dailyEarnings": 0,
       "totalEarnings": 0,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0,
-      "credited": false
+      "referralEarnings": 0
     },
     {
       "id": "u-1790315201903",
@@ -314,19 +314,19 @@
       "device": "Android",
       "balance": 0,
       "country": "Cameroun",
+      "credited": false,
       "password": "55555y",
       "whatsapp": "+237677451289",
       "createdAt": "2026-09-25T05:46:41.903Z",
       "isBlocked": false,
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "24KFU",
       "dailyEarnings": 180,
       "totalEarnings": 0,
-      "withdrawBlocked": false,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
-      "referralEarnings": 0,
-      "credited": false
+      "withdrawBlocked": false,
+      "referralEarnings": 0
     },
     {
       "id": "u-1790348955270",
@@ -336,20 +336,20 @@
       "device": "Android",
       "balance": 0,
       "country": "Togo",
+      "credited": false,
       "password": "00000000",
       "whatsapp": "+22899996666",
       "createdAt": "2026-09-25T15:09:15.270Z",
       "isBlocked": false,
       "referredBy": "u-admin",
-      "lastModified": 1790406117391,
+      "lastModified": 1790492832023,
       "referralCode": "95CRY",
       "dailyEarnings": 0,
       "totalEarnings": 0,
-      "withdrawBlocked": false,
       "totalRecharged": 0,
       "totalWithdrawn": 0,
-      "referralEarnings": 0,
-      "credited": false
+      "withdrawBlocked": false,
+      "referralEarnings": 0
     }
   ],
   "gi_deposits": [
@@ -362,7 +362,7 @@
       "credited": false,
       "operator": "Tchin Pay (Togo +228 99996666)",
       "userName": "Humour",
-      "createdAt": "2026-09-25T15:15:57.448+00:00",
+      "createdAt": "2026-09-25T15:15:57.448Z",
       "reference": "TCH-345697-266",
       "proofImage": "tchin_link",
       "lastModified": 1790408429985,
@@ -372,15 +372,16 @@
       "id": "dep-1790295154384",
       "amount": 2500,
       "method": "Tchin Pay (Cameroun +237 600000000)",
-      "status": "pending",
+      "status": "approved",
       "userId": "u-admin",
-      "credited": false,
+      "credited": true,
       "operator": "Tchin Pay (Cameroun +237 600000000)",
       "userName": "Administrateur Principal",
       "createdAt": "2026-09-25T00:12:34.384Z",
       "reference": "TCH-153919-706",
+      "approvedAt": "2026-09-26T07:49:34.471Z",
       "proofImage": "tchin_link",
-      "lastModified": 1790295154384,
+      "lastModified": 1790408974471,
       "receiptImage": "tchin_link"
     },
     {
@@ -715,6 +716,7 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-1788686703542",
+      "credited": true,
       "operator": "Mobile Money",
       "userName": "Merlo",
       "createdAt": "2026-09-06T10:44:25.608Z",
@@ -722,8 +724,7 @@
       "accountName": "",
       "lastModified": 1789294870364,
       "accountNumber": "97783065",
-      "proof_file_url": "",
-      "credited": true
+      "proof_file_url": ""
     },
     {
       "id": "wth-1788596937978",
@@ -733,6 +734,7 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-admin",
+      "credited": true,
       "operator": "Mobile Money",
       "userName": "Administrateur Principal",
       "createdAt": "2026-09-05T08:28:57.978Z",
@@ -740,8 +742,7 @@
       "accountName": "",
       "lastModified": 1789294870364,
       "accountNumber": "97783065",
-      "proof_file_url": "",
-      "credited": true
+      "proof_file_url": ""
     },
     {
       "id": "wth-1788595709986",
@@ -751,6 +752,7 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-admin",
+      "credited": true,
       "operator": "Mobile Money",
       "userName": "Administrateur Principal",
       "createdAt": "2026-09-05T08:08:29.986Z",
@@ -759,8 +761,7 @@
       "accountName": "",
       "lastModified": 1789294870364,
       "accountNumber": "97783065",
-      "proof_file_url": "",
-      "credited": true
+      "proof_file_url": ""
     },
     {
       "id": "wth-1789203725050",
@@ -770,6 +771,7 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-1789203373696",
+      "credited": true,
       "operator": "Mobile Money",
       "userName": "Merlo",
       "createdAt": "2026-09-12T09:02:05.050Z",
@@ -777,8 +779,7 @@
       "accountName": "",
       "lastModified": 1789203740243,
       "accountNumber": "97783065",
-      "proof_file_url": "",
-      "credited": true
+      "proof_file_url": ""
     },
     {
       "id": "wth-1788772872891",
@@ -788,6 +789,7 @@
       "number": "97783065",
       "status": "approved",
       "userId": "u-1788772165789",
+      "credited": true,
       "operator": "Mobile Money",
       "userName": "Merloo",
       "createdAt": "2026-09-07T09:21:12.891Z",
@@ -795,8 +797,7 @@
       "accountName": "",
       "lastModified": 1788773103747,
       "accountNumber": "97783065",
-      "proof_file_url": "",
-      "credited": true
+      "proof_file_url": ""
     }
   ],
   "gi_investments": [
@@ -806,21 +807,21 @@
       "status": "active",
       "userId": "u-admin",
       "category": "stability",
+      "credited": false,
       "isCyclic": true,
       "vipLevel": 1,
       "createdAt": "2026-09-10T18:50:56.139Z",
       "productId": "stab-1",
-      "daysPassed": 15,
+      "daysPassed": 16,
       "dailyReturn": 180,
       "productName": "Gold Avenue Option Bronze",
       "totalReturn": 7200,
       "durationDays": 40,
-      "lastModified": 1790379003155,
+      "lastModified": 1790448707920,
       "lastClaimDate": "2026-09-10T18:50:56.139Z",
       "payoutCredited": false,
       "totalReturnClaimed": 0,
-      "activationConditionsMet": true,
-      "credited": false
+      "activationConditionsMet": true
     },
     {
       "id": "inv-1789306162482",
@@ -828,6 +829,7 @@
       "status": "completed",
       "userId": "u-1789205775553",
       "category": "wellbeing",
+      "credited": false,
       "isCyclic": true,
       "vipLevel": 1,
       "createdAt": "2026-09-13T13:29:22.482Z",
@@ -841,8 +843,7 @@
       "lastClaimDate": "2026-09-15T10:21:56.982Z",
       "payoutCredited": true,
       "totalReturnClaimed": 10000,
-      "activationConditionsMet": true,
-      "credited": false
+      "activationConditionsMet": true
     },
     {
       "id": "inv-1789306134750",
@@ -850,21 +851,21 @@
       "status": "active",
       "userId": "u-1789205775553",
       "category": "stability",
+      "credited": false,
       "isCyclic": true,
       "vipLevel": 1,
       "createdAt": "2026-09-13T13:28:54.750Z",
       "productId": "stab-1",
-      "daysPassed": 12,
+      "daysPassed": 13,
       "dailyReturn": 180,
       "productName": "Gold Avenue Option Bronze",
       "totalReturn": 7200,
       "durationDays": 40,
-      "lastModified": 1790348569508,
+      "lastModified": 1790445357888,
       "lastClaimDate": "2026-09-13T13:28:54.750Z",
       "payoutCredited": false,
       "totalReturnClaimed": 0,
-      "activationConditionsMet": true,
-      "credited": false
+      "activationConditionsMet": true
     },
     {
       "id": "inv-1789374825605",
@@ -872,6 +873,7 @@
       "status": "completed",
       "userId": "u-1789374638013",
       "category": "wellbeing",
+      "credited": false,
       "isCyclic": true,
       "vipLevel": 1,
       "createdAt": "2026-09-14T08:33:45.605Z",
@@ -885,8 +887,7 @@
       "lastClaimDate": "2026-09-15T09:16:34.905Z",
       "payoutCredited": true,
       "totalReturnClaimed": 10000,
-      "activationConditionsMet": true,
-      "credited": false
+      "activationConditionsMet": true
     },
     {
       "id": "inv-1789374746045",
@@ -894,21 +895,21 @@
       "status": "active",
       "userId": "u-1789374638013",
       "category": "stability",
+      "credited": false,
       "isCyclic": true,
       "vipLevel": 1,
       "createdAt": "2026-09-14T08:32:26.045Z",
       "productId": "stab-1",
-      "daysPassed": 11,
+      "daysPassed": 12,
       "dailyReturn": 180,
       "productName": "Gold Avenue Option Bronze",
       "totalReturn": 7200,
       "durationDays": 40,
-      "lastModified": 1790348569508,
+      "lastModified": 1790411563124,
       "lastClaimDate": "2026-09-14T08:32:26.045Z",
       "payoutCredited": false,
       "totalReturnClaimed": 0,
-      "activationConditionsMet": true,
-      "credited": false
+      "activationConditionsMet": true
     },
     {
       "id": "inv-1790315492635",
@@ -916,21 +917,21 @@
       "status": "active",
       "userId": "u-1790315201903",
       "category": "stability",
+      "credited": false,
       "isCyclic": true,
       "vipLevel": 1,
       "createdAt": "2026-09-25T05:51:32.635Z",
       "productId": "stab-1",
-      "daysPassed": 1,
+      "daysPassed": 2,
       "dailyReturn": 180,
       "productName": "Gold Avenue Option Bronze",
       "totalReturn": 7200,
       "durationDays": 40,
-      "lastModified": 1790406117341,
+      "lastModified": 1790492832023,
       "lastClaimDate": "2026-09-25T05:51:32.635Z",
       "payoutCredited": false,
       "totalReturnClaimed": 0,
-      "activationConditionsMet": true,
-      "credited": false
+      "activationConditionsMet": true
     },
     {
       "id": "inv-1790295104133",
@@ -938,6 +939,7 @@
       "status": "completed",
       "userId": "u-admin",
       "category": "wellbeing",
+      "credited": false,
       "isCyclic": true,
       "vipLevel": 1,
       "createdAt": "2026-09-25T00:11:44.133Z",
@@ -951,8 +953,7 @@
       "lastClaimDate": "2026-09-26T07:01:57.391Z",
       "payoutCredited": true,
       "totalReturnClaimed": 10000,
-      "activationConditionsMet": true,
-      "credited": false
+      "activationConditionsMet": true
     }
   ],
   "gi_commissions": [
@@ -1076,1735 +1077,24 @@
   ],
   "gi_notifications": [
     {
-      "id": "not-dep-rej-1790408429985",
-      "userId": "u-1790348955270",
-      "title": "⚠️ Dépôt rejeté",
-      "message": "Votre demande de dépôt de 10,000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "type": "deposit",
-      "lastModified": 1790408429985,
-      "createdAt": "2026-09-26T07:40:29.985Z",
-      "read": false
-    },
-    {
-      "id": "not-dep-app-1790407886704",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1790348955270",
-      "message": "Votre versement de 5,000 XOF via Tchin Pay (Togo +228 99996666) a été approuvé. Votre solde principal a été rechargé de 5,000 XOF. Nouveau solde : 5,000 XOF.",
-      "createdAt": "2026-09-26T07:31:26.704Z",
-      "lastModified": 1790407886704
-    },
-    {
-      "id": "not-dep-rej-1790406626979",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 1,000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-26T07:10:26.979Z",
-      "lastModified": 1790406626979
-    },
-    {
-      "id": "not-dep-1790406623814",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 1,000 XOF via Tchin Pay (Togo +228 90000000) (Réf: TCH-TEST-REJECT) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-26T07:10:23.814Z",
-      "lastModified": 1790406623814
-    },
-    {
-      "id": "not-dep-app-1790406616106",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-admin",
-      "message": "Votre versement de 2,500 XOF via Tchin Pay (Togo +228 90000000) a été approuvé. Votre solde principal a été rechargé de 2,500 XOF. Nouveau solde : 984,060 XOF.",
-      "createdAt": "2026-09-26T07:10:16.106Z",
-      "lastModified": 1790406616106
-    },
-    {
-      "id": "not-cyclecomplete-srv-1790406117391-inv-1790295104133",
-      "read": false,
-      "type": "plan",
-      "title": "🌸 Bien-être Terminé (Gold Avenue Bien-être Source)",
-      "userId": "u-admin",
-      "message": "Félicitations ! Votre cycle de bien-être \"Gold Avenue Bien-être Source\" de 1 jours est terminé. Votre revenu total de 10,000 XOF (capital: 5,000 XOF + bénéfices: 5,000 XOF) a été crédité sur votre compte. Pour démarrer un nouveau cycle, vous pouvez effectuer un nouvel achat.",
-      "createdAt": "2026-09-26T07:01:57.391Z",
-      "lastModified": 1790406117391
-    },
-    {
-      "id": "not-dep-1790355611253",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1790348955270",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via Tchin Pay (Réf: TCH-610827-135) est en cours de validation automatique.",
-      "createdAt": "2026-09-25T17:00:11.254Z",
-      "lastModified": 1790355611256
-    },
-    {
-      "id": "not-dep-1790349357462",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1790348955270",
-      "message": "Votre demande de dépôt de 10 000 F en ligne via Tchin Pay (Réf: TCH-345697-266) est en cours de validation automatique.",
-      "createdAt": "2026-09-25T15:15:57.462Z",
-      "lastModified": 1790349357464
-    },
-    {
-      "id": "not-ref-1790348955290",
+      "id": "not-ref-1790445176280",
       "read": false,
       "type": "info",
       "title": "Nouveau parrainage",
       "userId": "u-admin",
-      "message": "Humour s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-25T15:09:15.290Z",
-      "lastModified": 1790348955292
+      "message": "Merolo s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
+      "createdAt": "2026-09-26T17:52:56.280Z",
+      "lastModified": 1790445176280
     },
     {
-      "id": "not-1790348955290",
+      "id": "not-1790445176280",
       "read": false,
       "type": "bonus",
       "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1790348955270",
+      "userId": "u-1790445176261",
       "message": "Félicitations pour votre inscription ! Votre compte est activé avec succès.",
-      "createdAt": "2026-09-25T15:09:15.290Z",
-      "lastModified": 1790348955292
-    },
-    {
-      "id": "not-1790315201911",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1790315201903",
-      "message": "Félicitations pour votre inscription ! Votre compte est activé avec succès.",
-      "createdAt": "2026-09-25T05:46:41.911Z",
-      "lastModified": 1790315201912
-    },
-    {
-      "id": "not-plan-1790295104135",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5 000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-25T00:11:44.135Z",
-      "lastModified": 1790295104137
-    },
-    {
-      "id": "not-dep-1790152603563",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via Tchin Pay (Cameroun +237 600000000) (Réf: TCH-602778-375) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-23T08:36:43.579Z",
-      "lastModified": 1790152603579
-    },
-    {
-      "id": "not-dep-1790152117492",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-117179-302) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-23T08:28:37.492Z",
-      "lastModified": 1790152117493
-    },
-    {
-      "id": "not-ref-1789820326480",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-1788772165789",
-      "message": "Blondelle toukam s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-19T12:18:46.480Z",
-      "lastModified": 1789820326481
-    },
-    {
-      "id": "not-1789820326480",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1789820326454",
-      "message": "Félicitations pour votre inscription ! Votre compte est activé avec succès.",
-      "createdAt": "2026-09-19T12:18:46.480Z",
-      "lastModified": 1789820326481
-    },
-    {
-      "id": "not-dep-1789813008188",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-007657-873) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-19T10:16:48.188Z",
-      "lastModified": 1789813008189
-    },
-    {
-      "id": "not-dep-1789812830441",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-830188-989) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-19T10:13:50.441Z",
-      "lastModified": 1789812830442
-    },
-    {
-      "id": "not-dep-1789812406438",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-403908-649) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-19T10:06:46.523Z",
-      "lastModified": 1789812406523
-    },
-    {
-      "id": "not-cyclecomplete-srv-1789467716982-inv-1789306162482",
-      "read": false,
-      "type": "plan",
-      "title": "🌸 Bien-être Terminé (Gold Avenue Bien-être Source)",
-      "userId": "u-1789205775553",
-      "message": "Félicitations ! Votre cycle de bien-être \"Gold Avenue Bien-être Source\" de 1 jours est terminé. Votre revenu total de 10,000 XOF (capital: 5,000 XOF + bénéfices: 5,000 XOF) a été crédité sur votre compte. Pour démarrer un nouveau cycle, vous pouvez effectuer un nouvel achat.",
-      "createdAt": "2026-09-15T10:21:56.982Z",
-      "lastModified": 1789467716982
-    },
-    {
-      "id": "not-dep-1789463798009",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-797854-261) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-15T09:16:38.009Z",
-      "lastModified": 1789463798009
-    },
-    {
-      "id": "not-cyclecomplete-1789463794905-inv-1789374825605",
-      "read": false,
-      "type": "plan",
-      "title": "🌸 Cycle Bien-être Terminé (Gold Avenue Bien-être Source)",
-      "userId": "u-1789374638013",
-      "message": "Félicitations ! Votre cycle de bien-être \"Gold Avenue Bien-être Source\" de 1 jours est terminé. Votre revenu total de 10 000 XOF (capital: 5 000 XOF + bénéfices: 5 000 XOF) a été crédité sur votre solde. Pour démarrer un nouveau cycle, vous pouvez effectuer un nouvel investissement.",
-      "createdAt": "2026-09-15T09:16:34.905Z",
-      "lastModified": 1789463794912
-    },
-    {
-      "id": "not-plan-1789374825606",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1789374638013",
-      "message": "Votre investissement de 5 000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-14T08:33:45.606Z",
-      "lastModified": 1789374825608
-    },
-    {
-      "id": "not-com1-1789374825606",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 1500 XOF (Niveau 1 : 30%) car votre affilié Merlo a investi dans le plan Gold Avenue Bien-être Source.",
-      "createdAt": "2026-09-14T08:33:45.606Z",
-      "lastModified": 1789374825608
-    },
-    {
-      "id": "not-plan-1789374746048",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1789374638013",
-      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-14T08:32:26.048Z",
-      "lastModified": 1789374746050
-    },
-    {
-      "id": "not-com1-1789374746048",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Merlo a investi dans le plan Gold Avenue Option Bronze.",
-      "createdAt": "2026-09-14T08:32:26.048Z",
-      "lastModified": 1789374746050
-    },
-    {
-      "id": "not-ref-1789374638016",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-admin",
-      "message": "Merlo s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-14T08:30:38.016Z",
-      "lastModified": 1789374638016
-    },
-    {
-      "id": "not-1789374638016",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1789374638013",
-      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
-      "createdAt": "2026-09-14T08:30:38.016Z",
-      "lastModified": 1789374638016
-    },
-    {
-      "id": "not-ref-1789205775556",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-admin",
-      "message": "Lan s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-12T09:36:15.556Z",
-      "lastModified": 1789205775556
-    },
-    {
-      "id": "not-1789205775555",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1789205775553",
-      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
-      "createdAt": "2026-09-12T09:36:15.556Z",
-      "lastModified": 1789205775556
-    },
-    {
-      "id": "not-dep-1789204886353",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2,500 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-884968-559) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-12T09:21:26.368Z",
-      "lastModified": 1789204886368
-    },
-    {
-      "id": "not-wth-app-1789203740245",
-      "read": false,
-      "type": "withdraw",
-      "title": "💸 Retrait envoyé !",
-      "userId": "u-1789203373696",
-      "message": "Félicitations, votre retrait de 1 000 XOF sur le numéro 97783065 (T-Money (TG)) a été validé et expédié avec succès.",
-      "createdAt": "2026-09-12T09:02:20.245Z",
-      "lastModified": 1789203741832
-    },
-    {
-      "id": "not-plan-1789203718853",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1789203373696",
-      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-12T09:01:58.853Z",
-      "lastModified": 1789203718854
-    },
-    {
-      "id": "not-com1-1789203718853",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Merlo a investi dans le plan Gold Avenue Option Bronze.",
-      "createdAt": "2026-09-12T09:01:58.853Z",
-      "lastModified": 1789203718854
-    },
-    {
-      "id": "not-ref-1789203373700",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-admin",
-      "message": "Merlo s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-12T08:56:13.700Z",
-      "lastModified": 1789203373700
-    },
-    {
-      "id": "not-1789203373700",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1789203373696",
-      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
-      "createdAt": "2026-09-12T08:56:13.700Z",
-      "lastModified": 1789203373700
-    },
-    {
-      "id": "not-wth-1789203725056",
-      "read": false,
-      "type": "withdraw",
-      "title": "Retrait en attente",
-      "userId": "u-1789203373696",
-      "message": "Votre demande de retrait de 1 000 XOF vers 97783065 (T-Money (TG)) est en attente de traitement par la comptabilité.",
-      "createdAt": "2026-09-12T09:02:05.056Z",
-      "lastModified": 1789203725056
-    },
-    {
-      "id": "not-plan-1789066256141",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T18:50:56.160Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789059999391",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T17:06:39.407Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789059116408",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T16:51:56.409Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789059107105",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T16:51:47.119Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789058086343",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 100,000 XOF dans le plan Gold Avenue Option Saphir a été validée avec succès.",
-      "createdAt": "2026-09-10T16:34:46.343Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789058066565",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 100,000 XOF dans le plan Gold Avenue Option Saphir a été validée avec succès.",
-      "createdAt": "2026-09-10T16:34:26.565Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789058066552",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 25,000 XOF dans le plan Gold Avenue Option Platine a été validée avec succès.",
-      "createdAt": "2026-09-10T16:34:26.552Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789058066539",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 25,000 XOF dans le plan Gold Avenue Option Platine a été validée avec succès.",
-      "createdAt": "2026-09-10T16:34:26.539Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789058052839",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T16:34:12.855Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789057829823",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T16:30:29.823Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789055586180",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T15:53:06.195Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789055551318",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 2,000 XOF dans le plan Gold Avenue Option Bronze a été validée avec succès.",
-      "createdAt": "2026-09-10T15:52:31.334Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789055266649",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T15:47:46.649Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789055108788",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T15:45:08.858Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-dep-1788859650301",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-561447-509) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T09:27:30.315Z",
-      "lastModified": 1788859650315
-    },
-    {
-      "id": "not-dep-1788859117044",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-093673-279) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T09:18:37.058Z",
-      "lastModified": 1788859117058
-    },
-    {
-      "id": "not-dep-rej-1788856883889",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788855342924",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T08:41:23.889Z",
-      "lastModified": 1788856915654
-    },
-    {
-      "id": "not-dep-1788856017794",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788855342924",
-      "message": "Votre demande de dépôt de 2 500 F en ligne (Réf: WP-017477-680) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T08:26:57.795Z",
-      "lastModified": 1788856017795
-    },
-    {
-      "id": "not-dep-1788855533236",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788855342924",
-      "message": "Votre demande de dépôt de 5 000 F en ligne (Réf: WP-533034-314) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T08:18:53.236Z",
-      "lastModified": 1788855533237
-    },
-    {
-      "id": "not-cyclecomplete-srv-1788854663781-inv-1788595426025",
-      "read": false,
-      "type": "plan",
-      "title": "⚡ Activité Terminée (Gold Avenue Activité Flash)",
-      "userId": "u-admin",
-      "message": "Félicitations ! Votre cycle d'activité \"Gold Avenue Activité Flash\" de 3 jours est terminé. Votre capital de 15,000 XOF et vos bénéfices de 9,000 XOF ont été crédités sur votre compte (total: 24,000 XOF).",
-      "createdAt": "2026-09-08T08:04:23.781Z",
-      "lastModified": 1788854663781
-    },
-    {
-      "id": "not-plan-1788848893559",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-1788772165789",
-      "message": "Votre investissement de 5 000 XOF dans le plan Gold Avenue Activité Éclair a bien été pris en compte. Le capital et vos bénéfices totaux de 7 500 XOF vous seront automatiquement versés à la fin du cycle de 3 jours.",
-      "createdAt": "2026-09-08T06:28:13.559Z",
-      "lastModified": 1788848893561
-    },
-    {
-      "id": "not-com1-1788848893559",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 1500 XOF (Niveau 1 : 30%) car votre affilié Merloo a investi dans le plan Gold Avenue Activité Éclair.",
-      "createdAt": "2026-09-08T06:28:13.559Z",
-      "lastModified": 1788848893561
-    },
-    {
-      "id": "not-dep-app-1788848484656",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1788772165789",
-      "message": "Votre versement de 5 000 XOF via WestPay (Togo +228 97783067) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-08T06:21:24.656Z",
-      "lastModified": 1788848507153
-    },
-    {
-      "id": "not-plan-1788848410751",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-1788772165789",
-      "message": "Votre investissement de 5 000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Le capital et vos bénéfices totaux de 10 000 XOF vous seront automatiquement versés à la fin du cycle de 10 jours.",
-      "createdAt": "2026-09-08T06:20:10.751Z",
-      "lastModified": 1788848410758
-    },
-    {
-      "id": "not-com1-1788848410751",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 1500 XOF (Niveau 1 : 30%) car votre affilié Merloo a investi dans le plan Gold Avenue Bien-être Source.",
-      "createdAt": "2026-09-08T06:20:10.751Z",
-      "lastModified": 1788848410758
-    },
-    {
-      "id": "not-dep-app-1788848286805",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1788772165789",
-      "message": "Votre versement de 5 000 XOF via WestPay (Togo +228 97783067) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-08T06:18:06.806Z",
-      "lastModified": 1788848286806
-    },
-    {
-      "id": "not-dep-app-1788848250935",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1788772165789",
-      "message": "Votre versement de 5 000 XOF via WestPay (Togo +228 97783067) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-08T06:17:30.936Z",
-      "lastModified": 1788848250936
-    },
-    {
-      "id": "vip-point-1788787151871",
-      "title": "Pointage validé ! 🌟",
-      "isRead": false,
-      "userId": "u-admin",
-      "message": "Félicitations ! Vous avez reçu 50 FCFA pour votre pointage quotidien correspondant à votre statut VIP 4.",
-      "createdAt": "2026-09-07T13:19:11.871Z",
-      "lastModified": 1788848034989
-    },
-    {
-      "id": "not-dep-rej-1788773094335",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 50 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-07T09:24:54.336Z",
-      "lastModified": 1788773096761
-    },
-    {
-      "id": "not-wth-app-1788596973678",
-      "read": false,
-      "type": "withdraw",
-      "title": "💸 Retrait envoyé !",
-      "userId": "u-admin",
-      "message": "Félicitations, votre retrait de 100 000 XOF sur le numéro 97783065 (Moov Money) a été validé et expédié avec succès.",
-      "createdAt": "2026-09-05T08:29:33.678Z",
-      "lastModified": 1788688708660
-    },
-    {
-      "id": "not-wth-1788596937988",
-      "read": false,
-      "type": "withdraw",
-      "title": "Retrait en attente",
-      "userId": "u-admin",
-      "message": "Votre demande de retrait de 100 000 XOF vers 97783065 (Moov Money) est en attente de traitement par la comptabilité.",
-      "createdAt": "2026-09-05T08:28:57.989Z",
-      "lastModified": 1788688708660
-    },
-    {
-      "id": "not-wth-manual-app-1788596071973",
-      "read": false,
-      "type": "withdraw",
-      "title": "💸 Retrait Approuvé",
-      "userId": "u-admin",
-      "message": "Votre demande de retrait de 50,000 XOF a été approuvée manuellement par l'administration.",
-      "createdAt": "2026-09-05T08:14:31.973Z",
-      "lastModified": 1788596071973
-    },
-    {
-      "id": "not-wth-manual-app-1788596067312",
-      "read": false,
-      "type": "withdraw",
-      "title": "💸 Retrait Approuvé",
-      "userId": "u-admin",
-      "message": "Votre demande de retrait de 50,000 XOF a été approuvée manuellement par l'administration.",
-      "createdAt": "2026-09-05T08:14:27.313Z",
-      "lastModified": 1788596398175
-    },
-    {
-      "id": "not-plan-1788595426049",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 15 000 XOF dans le plan Gold Avenue Activité Flash a bien été pris en compte. Le capital et vos bénéfices totaux de 24 000 XOF vous seront automatiquement versés à la fin du cycle de 3 jours.",
-      "createdAt": "2026-09-05T08:03:46.049Z",
-      "lastModified": 1788596045245
-    },
-    {
-      "id": "vip-point-1788594197462",
-      "read": false,
-      "type": "info",
-      "title": "Pointage validé ! 🌟",
-      "isRead": false,
-      "userId": "u-admin",
-      "message": "Félicitations ! Vous avez reçu 50 FCFA pour votre pointage quotidien correspondant à votre statut VIP 4.",
-      "createdAt": "2026-09-05T07:43:17.462Z",
-      "lastModified": 1788596045245
-    },
-    {
-      "id": "not-plan-1788593020478",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 25,000 XOF dans le plan Gold Avenue Option Platine a bien été pris en compte. Vous gagnerez 2,000 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-09-05T07:23:40.559Z",
-      "lastModified": 1788593027731
-    },
-    {
-      "id": "not-plan-1788416489991",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 10 jours.",
-      "createdAt": "2026-09-03T06:21:29.991Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788416477776",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-09-03T06:21:17.879Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788388376438",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 10 jours.",
-      "createdAt": "2026-09-02T22:32:56.438Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788388362639",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-09-02T22:32:42.654Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788387632827",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 10 jours.",
-      "createdAt": "2026-09-02T22:20:32.841Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788387021147",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-09-02T22:10:21.165Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788345022435",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 10,000 XOF dans le plan Gold Avenue Option Or a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-09-02T10:30:22.435Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "vip-point-1788345016684",
-      "read": false,
-      "type": "info",
-      "title": "Pointage validé ! 🌟",
-      "isRead": false,
-      "userId": "u-admin",
-      "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
-      "createdAt": "2026-09-02T10:30:16.684Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788345009419",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-09-02T10:30:09.516Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "vip-point-1788260605091",
-      "read": false,
-      "type": "info",
-      "title": "Pointage validé ! 🌟",
-      "isRead": false,
-      "userId": "u-admin",
-      "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
-      "createdAt": "2026-09-01T11:03:25.091Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-dep-rej-1788184276704",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-08-31T13:51:16.719Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "vip-point-1788181159960",
-      "read": false,
-      "type": "info",
-      "title": "Pointage VIP validé ! 🌟",
-      "isRead": false,
-      "userId": "u-admin",
-      "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
-      "createdAt": "2026-08-31T12:59:19.960Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-dep-1788178912762",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via WestPay (Cameroun +237 600000000) (Réf: WP-910527-970) est en cours de vérification par l'administration.",
-      "createdAt": "2026-08-31T12:21:52.865Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788167761146",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 2 jours.",
-      "createdAt": "2026-08-31T09:16:01.146Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788167723741",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 2 jours.",
-      "createdAt": "2026-08-31T09:15:23.741Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788167614229",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 3,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 163 jours.",
-      "createdAt": "2026-08-31T09:13:34.229Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788167594247",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 3,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 163 jours.",
-      "createdAt": "2026-08-31T09:13:14.363Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788132507658",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 12,000 XOF dans le plan Gold Avenue Bien-être Harmonie a bien été pris en compte. Vous gagnerez 2,600 XOF chaque jour pendant 1 jours.",
-      "createdAt": "2026-08-30T23:28:27.658Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1788132499594",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Vous gagnerez 1,000 XOF chaque jour pendant 2 jours.",
-      "createdAt": "2026-08-30T23:28:19.609Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1787961651780",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 10,000 XOF dans le plan Gold Avenue Option Or a bien été pris en compte. Vous gagnerez 700 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-08-29T00:00:51.780Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1787961524122",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 5,000 XOF dans le plan Gold Avenue Option Argent a bien été pris en compte. Vous gagnerez 300 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-08-28T23:58:44.123Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-plan-1787961470769",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-admin",
-      "message": "Votre investissement de 2,000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Vous gagnerez 100 XOF chaque jour pendant 40 jours.",
-      "createdAt": "2026-08-28T23:57:50.783Z",
-      "lastModified": 1788507312335
-    },
-    {
-      "id": "not-ref-1788772165794",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-admin",
-      "message": "Merloo s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-07T09:09:25.794Z",
-      "lastModified": 1788772165794
-    },
-    {
-      "id": "not-1788772165794",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1788772165789",
-      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
-      "createdAt": "2026-09-07T09:09:25.794Z",
-      "lastModified": 1788772165794
-    },
-    {
-      "id": "not-dep-1788772564562",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 50 000 F en ligne (Réf: WP-564180-128) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-07T09:16:04.562Z",
-      "lastModified": 1788772564563
-    },
-    {
-      "id": "not-dep-app-1788772588075",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1788772165789",
-      "message": "Votre versement de 50 000 XOF via WestPay (Togo +228 97783067) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-07T09:16:28.075Z",
-      "lastModified": 1788772623021
-    },
-    {
-      "id": "not-plan-1788772783974",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-1788772165789",
-      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le capital et vos bénéfices totaux de 7 200 XOF vous seront automatiquement versés à la fin du cycle de 40 jours.",
-      "createdAt": "2026-09-07T09:19:43.974Z",
-      "lastModified": 1788772783976
-    },
-    {
-      "id": "not-com1-1788772783974",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Merloo a investi dans le plan Gold Avenue Option Bronze.",
-      "createdAt": "2026-09-07T09:19:43.974Z",
-      "lastModified": 1788772783976
-    },
-    {
-      "id": "not-plan-1788772844059",
-      "read": false,
-      "type": "plan",
-      "title": "Plan activé avec succès !",
-      "userId": "u-1788772165789",
-      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le capital et vos bénéfices totaux de 7 200 XOF vous seront automatiquement versés à la fin du cycle de 40 jours.",
-      "createdAt": "2026-09-07T09:20:44.059Z",
-      "lastModified": 1788772863558
-    },
-    {
-      "id": "not-com1-1788772844059",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Merloo a investi dans le plan Gold Avenue Option Bronze.",
-      "createdAt": "2026-09-07T09:20:44.059Z",
-      "lastModified": 1788772863558
-    },
-    {
-      "id": "not-wth-1788772872893",
-      "read": false,
-      "type": "withdraw",
-      "title": "Retrait en attente",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de retrait de 53 000 XOF vers 97783065 (Moov Money) est en attente de traitement par la comptabilité.",
-      "createdAt": "2026-09-07T09:21:12.893Z",
-      "lastModified": 1788772872893
-    },
-    {
-      "id": "not-wth-app-1788773103750",
-      "read": false,
-      "type": "withdraw",
-      "title": "💸 Retrait envoyé !",
-      "userId": "u-1788772165789",
-      "message": "Félicitations, votre retrait de 53 000 XOF sur le numéro 97783065 (Moov Money) a été validé et expédié avec succès.",
-      "createdAt": "2026-09-07T09:25:03.750Z",
-      "lastModified": 1788773117132
-    },
-    {
-      "id": "not-wth-app-1788773100921",
-      "read": false,
-      "type": "withdraw",
-      "title": "💸 Retrait envoyé !",
-      "userId": "u-1788772165789",
-      "message": "Félicitations, votre retrait de 53 000 XOF sur le numéro 97783065 (Moov Money) a été validé et expédié avec succès.",
-      "createdAt": "2026-09-07T09:25:00.922Z",
-      "lastModified": 1788773100922
-    },
-    {
-      "id": "not-dep-1788848189664",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 5 000 F en ligne (Réf: WP-189485-818) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T06:16:29.664Z",
-      "lastModified": 1788848213717
-    },
-    {
-      "id": "not-dep-rej-1788848246857",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T06:17:26.858Z",
-      "lastModified": 1788848246858
-    },
-    {
-      "id": "not-dep-rej-1788848257361",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T06:17:37.361Z",
-      "lastModified": 1788848259923
-    },
-    {
-      "id": "not-dep-1788848275125",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 5 000 F en ligne (Réf: WP-274948-194) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T06:17:55.125Z",
-      "lastModified": 1788848275125
-    },
-    {
-      "id": "not-dep-1788848451381",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 5 000 F en ligne (Réf: WP-451193-777) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T06:20:51.381Z",
-      "lastModified": 1788848451382
-    },
-    {
-      "id": "not-dep-app-1788773796740",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1788772165789",
-      "message": "Votre versement de 50 000 XOF via WestPay (Togo +228 97783067) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-07T09:36:36.740Z",
-      "lastModified": 1788849034924
-    },
-    {
-      "id": "not-ref-1788855342968",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-1788772165789",
-      "message": "Luminaire s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-08T08:15:42.968Z",
-      "lastModified": 1788855342968
-    },
-    {
-      "id": "not-1788855342966",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1788855342924",
-      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
-      "createdAt": "2026-09-08T08:15:42.966Z",
-      "lastModified": 1788855342968
-    },
-    {
-      "id": "not-dep-rej-1788856882640",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 50 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T08:41:22.640Z",
-      "lastModified": 1788856882640
-    },
-    {
-      "id": "not-dep-rej-1788856877508",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788855342924",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T08:41:17.508Z",
-      "lastModified": 1788856877508
-    },
-    {
-      "id": "not-dep-rej-1788856892865",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788855342924",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T08:41:32.865Z",
-      "lastModified": 1788856915654
-    },
-    {
-      "id": "not-dep-rej-1788941828166",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-09T08:17:08.166Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-dep-rej-1788934201334",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-09T06:10:01.334Z",
-      "lastModified": 1788934224261
-    },
-    {
-      "id": "not-dep-1788934162580",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 F en ligne via SoccoPay (Réf: SOC-162414-802) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-09T06:09:22.580Z",
-      "lastModified": 1788934186206
-    },
-    {
-      "id": "not-dep-1788869690485",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788772165789",
-      "message": "Votre demande de dépôt de 2 500 F en ligne via SoccoPay (Réf: SOC-690249-328) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T12:14:50.485Z",
-      "lastModified": 1788869690485
-    },
-    {
-      "id": "not-dep-rej-1788869275476",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T12:07:55.476Z",
-      "lastModified": 1788869278040
-    },
-    {
-      "id": "not-dep-rej-1788869270649",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T12:07:50.650Z",
-      "lastModified": 1788869274771
-    },
-    {
-      "id": "not-dep-1788860860346",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-833587-605) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T09:47:40.360Z",
-      "lastModified": 1788860860360
-    },
-    {
-      "id": "not-dep-rej-1788862246976",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T10:10:46.976Z",
-      "lastModified": 1788862246976
-    },
-    {
-      "id": "not-dep-rej-1788862246119",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-08T10:10:46.119Z",
-      "lastModified": 1788862246120
-    },
-    {
-      "id": "not-dep-1788862738743",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 F en ligne via SoccoPay (Réf: SOC-738581-888) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-08T10:18:58.743Z",
-      "lastModified": 1788862738744
-    },
-    {
-      "id": "not-dep-app-1788869710966",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1788772165789",
-      "message": "Votre versement de 2 500 XOF via SoccoPay (Togo +228 97783067) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-08T12:15:10.966Z",
-      "lastModified": 1788869723272
-    },
-    {
-      "id": "not-plan-1788869979733",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1788772165789",
-      "message": "Votre investissement de 5 000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-08T12:19:39.733Z",
-      "lastModified": 1788869979736
-    },
-    {
-      "id": "not-com1-1788869979733",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 1500 XOF (Niveau 1 : 30%) car votre affilié Merloo a investi dans le plan Gold Avenue Bien-être Source.",
-      "createdAt": "2026-09-08T12:19:39.733Z",
-      "lastModified": 1788869979736
-    },
-    {
-      "id": "not-plan-1788870084129",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1788772165789",
-      "message": "Votre investissement de 5 000 XOF dans le plan Gold Avenue Activité Éclair a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-08T12:21:24.129Z",
-      "lastModified": 1788870086739
-    },
-    {
-      "id": "not-com1-1788870084129",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 1500 XOF (Niveau 1 : 30%) car votre affilié Merloo a investi dans le plan Gold Avenue Activité Éclair.",
-      "createdAt": "2026-09-08T12:21:24.129Z",
-      "lastModified": 1788870086739
-    },
-    {
-      "id": "not-dep-rej-1788934191683",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-09T06:09:51.683Z",
-      "lastModified": 1788934194193
-    },
-    {
-      "id": "not-dep-rej-1788934207508",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-09T06:10:07.508Z",
-      "lastModified": 1788934207509
-    },
-    {
-      "id": "not-dep-rej-1788941823812",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-09T08:17:03.812Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789034349014",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre paiement de 25,000 XOF dans le plan Gold Avenue Option Platine a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T09:59:09.014Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789034339966",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre paiement de 50,000 XOF dans le plan Gold Avenue Option Diamant a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T09:58:59.966Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789034339717",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre paiement de 10,000 XOF dans le plan Gold Avenue Option Or a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T09:58:59.717Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789034304050",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T09:58:24.050Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789034277143",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre paiement de 2,000 XOF dans le plan Gold Avenue Option Bronze a été enregistré avec succès. Le produit sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T09:57:57.212Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789068539725",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
-      "createdAt": "2026-09-10T19:28:59.725Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789068504514",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
-      "createdAt": "2026-09-10T19:28:24.530Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "vip-point-1789116603246",
-      "title": "Pointage validé ! 🌟",
-      "isRead": false,
-      "userId": "u-admin",
-      "message": "Félicitations ! Vous avez reçu 10 FCFA pour votre pointage quotidien correspondant à votre statut VIP 1.",
-      "createdAt": "2026-09-11T08:50:03.246Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789118828840",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
-      "createdAt": "2026-09-11T09:27:08.854Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789117612367",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit avec succès",
-      "userId": "u-admin",
-      "message": "Votre souscription de 5,000 XOF dans le plan Gold Avenue Bien-être Source a été validée avec succès.",
-      "createdAt": "2026-09-11T09:06:52.382Z",
-      "lastModified": 1789204251325
-    },
-    {
-      "id": "not-plan-1789205090966",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1789203373696",
-      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-12T09:24:50.966Z",
-      "lastModified": 1789205092832
-    },
-    {
-      "id": "not-com1-1789205090966",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Merlo a investi dans le plan Gold Avenue Option Bronze.",
-      "createdAt": "2026-09-12T09:24:50.966Z",
-      "lastModified": 1789205092832
-    },
-    {
-      "id": "not-cyclecomplete-1789111945567-inv-1788848893558",
-      "read": false,
-      "type": "plan",
-      "title": "📈 Cycle Stabilité Terminé (Gold Avenue Activité Éclair)",
-      "userId": "u-1788772165789",
-      "message": "Félicitations ! Votre cycle de stabilité \"Gold Avenue Activité Éclair\" de 3 jours est terminé. Votre capital de 5 000 XOF et vos bénéfices de 2 500 XOF ont été crédités sur votre solde (total: 7 500 XOF).",
-      "createdAt": "2026-09-11T07:32:25.567Z",
-      "lastModified": 1789209078305
-    },
-    {
-      "id": "not-plan-1789020571107",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-admin",
-      "message": "Votre investissement de 75 000 XOF dans le plan Gold Avenue Bien-être Vitalité a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-10T06:09:31.107Z",
-      "lastModified": 1789209078305
-    },
-    {
-      "id": "vip-point-1788948559467",
-      "title": "Pointage validé ! 🌟",
-      "isRead": false,
-      "userId": "u-admin",
-      "message": "Félicitations ! Vous avez reçu 50 FCFA pour votre pointage quotidien correspondant à votre statut VIP 4.",
-      "createdAt": "2026-09-09T10:09:19.467Z",
-      "lastModified": 1788948611310
-    },
-    {
-      "id": "not-dep-rej-1788948463657",
-      "read": false,
-      "type": "deposit",
-      "title": "⚠️ Dépôt rejeté",
-      "userId": "u-1788947609814",
-      "message": "Votre demande de dépôt de 5 000 XOF a été refusée suite à une anomalie de référence ou de capture d'écran de paiement. Contactez le service client.",
-      "createdAt": "2026-09-09T10:07:43.657Z",
-      "lastModified": 1788948467365
-    },
-    {
-      "id": "not-dep-1788947627038",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788947609814",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-626686-194) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-09T09:53:47.038Z",
-      "lastModified": 1788947627039
-    },
-    {
-      "id": "not-ref-1788947609842",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-admin",
-      "message": "Boss s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-09T09:53:29.842Z",
-      "lastModified": 1788947609843
-    },
-    {
-      "id": "not-1788947609842",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1788947609814",
-      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
-      "createdAt": "2026-09-09T09:53:29.842Z",
-      "lastModified": 1788947609843
-    },
-    {
-      "id": "not-dep-app-1788947864713",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-1788947609814",
-      "message": "Votre versement de 5 000 XOF via SoccoPay (Togo +228 97561188) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-09T09:57:44.713Z",
-      "lastModified": 1788947876611
-    },
-    {
-      "id": "not-dep-1788947920031",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1788947609814",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-919786-501) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-09T09:58:40.031Z",
-      "lastModified": 1788947920033
-    },
-    {
-      "id": "not-dep-1789294844617",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-843817-747) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-13T10:20:44.633Z",
-      "lastModified": 1789294844633
-    },
-    {
-      "id": "not-ref-1789226922129",
-      "read": false,
-      "type": "info",
-      "title": "Nouveau parrainage",
-      "userId": "u-admin",
-      "message": "Jason s'est inscrit en utilisant votre lien. Vous recevrez 20% de commission sur ses investissements !",
-      "createdAt": "2026-09-12T15:28:42.129Z",
-      "lastModified": 1789226937201
-    },
-    {
-      "id": "not-1789226922129",
-      "read": false,
-      "type": "bonus",
-      "title": "Bienvenue sur Dreampod !",
-      "userId": "u-1789226922120",
-      "message": "Félicitations pour votre inscription. Un bonus de bienvenue de 200 XOF a été crédité sur votre compte.",
-      "createdAt": "2026-09-12T15:28:42.129Z",
-      "lastModified": 1789226937201
-    },
-    {
-      "id": "not-dep-1789226937201",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-1789226922120",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-936966-954) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-12T15:28:57.201Z",
-      "lastModified": 1789226937201
-    },
-    {
-      "id": "not-plan-1789306162484",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1789205775553",
-      "message": "Votre investissement de 5 000 XOF dans le plan Gold Avenue Bien-être Source a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-13T13:29:22.484Z",
-      "lastModified": 1789306162487
-    },
-    {
-      "id": "not-com1-1789306162484",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 1500 XOF (Niveau 1 : 30%) car votre affilié Lan a investi dans le plan Gold Avenue Bien-être Source.",
-      "createdAt": "2026-09-13T13:29:22.484Z",
-      "lastModified": 1789306162487
-    },
-    {
-      "id": "not-plan-1789306134752",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1789205775553",
-      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-13T13:28:54.752Z",
-      "lastModified": 1789306134754
-    },
-    {
-      "id": "not-com1-1789306134752",
-      "read": false,
-      "type": "bonus",
-      "title": "Commission MLM reçue !",
-      "userId": "u-admin",
-      "message": "Félicitations, vous avez perçu 600 XOF (Niveau 1 : 30%) car votre affilié Lan a investi dans le plan Gold Avenue Option Bronze.",
-      "createdAt": "2026-09-13T13:28:54.752Z",
-      "lastModified": 1789306134754
-    },
-    {
-      "id": "not-dep-1789304677783",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-677143-355) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-13T13:04:37.783Z",
-      "lastModified": 1789304677783
-    },
-    {
-      "id": "not-dep-1789304610110",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5,000 XOF via SoccoPay (Cameroun +237 600000000) (Réf: SOC-609477-894) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-13T13:03:30.125Z",
-      "lastModified": 1789304610125
-    },
-    {
-      "id": "not-dep-app-1789304591479",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-admin",
-      "message": "Votre versement de 5 000 XOF via SoccoPay (Cameroun +237 600000000) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-13T13:03:11.479Z",
-      "lastModified": 1789304591479
-    },
-    {
-      "id": "not-dep-app-1789304703513",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-admin",
-      "message": "Votre versement de 5 000 XOF via SoccoPay (Cameroun +237 600000000) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-13T13:05:03.514Z",
-      "lastModified": 1789304703514
-    },
-    {
-      "id": "not-dep-app-1789304721946",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-admin",
-      "message": "Votre versement de 5 000 XOF via SoccoPay (Cameroun +237 600000000) a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-13T13:05:21.946Z",
-      "lastModified": 1789304721946
-    },
-    {
-      "id": "not-dep-app-1789372626972",
-      "read": false,
-      "type": "deposit",
-      "title": "💵 Dépôt validé !",
-      "userId": "u-test-9999",
-      "message": "Votre versement de 10 000 XOF via Moov Money a été approuvé. Votre solde principal a été rechargé.",
-      "createdAt": "2026-09-14T07:57:06.972Z",
-      "lastModified": 1789372626972
-    },
-    {
-      "id": "not-dep-1789373302198",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 5 000 F en ligne via SoccoPay (Réf: SOC-302052-786) est en cours de vérification par l'administration.",
-      "createdAt": "2026-09-14T08:08:22.198Z",
-      "lastModified": 1789373302198
-    },
-    {
-      "id": "not-dep-1790295154387",
-      "read": false,
-      "type": "deposit",
-      "title": "Dépôt soumis",
-      "userId": "u-admin",
-      "message": "Votre demande de dépôt de 2 500 F en ligne via Tchin Pay (Réf: TCH-153919-706) est en cours de validation automatique.",
-      "createdAt": "2026-09-25T00:12:34.387Z",
-      "lastModified": 1790295154387
-    },
-    {
-      "id": "not-plan-1790315492652",
-      "read": false,
-      "type": "plan",
-      "title": "Plan souscrit (En attente d'activation)",
-      "userId": "u-1790315201903",
-      "message": "Votre investissement de 2 000 XOF dans le plan Gold Avenue Option Bronze a bien été pris en compte. Le plan sera activé dès que les conditions d'activation prévues par le système seront remplies.",
-      "createdAt": "2026-09-25T05:51:32.652Z",
-      "lastModified": 1790315492659
+      "createdAt": "2026-09-26T17:52:56.280Z",
+      "lastModified": 1790445176280
     }
   ],
   "gi_bonus_codes": [
@@ -2841,9 +1131,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Cc",
+      "credited": false,
       "createdAt": "2026-08-28T23:31:18.007Z",
-      "lastModified": 1789025934654,
-      "credited": false
+      "lastModified": 1789025934654
     },
     {
       "id": "msg-1787959908135",
@@ -2852,9 +1142,9 @@
       "status": "replied",
       "userId": "u-admin",
       "message": "Ouii ",
+      "credited": false,
       "createdAt": "2026-08-28T23:31:48.135Z",
-      "lastModified": 1788507312337,
-      "credited": false
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1787959914463",
@@ -2863,9 +1153,9 @@
       "status": "replied",
       "userId": "u-admin",
       "message": "C'est comment ",
+      "credited": false,
       "createdAt": "2026-08-28T23:31:54.463Z",
-      "lastModified": 1788507312337,
-      "credited": false
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788128910057",
@@ -2874,9 +1164,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Cc",
+      "credited": false,
       "createdAt": "2026-08-30T22:28:30.057Z",
-      "lastModified": 1788507312337,
-      "credited": false
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788129021152",
@@ -2885,9 +1175,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Cc",
+      "credited": false,
       "createdAt": "2026-08-30T22:30:21.152Z",
-      "lastModified": 1788507312337,
-      "credited": false
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788129368652",
@@ -2897,9 +1187,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "",
+      "credited": false,
       "createdAt": "2026-08-30T22:36:08.652Z",
-      "lastModified": 1789025934654,
-      "credited": false
+      "lastModified": 1789025934654
     },
     {
       "id": "msg-1788181847591",
@@ -2909,9 +1199,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "",
+      "credited": false,
       "createdAt": "2026-08-31T13:10:47.591Z",
-      "lastModified": 1789025934654,
-      "credited": false
+      "lastModified": 1789025934654
     },
     {
       "id": "msg-1788183408590",
@@ -2920,9 +1210,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Cc",
+      "credited": false,
       "createdAt": "2026-08-31T13:36:48.590Z",
-      "lastModified": 1788507312337,
-      "credited": false
+      "lastModified": 1788507312337
     },
     {
       "id": "msg-1788345326499",
@@ -2931,9 +1221,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour ",
+      "credited": false,
       "createdAt": "2026-09-02T10:35:26.499Z",
-      "lastModified": 1789025934654,
-      "credited": false
+      "lastModified": 1789025934654
     },
     {
       "id": "msg-1788386964825",
@@ -2942,9 +1232,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour ",
+      "credited": false,
       "createdAt": "2026-09-02T22:09:24.825Z",
-      "lastModified": 1788507320160,
-      "credited": false
+      "lastModified": 1788507320160
     },
     {
       "id": "msg-1788759003226-8gpmx",
@@ -2953,9 +1243,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "",
+      "credited": false,
       "createdAt": "2026-09-07T05:30:03.226Z",
-      "lastModified": 1788848096358,
-      "credited": false
+      "lastModified": 1788848096358
     },
     {
       "id": "msg-1788772234449-h4290",
@@ -2963,9 +1253,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Bonjour monsieur",
+      "credited": false,
       "createdAt": "2026-09-07T09:10:34.449Z",
-      "lastModified": 1788848140995,
-      "credited": false
+      "lastModified": 1788848140995
     },
     {
       "id": "msg-1788772454302-sbgue",
@@ -2973,9 +1263,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "C'est comment bro",
+      "credited": false,
       "createdAt": "2026-09-07T09:14:14.302Z",
-      "lastModified": 1788773607349,
-      "credited": false
+      "lastModified": 1788773607349
     },
     {
       "id": "msg-1788772531164-ztg30",
@@ -2983,9 +1273,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Bien",
+      "credited": false,
       "createdAt": "2026-09-07T09:15:31.164Z",
-      "lastModified": 1788848140995,
-      "credited": false
+      "lastModified": 1788848140995
     },
     {
       "id": "msg-1788772526328-p6w6x",
@@ -2993,9 +1283,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Bien et toi ?!",
+      "credited": false,
       "createdAt": "2026-09-07T09:15:26.328Z",
-      "lastModified": 1788848140995,
-      "credited": false
+      "lastModified": 1788848140995
     },
     {
       "id": "msg-1788772537982-wpzku",
@@ -3003,9 +1293,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Bien et toi?!",
+      "credited": false,
       "createdAt": "2026-09-07T09:15:37.982Z",
-      "lastModified": 1788848140995,
-      "credited": false
+      "lastModified": 1788848140995
     },
     {
       "id": "msg-1788848036503-n4r4j",
@@ -3013,9 +1303,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Bonjour",
+      "credited": false,
       "createdAt": "2026-09-08T06:13:56.503Z",
-      "lastModified": 1789025611876,
-      "credited": false
+      "lastModified": 1789025611876
     },
     {
       "id": "msg-1788848049595-pf8lb",
@@ -3023,9 +1313,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Oui c'est comment",
+      "credited": false,
       "createdAt": "2026-09-08T06:14:09.595Z",
-      "lastModified": 1788848128765,
-      "credited": false
+      "lastModified": 1788848128765
     },
     {
       "id": "msg-1788848091735-qgxz8",
@@ -3033,9 +1323,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Cc",
+      "credited": false,
       "createdAt": "2026-09-08T06:14:51.735Z",
-      "lastModified": 1788848129174,
-      "credited": false
+      "lastModified": 1788848129174
     },
     {
       "id": "msg-1788848109911-8sg0e",
@@ -3043,9 +1333,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Cool et toi",
+      "credited": false,
       "createdAt": "2026-09-08T06:15:09.911Z",
-      "lastModified": 1788848140995,
-      "credited": false
+      "lastModified": 1788848140995
     },
     {
       "id": "msg-1788848140319-xjrt1",
@@ -3053,9 +1343,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Ça va aussi merci",
+      "credited": false,
       "createdAt": "2026-09-08T06:15:40.319Z",
-      "lastModified": 1788848145934,
-      "credited": false
+      "lastModified": 1788848145934
     },
     {
       "id": "msg-1788773822211-7chom",
@@ -3063,9 +1353,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Cc",
+      "credited": false,
       "createdAt": "2026-09-07T09:37:02.211Z",
-      "lastModified": 1788864906858,
-      "credited": false
+      "lastModified": 1788864906858
     },
     {
       "id": "msg-1788773827594-eplm8",
@@ -3073,9 +1363,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Oui",
+      "credited": false,
       "createdAt": "2026-09-07T09:37:07.594Z",
-      "lastModified": 1788864906858,
-      "credited": false
+      "lastModified": 1788864906858
     },
     {
       "id": "msg-1789025412009-f4a8g",
@@ -3083,9 +1373,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-10T07:30:12.009Z",
-      "lastModified": 1789204934019,
-      "credited": false
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789025611875-6dazu",
@@ -3093,9 +1383,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Bonjour",
+      "credited": false,
       "createdAt": "2026-09-10T07:33:31.875Z",
-      "lastModified": 1789820393086,
-      "credited": false
+      "lastModified": 1789820393086
     },
     {
       "id": "msg-1789025907504-vr6jz",
@@ -3103,9 +1393,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-10T07:38:27.504Z",
-      "lastModified": 1789204934019,
-      "credited": false
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789025934653-vzg97",
@@ -3113,9 +1403,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Oui",
+      "credited": false,
       "createdAt": "2026-09-10T07:38:54.653Z",
-      "lastModified": 1789204934019,
-      "credited": false
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027159339-mix5s",
@@ -3123,9 +1413,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-10T07:59:19.339Z",
-      "lastModified": 1789204934019,
-      "credited": false
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027695729-2hal1",
@@ -3133,9 +1423,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-10T08:08:15.729Z",
-      "lastModified": 1789204934019,
-      "credited": false
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027740450-51z4t",
@@ -3143,9 +1433,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Cc",
+      "credited": false,
       "createdAt": "2026-09-10T08:09:00.450Z",
-      "lastModified": 1789204934019,
-      "credited": false
+      "lastModified": 1789204934019
     },
     {
       "id": "msg-1789027850696-ltcb0",
@@ -3153,9 +1443,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-10T08:10:50.696Z",
-      "lastModified": 1789206108504,
-      "credited": false
+      "lastModified": 1789206108504
     },
     {
       "id": "msg-1789027873875-2h3e1",
@@ -3163,9 +1453,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Que puis je faire pour vous ?",
+      "credited": false,
       "createdAt": "2026-09-10T08:11:13.875Z",
-      "lastModified": 1789206108504,
-      "credited": false
+      "lastModified": 1789206108504
     },
     {
       "id": "msg-1789060093351-55no0",
@@ -3173,9 +1463,9 @@
       "status": "read",
       "userId": "u-admin",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-10T17:08:13.351Z",
-      "lastModified": 1789206108504,
-      "credited": false
+      "lastModified": 1789206108504
     },
     {
       "id": "msg-1789205927502-sjehy",
@@ -3183,9 +1473,9 @@
       "status": "read",
       "userId": "u-1789205775553",
       "message": "Bonjour, je vousb contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-12T09:38:47.502Z",
-      "lastModified": 1789206108504,
-      "credited": false
+      "lastModified": 1789206108504
     },
     {
       "id": "msg-1789205953356-3i6s9",
@@ -3193,9 +1483,9 @@
       "status": "unread",
       "userId": "u-1789205775553",
       "message": "Bonjour",
+      "credited": false,
       "createdAt": "2026-09-12T09:39:13.356Z",
-      "lastModified": 1789205953356,
-      "credited": false
+      "lastModified": 1789205953356
     },
     {
       "id": "msg-1789206025595-qx7oc",
@@ -3204,9 +1494,9 @@
       "status": "unread",
       "userId": "u-1789205775553",
       "message": "",
+      "credited": false,
       "createdAt": "2026-09-12T09:40:25.595Z",
-      "lastModified": 1789206025595,
-      "credited": false
+      "lastModified": 1789206025595
     },
     {
       "id": "test-msg-1789297301448",
@@ -3214,9 +1504,9 @@
       "status": "read",
       "userId": "u-test-user",
       "message": "Test support from script",
+      "credited": false,
       "createdAt": "2026-09-13T11:01:41.448Z",
-      "lastModified": 1789297302327,
-      "credited": false
+      "lastModified": 1789297302327
     },
     {
       "id": "msg-1789387501638-fbm3c",
@@ -3224,9 +1514,9 @@
       "status": "read",
       "userId": "u-1789374638013",
       "message": "Bonjour cher",
+      "credited": false,
       "createdAt": "2026-09-14T12:05:01.638Z",
-      "lastModified": 1789387549522,
-      "credited": false
+      "lastModified": 1789387549522
     },
     {
       "id": "msg-1789387553619-g5yqr",
@@ -3234,9 +1524,9 @@
       "status": "read",
       "userId": "u-1789374638013",
       "message": "Oui",
+      "credited": false,
       "createdAt": "2026-09-14T12:05:53.619Z",
-      "lastModified": 1789388424075,
-      "credited": false
+      "lastModified": 1789388424075
     },
     {
       "id": "msg-1789388426262-83s1d",
@@ -3244,9 +1534,9 @@
       "status": "unread",
       "userId": "u-1789374638013",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-14T12:20:26.262Z",
-      "lastModified": 1789388426262,
-      "credited": false
+      "lastModified": 1789388426262
     },
     {
       "id": "msg-1789820397205-qz2uc",
@@ -3254,9 +1544,9 @@
       "status": "read",
       "userId": "u-1788772165789",
       "message": "Bonjour, je vous contacte car j'ai effectué une recharge qui n'a pas encore été créditée sur mon compte. Pouvez-vous vérifier mon statut de paiement s'il vous plaît ?",
+      "credited": false,
       "createdAt": "2026-09-19T12:19:57.205Z",
-      "lastModified": 1789820495277,
-      "credited": false
+      "lastModified": 1789820495277
     }
   ],
   "gi_products": [

@@ -5834,6 +5834,249 @@ const SERVER_DEFAULT_PRODUCTS = [
     }
   });
 
+  // Fast direct users endpoint for admin panel from Supabase Cloud (reconciled and authoritative)
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const client = getSupabaseAdminClient();
+      let supabaseUsers: any[] = [];
+      const deletedUsers: string[] = Array.isArray(storeData["gi_deleted_users"]) ? storeData["gi_deleted_users"].map(String) : [];
+
+      if (client) {
+        try {
+          const { data: userRows, error: userErr } = await client
+            .from('users')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!userErr && Array.isArray(userRows)) {
+            supabaseUsers = userRows
+              .filter(r => !deletedUsers.includes(String(r.id)))
+              .map((r: any) => {
+                const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+                return {
+                  ...raw,
+                  id: r.id,
+                  name: r.name || raw.name || 'Utilisateur',
+                  whatsapp: r.whatsapp || raw.whatsapp || '',
+                  phone: r.whatsapp || raw.phone || raw.whatsapp || '',
+                  password: r.password || raw.password || '',
+                  country: r.country || raw.country || 'Bénin',
+                  device: r.device || raw.device || 'Ordinateur',
+                  balance: Number(r.balance !== null && r.balance !== undefined ? r.balance : (raw.balance || 0)),
+                  bonus: Number(r.bonus !== null && r.bonus !== undefined ? r.bonus : (raw.bonus || 0)),
+                  totalRecharged: Number(r.total_recharged !== null && r.total_recharged !== undefined ? r.total_recharged : (raw.totalRecharged || 0)),
+                  totalWithdrawn: Number(r.total_withdrawn !== null && r.total_withdrawn !== undefined ? r.total_withdrawn : (raw.totalWithdrawn || 0)),
+                  dailyEarnings: Number(r.daily_earnings !== null && r.daily_earnings !== undefined ? r.daily_earnings : (raw.dailyEarnings || 0)),
+                  totalEarnings: Number(raw.totalEarnings !== undefined ? raw.totalEarnings : (r.bonus || 0)),
+                  referralEarnings: Number(r.referral_earnings !== null && r.referral_earnings !== undefined ? r.referral_earnings : (raw.referralEarnings || 0)),
+                  referredBy: r.referred_by || raw.referredBy || undefined,
+                  referralCode: r.referral_code || raw.referralCode || '',
+                  role: (r.role || raw.role || 'user') as 'user' | 'admin',
+                  isBlocked: Boolean(r.is_blocked !== null && r.is_blocked !== undefined ? r.is_blocked : raw.isBlocked),
+                  withdrawBlocked: Boolean(r.withdraw_blocked !== null && r.withdraw_blocked !== undefined ? r.withdraw_blocked : raw.withdrawBlocked),
+                  createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+                  lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+                };
+              });
+          }
+        } catch (sbErr) {
+          console.warn("[ADMIN USERS] Supabase query warn:", sbErr);
+        }
+      }
+
+      // Reconcile and merge with storeData["gi_users"]
+      const localUsers = storeData["gi_users"] || [];
+      const userMap = new Map<string, any>();
+      for (const u of localUsers) {
+        if (u && u.id && !deletedUsers.includes(String(u.id))) {
+          userMap.set(String(u.id).trim(), u);
+        }
+      }
+      for (const u of supabaseUsers) {
+        if (!u || !u.id || deletedUsers.includes(String(u.id))) continue;
+        const id = String(u.id).trim();
+        const existing = userMap.get(id);
+        if (!existing) {
+          userMap.set(id, u);
+        } else {
+          userMap.set(id, {
+            ...existing,
+            ...u,
+            balance: Number(u.balance ?? existing.balance ?? 0),
+            bonus: Number(u.bonus ?? existing.bonus ?? 0),
+            totalRecharged: Number(u.totalRecharged ?? existing.totalRecharged ?? 0),
+            totalWithdrawn: Number(u.totalWithdrawn ?? existing.totalWithdrawn ?? 0)
+          });
+        }
+      }
+
+      const mergedUsers = Array.from(userMap.values());
+      storeData["gi_users"] = mergedUsers;
+      return res.json({ success: true, users: mergedUsers });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || String(e) });
+    }
+  });
+
+  // Fast direct withdrawals endpoint for admin panel from Supabase Cloud
+  app.get("/api/admin/withdrawals", async (req, res) => {
+    try {
+      const client = getSupabaseAdminClient();
+      let supabaseWths: any[] = [];
+      const deletedUsers: string[] = Array.isArray(storeData["gi_deleted_users"]) ? storeData["gi_deleted_users"].map(String) : [];
+
+      if (client) {
+        try {
+          const { data: wthRows, error: wthErr } = await client
+            .from('withdrawals')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!wthErr && Array.isArray(wthRows)) {
+            supabaseWths = wthRows
+              .filter(r => !deletedUsers.includes(String(r.user_id)))
+              .map((r: any) => {
+                const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+                const fee = Number(r.fee !== null && r.fee !== undefined ? r.fee : (raw.fee !== undefined ? raw.fee : Math.round(Number(r.amount || raw.amount || 0) * 0.12)));
+                const net = Number(r.net_amount !== null && r.net_amount !== undefined ? r.net_amount : (raw.netAmount !== undefined ? raw.netAmount : (Number(r.amount || raw.amount || 0) - fee)));
+                return {
+                  ...raw,
+                  id: r.id,
+                  userId: r.user_id || raw.userId,
+                  userName: r.user_name || raw.userName || 'Investisseur',
+                  amount: Number(r.amount || raw.amount || 0),
+                  netAmount: net,
+                  fee: fee,
+                  method: r.method || raw.operator || raw.method || 'Mobile Money',
+                  operator: r.method || raw.operator || raw.method || 'Mobile Money',
+                  accountNumber: r.account_number || raw.number || raw.accountNumber || '',
+                  number: r.account_number || raw.number || raw.accountNumber || '',
+                  accountName: r.account_name || raw.accountName || '',
+                  status: r.status || raw.status || 'pending',
+                  createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+                  processedAt: r.processed_at ? new Date(r.processed_at).toISOString() : raw.processedAt,
+                  lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+                };
+              });
+          }
+        } catch (sbErr) {
+          console.warn("[ADMIN WITHDRAWALS] Supabase query warn:", sbErr);
+        }
+      }
+
+      const localWths = storeData["gi_withdrawals"] || [];
+      const wthMap = new Map<string, any>();
+      for (const w of localWths) {
+        if (w && w.id) wthMap.set(String(w.id).trim(), w);
+      }
+      for (const w of supabaseWths) {
+        if (!w || !w.id) continue;
+        const id = String(w.id).trim();
+        const existing = wthMap.get(id);
+        if (!existing) {
+          wthMap.set(id, w);
+        } else {
+          let finalStatus = w.status || existing.status;
+          if ((existing.status === 'approved' || existing.status === 'rejected') && w.status === 'pending') {
+            finalStatus = existing.status;
+          } else if ((w.status === 'approved' || w.status === 'rejected') && existing.status === 'pending') {
+            finalStatus = w.status;
+          }
+          wthMap.set(id, { ...existing, ...w, status: finalStatus });
+        }
+      }
+
+      const mergedWths = Array.from(wthMap.values());
+      storeData["gi_withdrawals"] = mergedWths;
+
+      mergedWths.sort((a: any, b: any) => {
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (a.status !== 'pending' && b.status === 'pending') return 1;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
+
+      return res.json({ success: true, withdrawals: mergedWths });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || String(e) });
+    }
+  });
+
+  // Fast direct investments endpoint for admin panel from Supabase Cloud
+  app.get("/api/admin/investments", async (req, res) => {
+    try {
+      const client = getSupabaseAdminClient();
+      let supabaseInvs: any[] = [];
+      const deletedInvs: string[] = Array.isArray(storeData["gi_deleted_investments"]) ? storeData["gi_deleted_investments"].map(String) : [];
+      const deletedUsers: string[] = Array.isArray(storeData["gi_deleted_users"]) ? storeData["gi_deleted_users"].map(String) : [];
+
+      if (client) {
+        try {
+          const { data: invRows, error: invErr } = await client
+            .from('investments')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!invErr && Array.isArray(invRows)) {
+            supabaseInvs = invRows
+              .filter(r => !deletedInvs.includes(String(r.id)) && !deletedUsers.includes(String(r.user_id)))
+              .map((r: any) => {
+                const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+                return {
+                  ...raw,
+                  id: r.id,
+                  userId: r.user_id || raw.userId,
+                  productId: r.product_id || raw.productId,
+                  productName: r.product_name || raw.productName || 'Plan Investissement',
+                  price: Number(r.price || raw.price || 0),
+                  dailyReturn: Number(r.daily_return || raw.dailyReturn || 0),
+                  daysPassed: Number(r.days_passed !== null && r.days_passed !== undefined ? r.days_passed : (raw.daysPassed || 0)),
+                  durationDays: Number(r.duration_days || raw.durationDays || 30),
+                  totalReturnClaimed: Number(r.total_return_claimed || raw.totalReturnClaimed || 0),
+                  status: r.status || raw.status || 'active',
+                  isCyclic: Boolean(r.is_cyclic !== null && r.is_cyclic !== undefined ? r.is_cyclic : raw.isCyclic),
+                  category: r.category || raw.category || 'wellbeing',
+                  createdAt: r.created_at ? new Date(r.created_at).toISOString() : (raw.createdAt || new Date().toISOString()),
+                  lastClaimDate: r.last_claim_date ? new Date(r.last_claim_date).toISOString() : raw.lastClaimDate,
+                  lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+                };
+              });
+          }
+        } catch (sbErr) {
+          console.warn("[ADMIN INVESTMENTS] Supabase query warn:", sbErr);
+        }
+      }
+
+      const localInvs = storeData["gi_investments"] || [];
+      const invMap = new Map<string, any>();
+      for (const i of localInvs) {
+        if (i && i.id && !deletedInvs.includes(String(i.id))) invMap.set(String(i.id).trim(), i);
+      }
+      for (const i of supabaseInvs) {
+        if (!i || !i.id || deletedInvs.includes(String(i.id))) continue;
+        invMap.set(String(i.id).trim(), i);
+      }
+
+      const mergedInvs = Array.from(invMap.values());
+      storeData["gi_investments"] = mergedInvs;
+      return res.json({ success: true, investments: mergedInvs });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || String(e) });
+    }
+  });
+
+  // Consolidated all-data admin endpoint
+  app.get("/api/admin/all-data", async (req, res) => {
+    try {
+      await syncFromSupabaseIfAvailable(true);
+      return res.json({
+        success: true,
+        data: storeData
+      });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || String(e) });
+    }
+  });
+
   // Fast direct deposits endpoint for users
   app.get("/api/user/deposits", async (req, res) => {
     try {

@@ -23,7 +23,15 @@ import {
   supabaseUpsertDeposit,
   supabaseGetDeposits,
   supabaseGetInvestments,
-  supabaseUpsertInvestment
+  supabaseUpsertInvestment,
+  supabaseGetUsers,
+  supabaseGetWithdrawals,
+  supabaseGetProducts,
+  supabaseGetAllData,
+  supabaseApproveDeposit,
+  supabaseRejectDeposit,
+  supabaseApproveWithdrawal,
+  supabaseRejectWithdrawal
 } from './supabase';
 
 export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
@@ -429,7 +437,8 @@ export function getApiUrl(endpoint: string): string {
 
   // 1. Explicit environment variable set at build/deploy time
   try {
-    const envBackend = (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL)) as string | undefined;
+    const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+    const envBackend = (metaEnv && (metaEnv.VITE_BACKEND_URL || metaEnv.VITE_API_URL)) as string | undefined;
     if (envBackend && typeof envBackend === 'string' && envBackend.trim()) {
       const base = envBackend.trim().replace(/\/+$/, '');
       if (base && !base.includes('ais-pre-') && !base.includes('ais-dev-')) {
@@ -463,6 +472,105 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
 
   const isSendavaPay = activeUrl.includes('/sendavapay');
 
+  const runSupabaseFallback = async (): Promise<Response | null> => {
+    try {
+      // 1. Get store & admin all-data
+      if (url.includes('/api/get-store') || url.includes('/api/admin/all-data')) {
+        const allData = await supabaseGetAllData();
+        if (allData && Object.keys(allData).length > 0) {
+          return new Response(JSON.stringify(allData), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // 2. Deposits
+      if (url.includes('/api/admin/deposits') || url.includes('/api/user/deposits')) {
+        let userId: string | undefined;
+        try {
+          const urlObj = new URL(activeUrl);
+          userId = urlObj.searchParams.get('userId') || undefined;
+        } catch {}
+        const deposits = await supabaseGetDeposits(userId);
+        return new Response(JSON.stringify({ success: true, deposits }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 3. Users
+      if (url.includes('/api/admin/users')) {
+        const users = await supabaseGetUsers();
+        return new Response(JSON.stringify({ success: true, users }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 4. Withdrawals
+      if (url.includes('/api/admin/withdrawals')) {
+        const withdrawals = await supabaseGetWithdrawals();
+        return new Response(JSON.stringify({ success: true, withdrawals }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 5. Investments
+      if (url.includes('/api/admin/investments')) {
+        const investments = await supabaseGetInvestments();
+        return new Response(JSON.stringify({ success: true, investments }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 6. Deposit actions
+      if (url.includes('/api/admin/deposit-action') && init?.body) {
+        try {
+          const body = JSON.parse(init.body as string);
+          if (body.depositId && body.action === 'approve') {
+            const res = await supabaseApproveDeposit(body.depositId);
+            return new Response(JSON.stringify({ success: res.success, deposit: res.deposit, user: res.user }), {
+              status: res.success ? 200 : 400,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } else if (body.depositId && body.action === 'reject') {
+            const res = await supabaseRejectDeposit(body.depositId);
+            return new Response(JSON.stringify({ success: res.success, deposit: res.deposit }), {
+              status: res.success ? 200 : 400,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        } catch {}
+      }
+
+      // 7. Withdrawal actions
+      if (url.includes('/api/admin/withdrawal-action') && init?.body) {
+        try {
+          const body = JSON.parse(init.body as string);
+          if (body.withdrawalId && body.action === 'approve') {
+            const res = await supabaseApproveWithdrawal(body.withdrawalId);
+            return new Response(JSON.stringify({ success: res.success, withdrawal: res.withdrawal }), {
+              status: res.success ? 200 : 400,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } else if (body.withdrawalId && body.action === 'reject') {
+            const res = await supabaseRejectWithdrawal(body.withdrawalId);
+            return new Response(JSON.stringify({ success: res.success, withdrawal: res.withdrawal, user: res.user }), {
+              status: res.success ? 200 : 400,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        } catch {}
+      }
+    } catch (fallbackErr) {
+      console.warn('[apiFetch Fallback Exception]', fallbackErr);
+    }
+    return null;
+  };
+
   try {
     const userItem = (typeof window !== 'undefined' ? (sessionStorage.getItem('gi_current_user') || inMemorySessionStore['gi_current_user']) : null) || inMemorySessionStore['gi_current_user'];
     const userHeaders: Record<string, string> = {};
@@ -488,14 +596,20 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
     const response = await fetch(activeUrl, fetchOptions);
     const contentType = response.headers.get('content-type') || "";
 
-    if (!contentType.includes('text/html')) {
-      return response;
-    } else {
-      console.warn(`[apiFetch] Received HTML from API call for URL: ${url}.`);
+    // If server responded with clean JSON / non-HTML, return immediately
+    if (response.ok && !contentType.includes('text/html')) {
       return response;
     }
+
+    // If server responded with HTML (e.g. SPA fallback on Vercel) or 404, fallback directly to Supabase
+    if (contentType.includes('text/html') || response.status === 404 || !response.ok) {
+      const fbResponse = await runSupabaseFallback();
+      if (fbResponse) return fbResponse;
+    }
+
+    return response;
   } catch (error) {
-    console.warn(`[apiFetch] API fetch threw error: ${error instanceof Error ? error.message : String(error)} for URL: ${url}.`);
+    console.warn(`[apiFetch] Network/fetch threw for URL: ${url}, engaging direct Supabase fallback.`);
 
     if (isSendavaPay) {
       return new Response(JSON.stringify({ success: false, error: "Erreur de connexion. Le serveur de paiement est temporairement indisponible." }), {
@@ -503,76 +617,37 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    throw error;
-  }
 
-  if (isSendavaPay) {
-    return new Response(JSON.stringify({ success: false, error: "Le serveur de paiement n'a pas répondu." }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+    const fbResponse = await runSupabaseFallback();
+    if (fbResponse) return fbResponse;
 
-  // --- DIRECT SUPABASE Sync FALLBACK (if configured) ---
-  if (SUPABASE_URL && SUPABASE_URL.startsWith('http')) {
-    console.log(`[apiFetch Fallback] Connecting directly to Supabase cloud storage: ${SUPABASE_URL}`);
-  }
-  
-  if (url.includes('/api/get-store')) {
-    if (SUPABASE_URL && SUPABASE_URL.startsWith('http')) {
+    // Direct offline local storage fallback for get-store if completely disconnected
+    if (url.includes('/api/get-store')) {
       try {
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/store?select=*`, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Accept': 'application/json'
-          }
-        });
-        if (resp.ok) {
-          const rows = await resp.json();
-          const storeObj: Record<string, any> = {};
-          if (Array.isArray(rows)) {
-            for (const r of rows) {
-              storeObj[r.key] = r.value;
+        const offlineStore: Record<string, any> = {};
+        const syncKeys = [
+          'gi_users', 'gi_deposits', 'gi_withdrawals', 'gi_investments', 
+          'gi_commissions', 'gi_notifications', 'gi_bonus_codes', 'gi_support_messages', 
+          'gi_products', 'gi_mlm_level1_rate', 'gi_mlm_level2_rate', 'gi_mlm_level3_rate',
+          'gi_withdrawals_blocked_global', 'gi_referral_domain', 'gi_withdrawal_proofs',
+          'gi_manual_deposit_numbers', 'gi_official_banners', 'gi_cleanup_timestamp',
+          'gi_announcements'
+        ];
+        for (const key of syncKeys) {
+          const cached = localStorage.getItem(key) || inMemoryStore[key];
+          if (cached) {
+            try {
+              offlineStore[key] = JSON.parse(cached);
+            } catch (e) {
+              offlineStore[key] = cached;
             }
           }
-          return new Response(JSON.stringify(storeObj), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        } else {
-          console.warn(`[apiFetch Fallback] Supabase direct get-store returned status ${resp.status}`);
         }
-      } catch (e) {
-        console.warn('[apiFetch Fallback] Supabase direct get-store failed gracefully (using local storage fallback instead):', e);
-      }
+        return new Response(JSON.stringify(offlineStore), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      } catch {}
     }
-    
-    // Reconstruct and compile local storage keys to allow the application to function gracefully
-    // in offline/restricted mode instead of failing sync and locking up the UI.
-    try {
-      const offlineStore: Record<string, any> = {};
-      const syncKeys = [
-        'gi_users', 'gi_deposits', 'gi_withdrawals', 'gi_investments', 
-        'gi_commissions', 'gi_notifications', 'gi_bonus_codes', 'gi_support_messages', 
-        'gi_products', 'gi_mlm_level1_rate', 'gi_mlm_level2_rate', 'gi_mlm_level3_rate',
-        'gi_withdrawals_blocked_global', 'gi_referral_domain', 'gi_withdrawal_proofs',
-        'gi_manual_deposit_numbers', 'gi_official_banners', 'gi_cleanup_timestamp',
-        'gi_announcements'
-      ];
-      for (const key of syncKeys) {
-        const cached = localStorage.getItem(key) || inMemoryStore[key];
-        if (cached) {
-          try {
-            offlineStore[key] = JSON.parse(cached);
-          } catch (e) {
-            offlineStore[key] = cached;
-          }
-        }
-      }
-      console.log(`[apiFetch Offline Fallback] Gracefully compiled offline store containing ${offlineStore['gi_users']?.length || 0} user(s).`);
-      return new Response(JSON.stringify(offlineStore), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    } catch (err) {
-      console.warn('[apiFetch Offline Fallback] Fatal exception compiled local cache:', err);
-    }
-    return new Response(JSON.stringify({ success: false, error: "Cloud database is restricted or offline" }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+
+    throw error;
   }
 
   if (url.includes('/api/save-store')) {

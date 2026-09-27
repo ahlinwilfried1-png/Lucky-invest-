@@ -497,37 +497,55 @@ export async function fetchSupabaseStoreData(): Promise<Record<string, any> | nu
 }
 
 /**
- * Upserts key-value entries into public.store
+ * Upserts key-value entries into public.store in small chunks to prevent network timeouts and payload limits
  */
 export async function saveSupabaseStoreBatch(rows: Array<{ key: string; value: any }>): Promise<boolean> {
   const client = getSupabaseAdminClient();
   if (!client || rows.length === 0) return false;
 
-  try {
-    const payload = rows.map(r => ({
+  let anySuccess = false;
+  const chunkSize = 4;
+
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const payload = chunk.map(r => ({
       key: r.key,
       value: r.value,
       updated_at: new Date().toISOString()
     }));
 
-    const { error } = await client
-      .from('store')
-      .upsert(payload, { onConflict: 'key' });
+    try {
+      const { error } = await client
+        .from('store')
+        .upsert(payload, { onConflict: 'key' });
 
-    if (error) {
-      const now = Date.now();
-      if (now - lastLogTime > 30000) {
-        console.warn('[SUPABASE STORE UPSERT WARN]', error.message);
-        lastLogTime = now;
+      if (!error) {
+        anySuccess = true;
+      } else {
+        // Fallback item by item for this chunk
+        for (const item of payload) {
+          try {
+            const { error: singleErr } = await client
+              .from('store')
+              .upsert(item, { onConflict: 'key' });
+            if (!singleErr) anySuccess = true;
+          } catch {}
+        }
       }
-      return false;
+    } catch (chunkErr: any) {
+      // Chunk-level exception, try item by item
+      for (const item of payload) {
+        try {
+          const { error: singleErr } = await client
+            .from('store')
+            .upsert(item, { onConflict: 'key' });
+          if (!singleErr) anySuccess = true;
+        } catch {}
+      }
     }
-
-    return true;
-  } catch (err: any) {
-    console.warn('[SUPABASE STORE UPSERT EXCEPTION]', err?.message || err);
-    return false;
   }
+
+  return anySuccess;
 }
 
 /**

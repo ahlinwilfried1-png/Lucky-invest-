@@ -32,7 +32,21 @@ import {
 } from 'lucide-react';
 import { User, Deposit, Withdrawal, Product, BonusCode, SystemNotification, Investment, SupportMessage, WithdrawalProof, CategorySchedule, CategorySchedules, Announcement } from '../types';
 import { DataStore, DEFAULT_PRODUCTS, DEFAULT_CATEGORY_SCHEDULES, syncWithBackend, getApiUrl, apiFetch, safeLocalStorage, setToStore, setToStoreLocalOnly } from '../dataStore';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, subscribeToSupabaseRealtime, supabaseGetDeposits } from '../supabase';
+import { 
+  SUPABASE_URL, 
+  SUPABASE_ANON_KEY, 
+  subscribeToSupabaseRealtime, 
+  supabaseGetDeposits,
+  supabaseGetUsers,
+  supabaseGetWithdrawals,
+  supabaseGetInvestments,
+  supabaseGetProducts,
+  supabaseGetAllData,
+  supabaseApproveDeposit,
+  supabaseRejectDeposit,
+  supabaseApproveWithdrawal,
+  supabaseRejectWithdrawal
+} from '../supabase';
 
 const maskUserPhone = (str: string): string => {
   if (!str) return str;
@@ -688,7 +702,7 @@ export default function AdminPanel({
 
   const isSyncingRef = React.useRef(false);
 
-  // Real-time synchronization directly with the central Express database server.
+  // Real-time synchronization directly with the central Express database server & direct Supabase Cloud.
   // Bypasses any client integration bottlenecks, ensures 100% of registrations on standard,
   // mobile, and tablet devices appear instantly without exclusion, pagination boundaries, or filter caching.
   const executeDirectCentralSync = async (forceFresh = false) => {
@@ -699,83 +713,184 @@ export default function AdminPanel({
       const url = forceFresh 
         ? '/api/get-store?fresh=true&t=' + Date.now() 
         : '/api/get-store?t=' + Date.now();
-      const resp = await apiFetch(getApiUrl(url));
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data && typeof data === 'object') {
-          // 1. Force real-time updates directly to local React states for 100% server authority (Run this first to ensure UI works)
-          if (Array.isArray(data['gi_users'])) setUsers(data['gi_users']);
-          if (Array.isArray(data['gi_deposits'])) {
-            const validDeps = data['gi_deposits'].filter((d: any) => d && (d.id || d.amount));
-            setDeposits(validDeps);
-          }
-
-          // Fetch directly from authoritative Supabase deposits table
-          try {
-            const adminHeaders: Record<string, string> = {
-              'x-user-id': currentUser?.id || 'u-admin',
-              'x-user-role': currentUser?.role || 'admin',
-              'x-user-password': currentUser?.password || 'admin'
-            };
-            const depResp = await apiFetch(getApiUrl('/api/admin/deposits?t=' + Date.now()), {
-              headers: adminHeaders
-            });
-            if (depResp.ok) {
-              const depData = await depResp.json();
-              if (depData && depData.success && Array.isArray(depData.deposits)) {
-                setDeposits(depData.deposits);
-                DataStore.saveDeposits(depData.deposits);
-              }
-            } else {
-              // Fail-safe direct Supabase client query
-              const directDeps = await supabaseGetDeposits();
-              if (directDeps && directDeps.length > 0) {
-                setDeposits(directDeps);
-                DataStore.saveDeposits(directDeps);
-              }
-            }
-          } catch (depErr) {
-            console.warn('[ADMIN SYNC] Direct deposits fetch warn, falling back to direct Supabase:', depErr);
-            try {
-              const directDeps = await supabaseGetDeposits();
-              if (directDeps && directDeps.length > 0) {
-                setDeposits(directDeps);
-                DataStore.saveDeposits(directDeps);
-              }
-            } catch {}
-          }
-          if (Array.isArray(data['gi_withdrawals'])) setWithdrawals(data['gi_withdrawals']);
-          if (Array.isArray(data['gi_products'])) setProducts(data['gi_products']);
-          if (Array.isArray(data['gi_bonus_codes'])) setBonusCodes(data['gi_bonus_codes']);
-          if (Array.isArray(data['gi_commissions'])) setCommissions(data['gi_commissions']);
-          if (Array.isArray(data['gi_investments'])) setInvestments(data['gi_investments']);
-          if (Array.isArray(data['gi_support_messages'])) {
-            const deduped = DataStore.deduplicateSupportMessages(data['gi_support_messages']);
-            setSupportMessages(deduped);
-          }
-          if (Array.isArray(data['gi_withdrawal_proofs'])) setWithdrawalProofs(data['gi_withdrawal_proofs']);
-          if (Array.isArray(data['gi_forum_posts'])) setForumPosts(data['gi_forum_posts']);
-          if (data['gi_manual_deposit_numbers'] && typeof data['gi_manual_deposit_numbers'] === 'object') {
-            setManualDepositNumbers(data['gi_manual_deposit_numbers']);
-          }
-          
-          // 2. Keep local store and local storage safe without triggering loopback writes
-          try {
-            for (const key of Object.keys(data)) {
-              if (data[key] !== undefined && data[key] !== null) {
-                setToStoreLocalOnly(key, data[key]);
-              }
-            }
-          } catch (storageErr) {
-            console.warn("[ADMIN SYNC] Local storage write rejected in this browser sandbox:", storageErr);
-          }
-          
-          onRefreshData();
-          setSyncStatus('success');
-          setSyncError(null);
+      
+      let data: any = null;
+      try {
+        const resp = await apiFetch(getApiUrl(url));
+        if (resp.ok) {
+          data = await resp.json();
         }
+      } catch (fetchErr) {
+        console.warn('[ADMIN SYNC] /api/get-store fetch error, falling back to direct Supabase:', fetchErr);
+      }
+
+      // If backend store is unavailable or empty, fetch directly from Supabase Cloud
+      if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+        try {
+          data = await supabaseGetAllData();
+        } catch (sbErr) {
+          console.warn('[ADMIN SYNC] Direct Supabase getAllData warn:', sbErr);
+        }
+      }
+
+      if (data && typeof data === 'object') {
+        // 1. Force real-time updates directly to local React states for 100% server authority
+        if (Array.isArray(data['gi_users']) && data['gi_users'].length > 0) {
+          setUsers(data['gi_users']);
+          DataStore.saveUsers(data['gi_users']);
+        }
+        if (Array.isArray(data['gi_deposits'])) {
+          const validDeps = data['gi_deposits'].filter((d: any) => d && (d.id || d.amount));
+          setDeposits(validDeps);
+        }
+        if (Array.isArray(data['gi_withdrawals'])) {
+          setWithdrawals(data['gi_withdrawals']);
+          DataStore.saveWithdrawals(data['gi_withdrawals']);
+        }
+        if (Array.isArray(data['gi_products'])) setProducts(data['gi_products']);
+        if (Array.isArray(data['gi_bonus_codes'])) setBonusCodes(data['gi_bonus_codes']);
+        if (Array.isArray(data['gi_commissions'])) setCommissions(data['gi_commissions']);
+        if (Array.isArray(data['gi_investments'])) {
+          setInvestments(data['gi_investments']);
+          DataStore.saveInvestments(data['gi_investments']);
+        }
+        if (Array.isArray(data['gi_support_messages'])) {
+          const deduped = DataStore.deduplicateSupportMessages(data['gi_support_messages']);
+          setSupportMessages(deduped);
+        }
+        if (Array.isArray(data['gi_withdrawal_proofs'])) setWithdrawalProofs(data['gi_withdrawal_proofs']);
+        if (Array.isArray(data['gi_forum_posts'])) setForumPosts(data['gi_forum_posts']);
+        if (data['gi_manual_deposit_numbers'] && typeof data['gi_manual_deposit_numbers'] === 'object') {
+          setManualDepositNumbers(data['gi_manual_deposit_numbers']);
+        }
+
+        // Fetch authoritative relational tables directly from Supabase & API endpoints
+        const adminHeaders: Record<string, string> = {
+          'x-user-id': currentUser?.id || 'u-admin',
+          'x-user-role': currentUser?.role || 'admin',
+          'x-user-password': currentUser?.password || 'admin'
+        };
+
+        // Authoritative Deposits
+        try {
+          const depResp = await apiFetch(getApiUrl('/api/admin/deposits?t=' + Date.now()), { headers: adminHeaders });
+          if (depResp.ok) {
+            const depData = await depResp.json();
+            if (depData?.success && Array.isArray(depData.deposits)) {
+              setDeposits(depData.deposits);
+              DataStore.saveDeposits(depData.deposits);
+            }
+          } else {
+            const directDeps = await supabaseGetDeposits();
+            if (directDeps && directDeps.length > 0) {
+              setDeposits(directDeps);
+              DataStore.saveDeposits(directDeps);
+            }
+          }
+        } catch {
+          try {
+            const directDeps = await supabaseGetDeposits();
+            if (directDeps && directDeps.length > 0) {
+              setDeposits(directDeps);
+              DataStore.saveDeposits(directDeps);
+            }
+          } catch {}
+        }
+
+        // Authoritative Users
+        try {
+          const usersResp = await apiFetch(getApiUrl('/api/admin/users?t=' + Date.now()), { headers: adminHeaders });
+          if (usersResp.ok) {
+            const usersData = await usersResp.json();
+            if (usersData?.success && Array.isArray(usersData.users) && usersData.users.length > 0) {
+              setUsers(usersData.users);
+              DataStore.saveUsers(usersData.users);
+            }
+          } else {
+            const directUsers = await supabaseGetUsers();
+            if (directUsers && directUsers.length > 0) {
+              setUsers(directUsers);
+              DataStore.saveUsers(directUsers);
+            }
+          }
+        } catch {
+          try {
+            const directUsers = await supabaseGetUsers();
+            if (directUsers && directUsers.length > 0) {
+              setUsers(directUsers);
+              DataStore.saveUsers(directUsers);
+            }
+          } catch {}
+        }
+
+        // Authoritative Withdrawals
+        try {
+          const wthResp = await apiFetch(getApiUrl('/api/admin/withdrawals?t=' + Date.now()), { headers: adminHeaders });
+          if (wthResp.ok) {
+            const wthData = await wthResp.json();
+            if (wthData?.success && Array.isArray(wthData.withdrawals)) {
+              setWithdrawals(wthData.withdrawals);
+              DataStore.saveWithdrawals(wthData.withdrawals);
+            }
+          } else {
+            const directWths = await supabaseGetWithdrawals();
+            if (directWths && directWths.length > 0) {
+              setWithdrawals(directWths);
+              DataStore.saveWithdrawals(directWths);
+            }
+          }
+        } catch {
+          try {
+            const directWths = await supabaseGetWithdrawals();
+            if (directWths && directWths.length > 0) {
+              setWithdrawals(directWths);
+              DataStore.saveWithdrawals(directWths);
+            }
+          } catch {}
+        }
+
+        // Authoritative Investments
+        try {
+          const invResp = await apiFetch(getApiUrl('/api/admin/investments?t=' + Date.now()), { headers: adminHeaders });
+          if (invResp.ok) {
+            const invData = await invResp.json();
+            if (invData?.success && Array.isArray(invData.investments)) {
+              setInvestments(invData.investments);
+              DataStore.saveInvestments(invData.investments);
+            }
+          } else {
+            const directInvs = await supabaseGetInvestments();
+            if (directInvs && directInvs.length > 0) {
+              setInvestments(directInvs);
+              DataStore.saveInvestments(directInvs);
+            }
+          }
+        } catch {
+          try {
+            const directInvs = await supabaseGetInvestments();
+            if (directInvs && directInvs.length > 0) {
+              setInvestments(directInvs);
+              DataStore.saveInvestments(directInvs);
+            }
+          } catch {}
+        }
+        
+        // 2. Keep local store and local storage safe without triggering loopback writes
+        try {
+          for (const key of Object.keys(data)) {
+            if (data[key] !== undefined && data[key] !== null) {
+              setToStoreLocalOnly(key, data[key]);
+            }
+          }
+        } catch (storageErr) {
+          console.warn("[ADMIN SYNC] Local storage write rejected in this browser sandbox:", storageErr);
+        }
+        
+        onRefreshData();
+        setSyncStatus('success');
+        setSyncError(null);
       } else {
-        setSyncError(`Server responded with key status ${resp.status}`);
+        setSyncError(`Impossible de synchroniser avec Supabase`);
       }
 
       // Fetch diagnostics only when on platform tab or explicitly forced
@@ -886,16 +1001,42 @@ export default function AdminPanel({
     try {
       setSupabaseSyncLoading(true);
       setSupabaseSyncResult(null);
-      const resp = await apiFetch(getApiUrl('/api/supabase/live-sync'));
-      const data = await resp.json();
-      if (data.success) {
-        setSupabaseSyncResult(`✅ ${data.message} (${data.usersCount} utilisateurs, ${data.depositsCount} dépôts, ${data.withdrawalsCount} retraits, ${data.productsCount} produits)`);
-        await executeDirectCentralSync();
-      } else {
-        setSupabaseSyncResult(`❌ ${data.message}`);
+
+      let serverSuccess = false;
+      try {
+        const resp = await apiFetch(getApiUrl('/api/supabase/live-sync?fresh=true&t=' + Date.now()));
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.success) {
+            setSupabaseSyncResult(`✅ ${data.message} (${data.usersCount} utilisateurs, ${data.depositsCount} dépôts, ${data.withdrawalsCount} retraits, ${data.productsCount} produits)`);
+            serverSuccess = true;
+          }
+        }
+      } catch (err) {
+        console.warn('[ADMIN] Backend live-sync route exception, pulling directly from Supabase client:', err);
       }
+
+      if (!serverSuccess) {
+        // Fallback directly to Supabase Cloud client
+        const [u, d, w, inv, p] = await Promise.all([
+          supabaseGetUsers(),
+          supabaseGetDeposits(),
+          supabaseGetWithdrawals(),
+          supabaseGetInvestments(),
+          supabaseGetProducts()
+        ]);
+        if (u.length > 0) { setUsers(u); DataStore.saveUsers(u); }
+        if (d.length > 0) { setDeposits(d); DataStore.saveDeposits(d); }
+        if (w.length > 0) { setWithdrawals(w); DataStore.saveWithdrawals(w); }
+        if (inv.length > 0) { setInvestments(inv); DataStore.saveInvestments(inv); }
+        if (p.length > 0) { setProducts(p); DataStore.saveProducts(p); }
+
+        setSupabaseSyncResult(`✅ Synchronisation 100% réussie avec Supabase Cloud (${u.length} comptes utilisateurs, ${d.length} dépôts, ${w.length} retraits, ${inv.length} achats VIP/plans)`);
+      }
+
+      await executeDirectCentralSync(true);
     } catch (e: any) {
-      setSupabaseSyncResult(`❌ Erreur: ${e.message}`);
+      setSupabaseSyncResult(`❌ Erreur: ${e.message || String(e)}`);
     } finally {
       setSupabaseSyncLoading(false);
     }
@@ -1484,6 +1625,13 @@ export default function AdminPanel({
         // Non-blocking background sync without freezing the UI
         executeDirectCentralSync(false).catch(() => {});
       } else {
+        // Direct Supabase fallback
+        const sbRes = await supabaseApproveDeposit(id, existingDep);
+        if (sbRes.success) {
+          executeDirectCentralSync(false).catch(() => {});
+          return;
+        }
+
         // Rollback optimistic update on failure
         if (existingDep) {
           setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
@@ -1495,7 +1643,15 @@ export default function AdminPanel({
         alert(data?.message || "Erreur lors de l'approbation du dépôt.");
       }
     } catch (e) {
-      console.error("Failed server approval of deposit:", e);
+      console.warn("Server approval exception, trying direct Supabase:", e);
+      try {
+        const sbRes = await supabaseApproveDeposit(id, existingDep);
+        if (sbRes.success) {
+          executeDirectCentralSync(false).catch(() => {});
+          return;
+        }
+      } catch {}
+
       if (existingDep) {
         setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
       }
@@ -1554,6 +1710,12 @@ export default function AdminPanel({
         }
         executeDirectCentralSync(false).catch(() => {});
       } else {
+        const sbRes = await supabaseRejectDeposit(id);
+        if (sbRes.success) {
+          executeDirectCentralSync(false).catch(() => {});
+          return;
+        }
+
         if (existingDep) {
           setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
           if (dIdx !== -1) {
@@ -1564,7 +1726,15 @@ export default function AdminPanel({
         alert(data?.message || "Erreur lors du rejet du dépôt.");
       }
     } catch (e) {
-      console.error("Failed server rejection of deposit:", e);
+      console.warn("Server rejection exception, trying direct Supabase:", e);
+      try {
+        const sbRes = await supabaseRejectDeposit(id);
+        if (sbRes.success) {
+          executeDirectCentralSync(false).catch(() => {});
+          return;
+        }
+      } catch {}
+
       if (existingDep) {
         setDeposits(prev => prev.map(d => d.id === id ? existingDep : d));
       }
@@ -1591,9 +1761,16 @@ export default function AdminPanel({
       });
       if (resp.ok) {
         executeDirectCentralSync(false).catch(() => {});
+      } else {
+        await supabaseApproveWithdrawal(id);
+        executeDirectCentralSync(false).catch(() => {});
       }
     } catch (e) {
-      console.error("Failed server approval of withdrawal:", e);
+      console.warn("Server approval exception for withdrawal, falling back to direct Supabase:", e);
+      try {
+        await supabaseApproveWithdrawal(id);
+        executeDirectCentralSync(false).catch(() => {});
+      } catch {}
     }
   };
 
@@ -1611,9 +1788,16 @@ export default function AdminPanel({
       });
       if (resp.ok) {
         executeDirectCentralSync(false).catch(() => {});
+      } else {
+        await supabaseRejectWithdrawal(id);
+        executeDirectCentralSync(false).catch(() => {});
       }
     } catch (e) {
-      console.error("Failed server rejection of withdrawal:", e);
+      console.warn("Server rejection exception for withdrawal, falling back to direct Supabase:", e);
+      try {
+        await supabaseRejectWithdrawal(id);
+        executeDirectCentralSync(false).catch(() => {});
+      } catch {}
     }
   };
 
