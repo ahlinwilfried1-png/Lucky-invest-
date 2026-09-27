@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Wallet,
   ChevronLeft,
@@ -9,7 +9,11 @@ import {
   CheckCircle2,
   Lock,
   ArrowRight,
-  Zap
+  Zap,
+  ExternalLink,
+  Copy,
+  Check,
+  CreditCard
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -65,6 +69,18 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
   t
 }) => {
   const PRESET_AMOUNTS = [2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000];
+  const OFFICIAL_PAYMENT_LINK = 'https://tchin.tech/pay/cm63en28qn';
+  const effectivePayUrl = depositRedirectUrl || OFFICIAL_PAYMENT_LINK;
+
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyLink = () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(OFFICIAL_PAYMENT_LINK);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
+  };
 
   const handleOpenHistory = () => {
     if (onNavigate) {
@@ -76,7 +92,7 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
 
   return (
     <div className="bg-[#FAF8F2] -mx-2 sm:-mx-6 md:-mx-12 xl:-mx-20 -mt-2 px-3 sm:px-6 md:px-12 xl:px-20 pt-3 pb-24 text-slate-900 min-h-screen text-left animate-fadeIn relative overflow-x-hidden">
-      <div className="max-w-xl mx-auto w-full space-y-3.5 relative z-10">
+      <div className="max-w-xl mx-auto w-full space-y-4 relative z-10">
 
         {/* 1. TOP HEADER NAVIGATION BAR */}
         <div className="flex items-center justify-between gap-3 pb-1">
@@ -113,13 +129,12 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
           </button>
         </div>
 
-        {/* 2. SOLDE ACTUEL & CARTE PORTEFEUILLE (Lumineux, Rassurant et Premium) */}
+        {/* 2. SOLDE ACTUEL & CARTE PORTEFEUILLE */}
         <div 
           className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-[#E8D8B0]/20 flex items-center justify-between gap-3 relative overflow-hidden"
           id="recharge-wallet-card"
         >
           <div className="flex items-center gap-3 min-w-0">
-            {/* Icône portefeuille : or */}
             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#FEF8EC] border border-[#E8D8B0]/25 flex items-center justify-center text-[#D49A22] shadow-2xs shrink-0">
               <Wallet className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2] text-[#D49A22]" />
             </div>
@@ -128,7 +143,6 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
                 {t('Solde Actuel Disponible', 'Current Available Balance')}
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                {/* Montants : or #B8790B */}
                 <span className="text-2xl sm:text-3xl font-black font-mono text-[#B8790B] tracking-tight">
                   {(userState.balance || 0).toLocaleString()}
                 </span>
@@ -139,11 +153,78 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
             </div>
           </div>
 
-          {/* Badge Sécurisé 100% */}
           <div className="flex items-center gap-1.5 bg-[#FEF8EC] border border-[#E8D8B0]/25 text-[#B8790B] text-[10px] sm:text-[11px] font-black px-3 py-1.5 rounded-full uppercase tracking-wider shrink-0 shadow-2xs">
             <ShieldCheck className="w-3.5 h-3.5 text-[#D49A22] stroke-[2.5]" />
             <span className="hidden sm:inline">{t('100% Sécurisé', '100% Secure')}</span>
             <span className="sm:hidden">100%</span>
+          </div>
+        </div>
+
+        {/* 3. CARTE PASSERELLE OFFICIELLE DE PAIEMENT TCHIN PAY */}
+        <div className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 rounded-3xl p-4 sm:p-5 border border-amber-300/40 shadow-xs space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-[#F3C75F] to-[#D49A22] flex items-center justify-center text-white shadow-2xs">
+                <CreditCard className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-black text-[#102A43] uppercase tracking-wide">
+                  {t('Passerelle Sécurisée Tchin Pay', 'Tchin Pay Secure Gateway')}
+                </h3>
+                <span className="text-[10px] font-bold text-amber-700 block">
+                  {t('Intégration directe & sécurisée SSL', 'Direct & SSL Encrypted Integration')}
+                </span>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {t('Actif', 'Active')}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 p-2.5 bg-white/90 rounded-2xl border border-amber-200/60">
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-bold text-[#607D9A] block uppercase tracking-wider">
+                {t('Lien officiel de paiement', 'Official Payment Link')}
+              </span>
+              <a
+                href={OFFICIAL_PAYMENT_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-mono font-bold text-[#B8790B] hover:underline truncate block"
+              >
+                {OFFICIAL_PAYMENT_LINK}
+              </a>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="px-2.5 py-1.5 rounded-xl bg-[#FAF8F2] hover:bg-[#F5EEDC] border border-[#E8D8B0]/40 text-[#102A43] text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                title="Copier le lien"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                    <span className="text-emerald-700 font-extrabold">{t('Copié', 'Copied')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-[#607D9A]" />
+                    <span>{t('Copier', 'Copy')}</span>
+                  </>
+                )}
+              </button>
+              <a
+                href={OFFICIAL_PAYMENT_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#F3C75F] to-[#D49A22] text-white text-[11px] font-black flex items-center gap-1 hover:brightness-105 shadow-2xs transition-all cursor-pointer"
+              >
+                <span>{t('Ouvrir', 'Open')}</span>
+                <ExternalLink className="w-3 h-3 stroke-[2.5]" />
+              </a>
+            </div>
           </div>
         </div>
 
@@ -156,33 +237,56 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
         )}
 
         {depositSuccess && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/50 text-xs text-emerald-900 font-bold leading-normal space-y-1 shadow-2xs text-center animate-fadeIn">
-            <div className="flex items-center justify-center gap-1.5 text-emerald-700">
-              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+          <div className="p-4 sm:p-5 rounded-3xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-bold leading-normal space-y-3 shadow-xs text-center animate-fadeIn">
+            <div className="flex items-center justify-center gap-2 text-emerald-800">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 stroke-[2.5]" />
               <span className="text-sm font-black uppercase tracking-wide">
-                {t('Demande enregistrée avec succès', 'Deposit Recorded Successfully')}
+                {t('Demande de recharge enregistrée', 'Deposit Registered')}
               </span>
             </div>
             <p className="text-xs text-emerald-800 font-medium">
               {depositSuccess}
             </p>
-            {depositRedirectUrl && (
-              <div className="pt-2">
-                <a
-                  href={depositRedirectUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F3C75F] via-[#D49A22] to-[#C88A16] text-white text-xs font-black shadow-xs hover:brightness-105 transition-all cursor-pointer"
-                >
-                  <span>👉 {t('Ouvrir la page de paiement sécurisée', 'Open Secure Payment Page')}</span>
-                  <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
-                </a>
-              </div>
-            )}
+
+            {/* BOUTON D'ACCÈS IMMÉDIAT AU LIEN SÉCURISÉ TCHIN */}
+            <div className="pt-1 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+              <a
+                href={effectivePayUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#F3C75F] via-[#D49A22] to-[#C88A16] text-white text-xs sm:text-sm font-black shadow-md hover:brightness-105 transition-all cursor-pointer"
+              >
+                <span>👉 {t('Payer maintenant sur Tchin Pay', 'Pay Now on Tchin Pay')}</span>
+                <ExternalLink className="w-4 h-4 stroke-[2.5]" />
+              </a>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl bg-white border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-100/50 transition-all cursor-pointer"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                    <span>{t('Lien copié dans le presse-papier !', 'Link copied!')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>{t('Copier le lien sécurisé', 'Copy secure link')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-[11px] text-emerald-700/80 font-normal">
+              {t(
+                'Votre compte sera crédité automatiquement dès la validation du versement par l’opérateur.',
+                'Your balance will be automatically credited once payment is confirmed.'
+              )}
+            </p>
           </div>
         )}
 
-        {/* 3. FORMULAIRE DE RECHARGE PRINCIPAL */}
+        {/* 4. FORMULAIRE DE RECHARGE PRINCIPAL */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-[#E8D8B0]/20 space-y-5">
           <form onSubmit={submitDeposit} className="space-y-5 text-left">
 
@@ -319,7 +423,7 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
                 ) : (
                   <>
                     <Zap className="w-4 h-4 fill-white stroke-[2.5]" />
-                    <span>{t('RECHARGER MAINTENANT', 'DEPOSIT NOW')}</span>
+                    <span>{t('RECHARGER VIA TCHIN PAY', 'DEPOSIT VIA TCHIN PAY')}</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </>
                 )}
@@ -328,18 +432,18 @@ export const RechargeTabView: React.FC<RechargeTabViewProps> = ({
           </form>
         </div>
 
-        {/* 4. INFORMATIONS DE SÉCURITÉ & OPÉRATEURS */}
+        {/* 5. INFORMATIONS DE SÉCURITÉ & OPÉRATEURS */}
         <div className="bg-white rounded-3xl p-4 sm:p-5 shadow-xs border border-[#E8D8B0]/20 space-y-3 text-left">
           <div className="flex items-center gap-2 text-[#102A43]">
             <Lock className="w-4 h-4 text-[#D49A22] stroke-[2.5]" />
             <h3 className="font-sans font-black text-xs uppercase tracking-wider">
-              {t('Paiement 100% Vérifié & Sécurisé', '100% Verified & Secure Payment')}
+              {t('Paiement 100% Vérifié & Sécurisé Tchin Pay', '100% Verified & Secure Tchin Payment')}
             </h3>
           </div>
           <p className="text-xs text-[#607D9A] font-medium leading-relaxed">
             {t(
-              'Vos recharges sont créditées automatiquement après validation par votre opérateur Mobile Money (MTN, Moov, Orange, Wave). En cas de besoin, le support client est disponible 24/7.',
-              'Your deposits are credited automatically once confirmed by your Mobile Money carrier (MTN, Moov, Orange, Wave). 24/7 customer support is available.'
+              'Vos recharges transitent par la passerelle officielle sécurisée Tchin Pay (https://tchin.tech/pay/cm63en28qn). Tous les opérateurs Mobile Money d’Afrique de l’Ouest et Centrale sont acceptés. En cas de besoin, le support client est disponible 24/7.',
+              'Your deposits are processed through the official secure Tchin Pay gateway (https://tchin.tech/pay/cm63en28qn). All major Mobile Money carriers in West and Central Africa are supported. 24/7 customer support is available.'
             )}
           </p>
         </div>

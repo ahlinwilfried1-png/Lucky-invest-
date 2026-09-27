@@ -22,7 +22,9 @@
       "withdrawBlocked": false,
       "referralEarnings": 0,
       "totalCheckInEarnings": 60,
-      "credited": false
+      "credited": false,
+      "phone": "+237600000000",
+      "device": "Ordinateur"
     },
     {
       "id": "u-1788685653386",
@@ -45,7 +47,8 @@
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
       "referralEarnings": 0,
-      "credited": false
+      "credited": false,
+      "phone": "+22897783066"
     },
     {
       "id": "u-1788686703542",
@@ -68,7 +71,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+22870903319"
     },
     {
       "id": "u-1788687193755",
@@ -91,7 +95,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+22897145409"
     },
     {
       "id": "u-1788691110265",
@@ -114,7 +119,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+228970903319"
     },
     {
       "id": "u-1788772165789",
@@ -140,7 +146,8 @@
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
       "bankCardOperator": "Moov Money",
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+22897783067"
     },
     {
       "id": "u-1788855342924",
@@ -163,7 +170,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+237655555555"
     },
     {
       "id": "u-1789203373696",
@@ -212,7 +220,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+22870903318"
     },
     {
       "id": "u-1789226922120",
@@ -235,7 +244,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+225152261631"
     },
     {
       "id": "u-1789374638013",
@@ -258,7 +268,8 @@
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
       "referralEarnings": 0,
-      "credited": false
+      "credited": false,
+      "phone": "+22897783065"
     },
     {
       "id": "u-1788947609814",
@@ -281,7 +292,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+22897561188"
     },
     {
       "id": "u-1789820326454",
@@ -304,7 +316,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+237652330326"
     },
     {
       "id": "u-1790315201903",
@@ -326,7 +339,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+237677451289"
     },
     {
       "id": "u-1790348955270",
@@ -349,7 +363,8 @@
       "totalRecharged": 0,
       "totalWithdrawn": 0,
       "withdrawBlocked": false,
-      "referralEarnings": 0
+      "referralEarnings": 0,
+      "phone": "+22899996666"
     }
   ],
   "gi_deposits": [

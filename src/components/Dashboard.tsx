@@ -2108,11 +2108,14 @@ export default function Dashboard({
     const reference = `TCH-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
     const formattedOperator = `Tchin Pay (${depositCountry} ${depositCountryCode} ${depositPhone.trim()})`;
 
-    // Passerelle sécurisée masquée côté serveur (ne révèle jamais le lien direct au client)
+    // Passerelle sécurisée officielle Tchin Pay
+    const securePaymentUrl = "https://tchin.tech/pay/cm63en28qn";
     const redirectUrl = getApiUrl(`/api/pay/gateway?ref=${encodeURIComponent(reference)}&amt=${encodeURIComponent(amt)}`);
+    setDepositRedirectUrl(securePaymentUrl);
+
     // Ouvrir immédiatement la passerelle sécurisée dès le clic utilisateur pour garantir l'autorisation par le navigateur
     try {
-      window.open(redirectUrl, '_blank');
+      window.open(securePaymentUrl, '_blank', 'noopener,noreferrer');
     } catch (popupErr) {
       console.warn("Direct window.open notice:", popupErr);
     }
@@ -2158,8 +2161,8 @@ export default function Dashboard({
         const filtered = currentDeps.filter(d => d.id !== returnedDeposit.id && d.reference !== returnedDeposit.reference);
         DataStore.saveDeposits([returnedDeposit, ...filtered]);
 
-        setDepositRedirectUrl('');
-        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée définitivement dans la base de données ! La passerelle de paiement sécurisée s'est ouverte automatiquement.`);
+        setDepositRedirectUrl(securePaymentUrl);
+        setDepositSuccess(`Votre demande de recharge de ${amt.toLocaleString()} F a été enregistrée avec succès (Réf: ${reference}) ! Cliquez ci-dessous pour finaliser votre versement sur la page de paiement sécurisée Tchin Pay.`);
         syncDashboardData();
         if (typeof syncWithBackend === 'function') {
           syncWithBackend(true).catch(() => {});
@@ -5569,6 +5572,7 @@ export default function Dashboard({
               setDepositCountryCode={setDepositCountryCode}
               depositPhone={depositPhone}
               setDepositPhone={setDepositPhone}
+              depositRedirectUrl={depositRedirectUrl}
               depositError={depositError}
               depositSuccess={depositSuccess}
               isSubmittingDeposit={isSubmittingDeposit}

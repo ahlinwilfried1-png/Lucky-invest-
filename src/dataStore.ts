@@ -546,6 +546,34 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
         } catch {}
       }
 
+      // 6b. Direct Create Deposit
+      if (url.includes('/api/create-deposit') && init?.body) {
+        try {
+          const body = JSON.parse(init.body as string);
+          const newDep = {
+            id: `dep-${Date.now()}`,
+            userId: body.userId,
+            user_id: body.userId,
+            userName: body.userName || 'Utilisateur',
+            amount: Number(body.amount),
+            operator: body.operator || 'Tchin Pay',
+            reference: body.reference || `TCH-${Date.now()}`,
+            receiptImage: body.receiptImage || 'tchin_link',
+            receipt_image: body.receiptImage || 'tchin_link',
+            status: 'pending' as const,
+            createdAt: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          };
+          await supabaseUpsertDeposit(newDep);
+          return new Response(JSON.stringify({ success: true, deposit: newDep }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (cdErr) {
+          console.warn('[apiFetch Fallback create-deposit warn]', cdErr);
+        }
+      }
+
       // 7. Withdrawal actions
       if (url.includes('/api/admin/withdrawal-action') && init?.body) {
         try {

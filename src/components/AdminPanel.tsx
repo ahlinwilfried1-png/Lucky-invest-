@@ -763,6 +763,9 @@ export default function AdminPanel({
         if (data['gi_manual_deposit_numbers'] && typeof data['gi_manual_deposit_numbers'] === 'object') {
           setManualDepositNumbers(data['gi_manual_deposit_numbers']);
         }
+        if (data['gi_online_payment_link'] && typeof data['gi_online_payment_link'] === 'string') {
+          setOnlinePaymentLink(data['gi_online_payment_link']);
+        }
 
         // Fetch authoritative relational tables directly from Supabase & API endpoints
         const adminHeaders: Record<string, string> = {
