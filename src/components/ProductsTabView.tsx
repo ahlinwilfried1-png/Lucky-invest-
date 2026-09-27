@@ -241,12 +241,14 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                 const isActivity = p.category === 'activity' || String(p.id).startsWith('act-');
                 const isClosed = (isWellbeing && !wellbeingSchedule.isOpen) || (isActivity && !activitySchedule.isOpen);
                 
-                // Display Title matching exact format
-                const displayName = isWellbeing
-                  ? `Gold Avenue Bien-être ${vipLevel}`
-                  : isActivity
-                    ? (p.name || `Gold Avenue Activité ${vipLevel}`)
-                    : `Titres à revenu fixe ${vipLevel}`;
+                // Display Title: Always respect admin custom product name, fallback to category defaults if empty
+                const displayName = (p.name && p.name.trim() !== '')
+                  ? p.name.trim()
+                  : isWellbeing
+                    ? `Gold Avenue Bien-être ${vipLevel}`
+                    : isActivity
+                      ? `Gold Avenue Activité ${vipLevel}`
+                      : `Option VIP ${vipLevel}`;
 
                 const totalExpectedProductPayout = p.totalReturn || (p.price + (p.dailyReturn * p.durationDays));
                 const imgSrc = (p.imageUrl && p.imageUrl.trim() !== '') ? p.imageUrl : defaultGoldImage;

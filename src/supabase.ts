@@ -369,30 +369,163 @@ export async function supabaseGetProducts(): Promise<Product[]> {
     const { data, error } = await client
       .from('products')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('price', { ascending: true });
 
     if (error || !Array.isArray(data)) return [];
 
     return data.map((r: any) => {
       const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+      const dailyReturn = Number(r.daily_return !== null && r.daily_return !== undefined ? r.daily_return : (raw.dailyReturn || 0));
+      const durationDays = Number(r.duration_days !== null && r.duration_days !== undefined ? r.duration_days : (raw.durationDays || 30));
+      const totalReturn = Number(
+        r.total_return !== null && r.total_return !== undefined 
+          ? r.total_return 
+          : (raw.totalReturn !== undefined ? raw.totalReturn : (dailyReturn * durationDays))
+      );
+
       return {
         ...raw,
-        id: r.id,
-        name: r.name || raw.name,
-        price: Number(r.price || raw.price || 0),
-        dailyReturn: Number(r.daily_return || raw.dailyReturn || 0),
-        durationDays: Number(r.duration_days || raw.durationDays || 30),
-        category: r.category || raw.category || 'wellbeing',
+        id: String(r.id),
+        vipLevel: Number(raw.vipLevel || r.vip_level || 1),
+        name: String(r.name || raw.name || 'Produit'),
+        price: Number(r.price !== null && r.price !== undefined ? r.price : (raw.price || 0)),
+        dailyReturn,
+        durationDays,
+        totalReturn,
+        category: (r.category || raw.category || 'stability') as 'stability' | 'wellbeing' | 'activity',
+        tag: raw.tag || r.tag || '',
+        imageUrl: raw.imageUrl || r.image_url || r.image || '',
         isCyclic: Boolean(r.is_cyclic !== null && r.is_cyclic !== undefined ? r.is_cyclic : raw.isCyclic),
         isBlocked: Boolean(r.is_blocked !== null && r.is_blocked !== undefined ? r.is_blocked : raw.isBlocked),
-        totalReturn: Number(r.total_return !== null && r.total_return !== undefined ? r.total_return : (raw.totalReturn || (Number(r.daily_return || 0) * Number(r.duration_days || 30)))),
-        image: r.image || raw.image,
-        description: r.description || raw.description,
-        createdAt: r.created_at || raw.createdAt
+        reopenDateTime: raw.reopenDateTime || r.reopen_date_time,
+        generatedProductIds: Array.isArray(raw.generatedProductIds) ? raw.generatedProductIds : [],
+        createdAt: r.created_at || raw.createdAt || new Date().toISOString(),
+        lastModified: Number(r.last_modified || raw.lastModified || Date.now())
       };
     });
   } catch {
     return [];
+  }
+}
+
+/**
+ * Direct client-side product upsert (persists directly to Supabase products table + store table)
+ */
+export async function supabaseUpsertProduct(product: Partial<Product>): Promise<{ success: boolean; product?: Product }> {
+  try {
+    const client = getSupabaseClient();
+    if (!product || !product.id) return { success: false };
+
+    const prodIdStr = String(product.id).trim();
+    const dailyReturn = Number(product.dailyReturn !== undefined ? product.dailyReturn : 0);
+    const durationDays = Number(product.durationDays !== undefined ? product.durationDays : 30);
+    const totalReturn = Number(
+      product.totalReturn !== undefined 
+        ? product.totalReturn 
+        : (dailyReturn * durationDays)
+    );
+    const now = Date.now();
+
+    const fullProduct: Product = {
+      id: prodIdStr,
+      vipLevel: Number(product.vipLevel || 1),
+      name: String(product.name || 'Produit').trim(),
+      price: Number(product.price || 0),
+      dailyReturn,
+      durationDays,
+      totalReturn,
+      tag: product.tag || '',
+      imageUrl: product.imageUrl || '',
+      isBlocked: Boolean(product.isBlocked),
+      reopenDateTime: product.reopenDateTime,
+      isCyclic: Boolean(product.isCyclic),
+      generatedProductIds: Array.isArray(product.generatedProductIds) ? product.generatedProductIds : [],
+      category: product.category || 'stability',
+      lastModified: now
+    };
+
+    const rowPayload = {
+      id: prodIdStr,
+      name: fullProduct.name,
+      price: fullProduct.price,
+      daily_return: fullProduct.dailyReturn,
+      duration_days: fullProduct.durationDays,
+      category: fullProduct.category,
+      is_cyclic: fullProduct.isCyclic,
+      is_blocked: fullProduct.isBlocked,
+      total_return: fullProduct.totalReturn,
+      last_modified: now,
+      raw_data: fullProduct
+    };
+
+    const { error: relErr } = await client
+      .from('products')
+      .upsert(rowPayload, { onConflict: 'id' });
+
+    if (relErr) {
+      console.warn('[SUPABASE CLIENT UPSERT PRODUCT WARN]', relErr.message);
+    }
+
+    // Also update in store gi_products
+    try {
+      const { data: storeRow } = await client
+        .from('store')
+        .select('value')
+        .eq('key', 'gi_products')
+        .maybeSingle();
+
+      let prods = (storeRow && Array.isArray(storeRow.value)) ? storeRow.value : [];
+      const idx = prods.findIndex((p: any) => p && String(p.id).trim() === prodIdStr);
+      if (idx !== -1) {
+        prods[idx] = { ...prods[idx], ...fullProduct };
+      } else {
+        prods.push(fullProduct);
+      }
+      await client.from('store').upsert({
+        key: 'gi_products',
+        value: prods,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+    } catch {}
+
+    return { success: true, product: fullProduct };
+  } catch (err: any) {
+    console.warn('[SUPABASE CLIENT UPSERT PRODUCT EXCEPTION]', err?.message || err);
+    return { success: false };
+  }
+}
+
+/**
+ * Direct client-side product deletion (deletes from Supabase products table + store table)
+ */
+export async function supabaseDeleteProduct(productId: string): Promise<boolean> {
+  try {
+    const client = getSupabaseClient();
+    if (!productId) return false;
+    const prodIdStr = String(productId).trim();
+
+    await client.from('products').delete().eq('id', prodIdStr);
+
+    try {
+      const { data: storeRow } = await client
+        .from('store')
+        .select('value')
+        .eq('key', 'gi_products')
+        .maybeSingle();
+
+      if (storeRow && Array.isArray(storeRow.value)) {
+        const filtered = storeRow.value.filter((p: any) => p && String(p.id).trim() !== prodIdStr);
+        await client.from('store').upsert({
+          key: 'gi_products',
+          value: filtered,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+      }
+    } catch {}
+
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -744,6 +877,11 @@ export function subscribeToSupabaseRealtime(onDataChanged: (table: string) => vo
         'postgres_changes',
         { event: '*', schema: 'public', table: 'investments' },
         () => onDataChanged('investments')
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => onDataChanged('products')
       )
       .on(
         'postgres_changes',

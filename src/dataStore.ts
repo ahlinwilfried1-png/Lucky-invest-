@@ -31,7 +31,9 @@ import {
   supabaseApproveDeposit,
   supabaseRejectDeposit,
   supabaseApproveWithdrawal,
-  supabaseRejectWithdrawal
+  supabaseRejectWithdrawal,
+  supabaseUpsertProduct,
+  supabaseDeleteProduct
 } from './supabase';
 
 export const DEFAULT_CATEGORY_SCHEDULES: CategorySchedules = {
@@ -591,6 +593,44 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
               headers: { 'Content-Type': 'application/json' }
             });
           }
+        } catch {}
+      }
+
+      // 8. Product Update Fallback
+      if (url.includes('/api/admin/product/update') && init?.body) {
+        try {
+          const body = JSON.parse(init.body as string);
+          const { productId, updatedP, ...rest } = body;
+          const updates = (updatedP && typeof updatedP === 'object') ? { ...updatedP, ...rest } : rest;
+          const res = await supabaseUpsertProduct({ id: productId, ...updates });
+          return new Response(JSON.stringify({ success: res.success, product: res.product }), {
+            status: res.success ? 200 : 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch {}
+      }
+
+      // 9. Product Create Fallback
+      if (url.includes('/api/admin/product/create') && init?.body) {
+        try {
+          const body = JSON.parse(init.body as string);
+          const res = await supabaseUpsertProduct(body);
+          return new Response(JSON.stringify({ success: res.success, product: res.product }), {
+            status: res.success ? 200 : 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch {}
+      }
+
+      // 10. Product Delete Fallback
+      if (url.includes('/api/admin/product/delete') && init?.body) {
+        try {
+          const body = JSON.parse(init.body as string);
+          const ok = await supabaseDeleteProduct(body.productId);
+          return new Response(JSON.stringify({ success: ok }), {
+            status: ok ? 200 : 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
         } catch {}
       }
     } catch (fallbackErr) {
@@ -1162,7 +1202,7 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
           let mergedVal = remoteData;
           
           const isMergeableArray = Array.isArray(remoteData) && Array.isArray(localData) && 
-            key !== "gi_bonus_codes" && key !== "gi_withdrawal_proofs" &&
+            key !== "gi_products" && key !== "gi_bonus_codes" && key !== "gi_withdrawal_proofs" &&
             key !== "gi_deleted_investments" && key !== "gi_deleted_users" &&
             key !== "gi_deleted_forum_posts" && key !== "gi_deleted_products";
           if (isMergeableArray) {
@@ -1288,6 +1328,13 @@ export const syncWithBackend = async (force = false): Promise<boolean> => {
                 body: JSON.stringify({ [key]: mergedVal })
               }).catch(err => console.warn(`Failed to push key "${key}" merge updates (transient):`, err));
             }
+          }
+          
+          if (key === "gi_products" && Array.isArray(remoteData)) {
+            const deletedProds = Array.isArray(data["gi_deleted_products"]) 
+              ? data["gi_deleted_products"].map(String) 
+              : getFromStore<string[]>('gi_deleted_products', []).map(String);
+            mergedVal = remoteData.filter((p: any) => p && p.id && !deletedProds.includes(String(p.id).trim()));
           }
           
           if (key === "gi_category_schedules" && typeof remoteData === 'object' && remoteData) {
@@ -1635,69 +1682,7 @@ export class DataStore {
     
     const updated = list.map(p => {
       let item = { ...p };
-      
-      // Sanitization: Ensure absolutely no electronic or device words remain in names or tags
-      if (item.name && (
-        item.name.toLowerCase().includes('airprods') || 
-        item.name.toLowerCase().includes('airpods') || 
-        item.name.toLowerCase().includes('phone') || 
-        item.name.toLowerCase().includes('laptop') || 
-        item.name.toLowerCase().includes('computer')
-      )) {
-        changed = true;
-        if (item.vipLevel === 6) {
-          item.name = "Gold Avenue Or d'Investissement";
-          item.tag = "Or d'Investissement";
-        } else if (item.vipLevel === 7) {
-          item.name = "Gold Avenue Lingot d'Or Pur";
-          item.tag = "Lingot d'Or Pur";
-        } else if (item.vipLevel === 8) {
-          item.name = "Gold Avenue Réserve Souveraine";
-          item.tag = "Réserve Souveraine";
-        } else if (item.vipLevel === 9) {
-          item.name = "Gold Avenue Trésor Impérial";
-          item.tag = "Trésor Impérial";
-        } else {
-          item.name = `Gold Avenue Option Or VIP ${item.vipLevel || ''}`;
-          item.tag = "Or d'Investissement";
-        }
-      }
-
-      if (item.tag && (
-        item.tag.toLowerCase().includes('airprods') || 
-        item.tag.toLowerCase().includes('airpods') || 
-        item.tag.toLowerCase().includes('phone') || 
-        item.tag.toLowerCase().includes('laptop') || 
-        item.tag.toLowerCase().includes('computer')
-      )) {
-        changed = true;
-        if (item.vipLevel === 6) item.tag = "Or d'Investissement";
-        else if (item.vipLevel === 7) item.tag = "Lingot d'Or Pur";
-        else if (item.vipLevel === 8) item.tag = "Réserve Souveraine";
-        else if (item.vipLevel === 9) item.tag = "Trésor Impérial";
-        else item.tag = "Or d'Investissement";
-      }
-
-      // Allow custom imageUrl to be saved and displayed if set, otherwise the frontend will fall back to curated gold images.
-
-      // Synchronize / upgrade stability products to new revenue rates if outdated
-      if (item.category === 'stability' || (!item.category && item.id?.startsWith('stab-'))) {
-        const stabDefaults: Record<string, { dailyReturn: number; totalReturn: number }> = {
-          'stab-1': { dailyReturn: 180, totalReturn: 7200 },
-          'stab-2': { dailyReturn: 500, totalReturn: 20000 },
-          'stab-3': { dailyReturn: 1200, totalReturn: 48000 },
-          'stab-4': { dailyReturn: 3500, totalReturn: 140000 },
-          'stab-5': { dailyReturn: 8000, totalReturn: 320000 },
-          'stab-6': { dailyReturn: 18000, totalReturn: 720000 },
-          'stab-7': { dailyReturn: 42000, totalReturn: 1680000 }
-        };
-        if (stabDefaults[item.id] && item.dailyReturn < stabDefaults[item.id].dailyReturn) {
-          changed = true;
-          item.dailyReturn = stabDefaults[item.id].dailyReturn;
-          item.totalReturn = stabDefaults[item.id].totalReturn;
-        }
-      }
-
+      // Allow automatic reopening if schedule reached
       if (item.isBlocked && item.reopenDateTime && now >= new Date(item.reopenDateTime)) {
         changed = true;
         item.isBlocked = false;
@@ -1714,8 +1699,40 @@ export class DataStore {
     return updated;
   }
 
+  static async fetchProductsFromServer(): Promise<Product[]> {
+    try {
+      const resp = await apiFetch(getApiUrl('/api/products?t=' + Date.now()));
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.success && Array.isArray(data.products)) {
+          const deletedList = getFromStore<string[]>('gi_deleted_products', []);
+          const validProducts = data.products.filter((p: any) => p && p.id && !deletedList.includes(String(p.id)));
+          setToStore<Product[]>('gi_products', validProducts);
+          dispatchStoreUpdated();
+          return validProducts;
+        }
+      }
+    } catch (err) {
+      console.warn("[DataStore] /api/products fetch error, falling back to Supabase client:", err);
+    }
+
+    try {
+      const sbProds = await supabaseGetProducts();
+      if (sbProds && sbProds.length > 0) {
+        const deletedList = getFromStore<string[]>('gi_deleted_products', []);
+        const validProducts = sbProds.filter((p: any) => p && p.id && !deletedList.includes(String(p.id)));
+        setToStore<Product[]>('gi_products', validProducts);
+        dispatchStoreUpdated();
+        return validProducts;
+      }
+    } catch {}
+
+    return this.getProducts();
+  }
+
   static saveProducts(products: Product[]): void {
     setToStore<Product[]>('gi_products', products);
+    dispatchStoreUpdated();
 
     // Persist to server database
     apiFetch(getApiUrl('/api/save-store'), {
@@ -4622,7 +4639,7 @@ export class DataStore {
   // Create customized VIP Product list
   static addNewProduct(p: Object): void {
     const list = this.getProducts();
-    const id = `vip-${Date.now()}`;
+    const id = (p as any).id || `vip-${Date.now()}`;
     const newP: Product = {
       id,
       vipLevel: (p as any).vipLevel || list.length + 1,
@@ -4641,6 +4658,7 @@ export class DataStore {
 
     list.push(newP);
     this.saveProducts(list);
+    dispatchStoreUpdated();
   }
 
   static deleteProduct(productId: string): void {
@@ -4736,6 +4754,7 @@ export class DataStore {
         lastModified: Date.now()
       };
       this.saveProducts(list);
+      dispatchStoreUpdated();
     }
   }
 

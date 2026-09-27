@@ -19,6 +19,7 @@ import {
   deleteSupabaseUser,
   deleteSupabaseInvestment,
   deleteSupabaseProduct,
+  upsertSupabaseProduct,
   upsertSupabaseUser,
   upsertSupabaseDeposit,
   upsertSupabaseWithdrawal,
@@ -231,17 +232,8 @@ CREATE POLICY "Allow anon full access" ON public.store FOR ALL TO anon USING (tr
       const lowerName = originalName.toLowerCase();
       const lowerTag = originalTag.toLowerCase();
 
-      const needsNameUpdate = lowerName.includes('airprods') || 
-                              lowerName.includes('airpods') || 
-                              lowerName.includes('phone') || 
-                              lowerName.includes('laptop') || 
-                              lowerName.includes('computer');
-
-      const needsTagUpdate = lowerTag.includes('airprods') || 
-                             lowerTag.includes('airpods') || 
-                             lowerTag.includes('phone') || 
-                             lowerTag.includes('laptop') || 
-                             lowerTag.includes('computer');
+      const needsNameUpdate = lowerName.startsWith('airprods') || lowerName.startsWith('airpods');
+      const needsTagUpdate = lowerTag.startsWith('airprods') || lowerTag.startsWith('airpods');
 
       if (needsNameUpdate) {
         modified = true;
@@ -272,25 +264,7 @@ CREATE POLICY "Allow anon full access" ON public.store FOR ALL TO anon USING (tr
         else item.tag = "Or d'Investissement";
       }
 
-      // Synchronize / upgrade stability products to updated higher revenue rates
-      if (item.category === 'stability' || (!item.category && String(item.id || '').startsWith('stab-'))) {
-        const stabDefaults: Record<string, { dailyReturn: number; totalReturn: number }> = {
-          'stab-1': { dailyReturn: 180, totalReturn: 7200 },
-          'stab-2': { dailyReturn: 500, totalReturn: 20000 },
-          'stab-3': { dailyReturn: 1200, totalReturn: 48000 },
-          'stab-4': { dailyReturn: 3500, totalReturn: 140000 },
-          'stab-5': { dailyReturn: 8000, totalReturn: 320000 },
-          'stab-6': { dailyReturn: 18000, totalReturn: 720000 },
-          'stab-7': { dailyReturn: 42000, totalReturn: 1680000 }
-        };
-        if (stabDefaults[item.id] && item.dailyReturn < stabDefaults[item.id].dailyReturn) {
-          modified = true;
-          item.dailyReturn = stabDefaults[item.id].dailyReturn;
-          item.totalReturn = stabDefaults[item.id].totalReturn;
-        }
-      }
-
-      // Allow admin-configured custom product image URLs without any automated sanitization
+      // Allow admin-configured custom product values, returns, tags, and images without any automated overwrite
     });
 
     return modified;
@@ -963,21 +937,19 @@ const SERVER_DEFAULT_PRODUCTS = [
       }
     ];
 
-    // Ensure all base products (Stabilité + Bien-être + Activités) are in the catalogue
-    const currentProds = Array.isArray(storeData["gi_products"]) ? storeData["gi_products"] : [];
-    const mergedProds = [...currentProds];
-    for (const dp of default14Products) {
-      if (!mergedProds.some((p: any) => p && String(p.id).trim() === String(dp.id).trim())) {
-        mergedProds.push(dp);
-      }
+    // Only seed initial default products if the catalogue has never been set up
+    const deletedProducts = Array.isArray(storeData["gi_deleted_products"]) ? storeData["gi_deleted_products"].map(String) : [];
+    if (!Array.isArray(storeData["gi_products"])) {
+      const initialSeed = default14Products.filter(dp => !deletedProducts.includes(String(dp.id).trim()));
+      storeData["gi_products"] = initialSeed;
+      modified = true;
+      saveStoreLocal();
+      setTimeout(() => {
+        saveStore(["gi_products"]).catch(err => {
+          console.error("[STARTUP] Failed to save configured products to Supabase:", err);
+        });
+      }, 1000);
     }
-    storeData["gi_products"] = mergedProds.length > 0 ? mergedProds : default14Products;
-    modified = true;
-    setTimeout(() => {
-      saveStore(["gi_products"]).catch(err => {
-        console.error("[STARTUP] Failed to save configured products to Supabase:", err);
-      });
-    }, 1000);
 
     if (modified) {
       saveStoreLocal();
@@ -2869,6 +2841,10 @@ const SERVER_DEFAULT_PRODUCTS = [
                   }
                   if (!isGenuineAdmin && key === "gi_forum_posts") {
                     // Non-admin clients must never inject forum posts through save-store
+                    continue;
+                  }
+                  if (!isGenuineAdmin && key === "gi_products") {
+                    // Non-admin clients must never inject or modify products through save-store
                     continue;
                   }
                   if (!isGenuineAdmin && key === "gi_support_messages" && newUser) {
@@ -7075,33 +7051,56 @@ const SERVER_DEFAULT_PRODUCTS = [
   });
 
   app.post("/api/admin/product/create", async (req, res) => {
-    const p = req.body;
-    let list = storeData["gi_products"] || [];
-    const id = `vip-${Date.now()}`;
-    const price = p.price || 5000;
-    const dailyReturn = p.dailyReturn || 1000;
-    const durationDays = p.durationDays || 10;
-    const totalReturn = p.totalReturn !== undefined ? p.totalReturn : (dailyReturn * durationDays);
+    try {
+      const p = req.body || {};
+      let list = storeData["gi_products"] || [];
+      const id = p.id || `vip-${Date.now()}`;
+      const price = Number(p.price || 5000);
+      const dailyReturn = Number(p.dailyReturn || 1000);
+      const durationDays = Number(p.durationDays || 10);
+      const totalReturn = Number(p.totalReturn !== undefined ? p.totalReturn : (dailyReturn * durationDays));
+      const now = Date.now();
 
-    list.push({
-      id,
-      vipLevel: p.vipLevel || list.length + 1,
-      name: p.name || 'Nouveau Produit VIP',
-      price,
-      dailyReturn,
-      durationDays,
-      totalReturn,
-      tag: p.tag || 'Special Offer',
-      isCyclic: p.isCyclic || false,
-      generatedProductIds: p.generatedProductIds || [],
-      category: p.category || 'stability',
-      imageUrl: p.imageUrl || undefined,
-      lastModified: Date.now()
-    });
-    storeData["gi_products"] = list;
-    sanitizeProductsInPlace(storeData["gi_products"]);
-    await saveStore();
-    res.json({ success: true });
+      const newProduct = {
+        id,
+        vipLevel: Number(p.vipLevel || list.length + 1),
+        name: String(p.name || 'Nouveau Produit VIP').trim(),
+        price,
+        dailyReturn,
+        durationDays,
+        totalReturn,
+        tag: p.tag || '',
+        isCyclic: Boolean(p.isCyclic),
+        generatedProductIds: Array.isArray(p.generatedProductIds) ? p.generatedProductIds : [],
+        category: p.category || 'stability',
+        imageUrl: p.imageUrl || undefined,
+        isBlocked: Boolean(p.isBlocked),
+        lastModified: now
+      };
+
+      let deletedList = storeData["gi_deleted_products"] || [];
+      if (deletedList.map(String).includes(String(id).trim())) {
+        storeData["gi_deleted_products"] = deletedList.filter((d: any) => String(d).trim() !== String(id).trim());
+      }
+      list = list.filter((item: any) => item && String(item.id).trim() !== String(id).trim());
+      list.push(newProduct);
+      storeData["gi_products"] = list;
+      saveStoreLocal();
+
+      try {
+        await upsertSupabaseProduct(newProduct);
+      } catch (sbErr) {
+        console.warn("[SUPABASE PRODUCT CREATE WARN]", sbErr);
+      }
+
+      await saveSupabaseStoreBatch([{ key: 'gi_products', value: list }]);
+      broadcastRealtimeEvent({ type: 'products', action: 'create', product: newProduct });
+
+      res.json({ success: true, product: newProduct, products: list });
+    } catch (err: any) {
+      console.error("[ADMIN PRODUCT CREATE ERROR]", err);
+      res.status(500).json({ success: false, error: err?.message || String(err) });
+    }
   });
 
   app.post("/api/admin/product/delete", async (req, res) => {
@@ -7161,6 +7160,7 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     saveStoreLocal();
     await saveStore(["gi_products", "gi_deleted_products", "gi_investments", "gi_deleted_investments", "gi_users"]);
+    broadcastRealtimeEvent({ type: 'products', action: 'delete', productId: prodIdStr });
     res.json({ 
       success: true, 
       products: storeData["gi_products"],
@@ -7208,55 +7208,169 @@ const SERVER_DEFAULT_PRODUCTS = [
 
     saveStoreLocal();
     await saveStore(["gi_products", "gi_deleted_products", "gi_investments", "gi_deleted_investments", "gi_users"]);
+    broadcastRealtimeEvent({ type: 'products', action: 'delete-all' });
     res.json({ success: true });
   });
 
   app.post("/api/admin/product/update", async (req, res) => {
-    const { productId, updatedP } = req.body;
-    let list = storeData["gi_products"];
-    if (!Array.isArray(list) || list.length === 0) {
-      list = JSON.parse(JSON.stringify(SERVER_DEFAULT_PRODUCTS));
+    try {
+      const { productId, updatedP, ...rest } = req.body;
+      const updates = (updatedP && typeof updatedP === 'object') ? { ...updatedP, ...rest } : rest;
+      if (!productId) {
+        return res.status(400).json({ success: false, error: "Missing productId" });
+      }
+
+      let list = storeData["gi_products"];
+      if (!Array.isArray(list)) {
+        list = [];
+      }
+
+      const prodIdStr = String(productId).trim();
+      let deletedList = storeData["gi_deleted_products"] || [];
+      if (deletedList.map(String).includes(prodIdStr)) {
+        storeData["gi_deleted_products"] = deletedList.filter((d: any) => String(d).trim() !== prodIdStr);
+      }
+      let idx = list.findIndex((p: any) => p && String(p.id).trim() === prodIdStr);
+
+      const current = idx !== -1 ? list[idx] : {};
+      const name = String(updates.name !== undefined ? updates.name : (current.name || 'Produit')).trim();
+      const price = Number(updates.price !== undefined ? updates.price : (current.price || 0));
+      const dailyReturn = Number(updates.dailyReturn !== undefined ? updates.dailyReturn : (current.dailyReturn || 0));
+      const durationDays = Number(updates.durationDays !== undefined ? updates.durationDays : (current.durationDays || 30));
+      const totalReturn = Number(
+        updates.totalReturn !== undefined 
+          ? updates.totalReturn 
+          : (dailyReturn * durationDays)
+      );
+      const vipLevel = Number(updates.vipLevel !== undefined ? updates.vipLevel : (current.vipLevel || 1));
+      const tag = updates.tag !== undefined ? updates.tag : (current.tag || '');
+      const imageUrl = updates.imageUrl !== undefined ? updates.imageUrl : (current.imageUrl || '');
+      const category = updates.category || current.category || 'stability';
+      const isCyclic = updates.isCyclic !== undefined ? Boolean(updates.isCyclic) : Boolean(current.isCyclic);
+      const isBlocked = updates.isBlocked !== undefined ? Boolean(updates.isBlocked) : Boolean(current.isBlocked);
+      const reopenDateTime = updates.reopenDateTime !== undefined ? updates.reopenDateTime : current.reopenDateTime;
+      const generatedProductIds = Array.isArray(updates.generatedProductIds) ? updates.generatedProductIds : (current.generatedProductIds || []);
+      const now = Date.now();
+
+      const updatedProduct = {
+        ...current,
+        id: prodIdStr,
+        name,
+        price,
+        dailyReturn,
+        durationDays,
+        totalReturn,
+        vipLevel,
+        tag,
+        imageUrl,
+        category,
+        isCyclic,
+        isBlocked,
+        reopenDateTime,
+        generatedProductIds,
+        lastModified: now
+      };
+
+      if (idx !== -1) {
+        list[idx] = updatedProduct;
+      } else {
+        list.push(updatedProduct);
+      }
+
+      storeData["gi_products"] = list;
+      saveStoreLocal();
+
+      // 1. Direct authoritative upsert to Supabase products table
+      try {
+        await upsertSupabaseProduct(updatedProduct);
+      } catch (sbErr) {
+        console.warn("[SUPABASE PRODUCT UPDATE WARN]", sbErr);
+      }
+
+      // 2. Direct save of gi_products to store table
+      await saveSupabaseStoreBatch([{ key: 'gi_products', value: list }]);
+
+      // 3. Broadcast real-time event to all connected users
+      broadcastRealtimeEvent({ type: 'products', action: 'update', product: updatedProduct });
+
+      res.json({ success: true, product: updatedProduct, products: list });
+    } catch (err: any) {
+      console.error("[ADMIN PRODUCT UPDATE ERROR]", err);
+      res.status(500).json({ success: false, error: err?.message || String(err) });
     }
-    let idx = list.findIndex((p: any) => p.id === productId);
-    if (idx !== -1) {
-       const current = list[idx];
-       const daily = updatedP.dailyReturn !== undefined ? updatedP.dailyReturn : current.dailyReturn;
-       const days = updatedP.durationDays !== undefined ? updatedP.durationDays : current.durationDays;
-       const fallbackTotal = daily * days;
-       list[idx] = {
-         ...current,
-         ...updatedP,
-         totalReturn: updatedP.totalReturn !== undefined ? updatedP.totalReturn : fallbackTotal,
-         category: updatedP.category || current.category || 'stability',
-         lastModified: Date.now()
-       };
-    } else {
-       list.push({
-         id: productId,
-         ...updatedP,
-         lastModified: Date.now()
-       });
-    }
-    storeData["gi_products"] = list;
-    sanitizeProductsInPlace(storeData["gi_products"]);
-    await saveStore(["gi_products"]);
-    res.json({ success: true, products: storeData["gi_products"] });
   });
 
   app.post("/api/admin/product/toggle-block", async (req, res) => {
-    const { productId, isBlocked, reopenDateTime } = req.body;
-    let list = storeData["gi_products"] || [];
-    const idx = list.findIndex((p: any) => p.id === productId);
-    if (idx !== -1) {
-      list[idx].isBlocked = isBlocked;
-      list[idx].reopenDateTime = isBlocked ? (reopenDateTime || undefined) : undefined;
-      list[idx].lastModified = Date.now();
-      await saveStore(["gi_products"]);
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: 'Produit introuvable' });
+    try {
+      const { productId, isBlocked, reopenDateTime } = req.body;
+      let list = storeData["gi_products"] || [];
+      const prodIdStr = String(productId || '').trim();
+      const idx = list.findIndex((p: any) => p && String(p.id).trim() === prodIdStr);
+      if (idx !== -1) {
+        list[idx].isBlocked = Boolean(isBlocked);
+        list[idx].reopenDateTime = isBlocked ? (reopenDateTime || undefined) : undefined;
+        list[idx].lastModified = Date.now();
+        storeData["gi_products"] = list;
+        saveStoreLocal();
+
+        try {
+          await upsertSupabaseProduct(list[idx]);
+        } catch (sbErr) {
+          console.warn("[SUPABASE TOGGLE BLOCK WARN]", sbErr);
+        }
+
+        await saveSupabaseStoreBatch([{ key: 'gi_products', value: list }]);
+        broadcastRealtimeEvent({ type: 'products', action: 'update', product: list[idx] });
+        res.json({ success: true, product: list[idx] });
+      } else {
+        res.status(404).json({ error: 'Produit introuvable' });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || String(err) });
     }
   });
+
+  const getProductsHandler = async (req: any, res: any) => {
+    try {
+      const deletedList = Array.isArray(storeData["gi_deleted_products"]) ? storeData["gi_deleted_products"].map(String) : [];
+      if (Array.isArray(storeData["gi_products"]) && storeData["gi_products"].length > 0) {
+        const filtered = storeData["gi_products"].filter((p: any) => p && p.id && !deletedList.includes(String(p.id).trim()));
+        return res.json({ success: true, products: filtered });
+      }
+      const client = getSupabaseAdminClient();
+      if (client) {
+        const { data: rows } = await client.from('products').select('*').order('created_at', { ascending: true });
+        if (Array.isArray(rows) && rows.length > 0) {
+          const mapped = rows
+            .filter((r: any) => r && r.id && !deletedList.includes(String(r.id).trim()))
+            .map((r: any) => {
+              const raw = (r.raw_data && typeof r.raw_data === 'object') ? r.raw_data : {};
+              return {
+                ...raw,
+                id: r.id,
+                name: r.name || raw.name,
+                price: Number(r.price || raw.price || 0),
+                dailyReturn: Number(r.daily_return || raw.dailyReturn || 0),
+                durationDays: Number(r.duration_days || raw.durationDays || 30),
+                category: r.category || raw.category || 'stability',
+                isCyclic: Boolean(r.is_cyclic !== null && r.is_cyclic !== undefined ? r.is_cyclic : raw.isCyclic),
+                isBlocked: Boolean(r.is_blocked !== null && r.is_blocked !== undefined ? r.is_blocked : raw.isBlocked),
+                totalReturn: Number(r.total_return || raw.totalReturn || (Number(r.daily_return || 0) * Number(r.duration_days || 30))),
+                lastModified: Number(r.last_modified || raw.lastModified || Date.now())
+              };
+            });
+          storeData["gi_products"] = mapped;
+          return res.json({ success: true, products: mapped });
+        }
+      }
+      res.json({ success: true, products: storeData["gi_products"] || [] });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message });
+    }
+  };
+
+  app.get("/api/products", getProductsHandler);
+  app.get("/api/admin/products", getProductsHandler);
 
   // API endpoints to synchronize state
 

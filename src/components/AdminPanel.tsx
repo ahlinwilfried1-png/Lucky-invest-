@@ -45,7 +45,9 @@ import {
   supabaseApproveDeposit,
   supabaseRejectDeposit,
   supabaseApproveWithdrawal,
-  supabaseRejectWithdrawal
+  supabaseRejectWithdrawal,
+  supabaseUpsertProduct,
+  supabaseDeleteProduct
 } from '../supabase';
 
 const maskUserPhone = (str: string): string => {
@@ -874,6 +876,32 @@ export default function AdminPanel({
             if (directInvs && directInvs.length > 0) {
               setInvestments(directInvs);
               DataStore.saveInvestments(directInvs);
+            }
+          } catch {}
+        }
+
+        // Authoritative Products
+        try {
+          const prodsResp = await apiFetch(getApiUrl('/api/admin/products?t=' + Date.now()), { headers: adminHeaders });
+          if (prodsResp.ok) {
+            const prodsData = await prodsResp.json();
+            if (prodsData?.success && Array.isArray(prodsData.products)) {
+              setProducts(prodsData.products);
+              DataStore.saveProducts(prodsData.products);
+            }
+          } else {
+            const directProds = await supabaseGetProducts();
+            if (Array.isArray(directProds)) {
+              setProducts(directProds);
+              DataStore.saveProducts(directProds);
+            }
+          }
+        } catch {
+          try {
+            const directProds = await supabaseGetProducts();
+            if (Array.isArray(directProds)) {
+              setProducts(directProds);
+              DataStore.saveProducts(directProds);
             }
           } catch {}
         }
@@ -1835,7 +1863,9 @@ export default function AdminPanel({
       return;
     }
 
+    const newId = `vip-${Date.now()}`;
     const payload = {
+      id: newId,
       vipLevel: newVipLevel,
       name: newVipName.trim(),
       price: newVipPrice,
@@ -1861,6 +1891,11 @@ export default function AdminPanel({
         body: JSON.stringify(payload)
       });
       if (resp.ok) {
+        const resData = await resp.json();
+        if (resData && Array.isArray(resData.products)) {
+          DataStore.saveProducts(resData.products);
+          setProducts(resData.products);
+        }
         await executeDirectCentralSync();
       }
     } catch (e) {
@@ -1890,6 +1925,10 @@ export default function AdminPanel({
       });
       if (resp.ok) {
         const data = await resp.json();
+        if (data && Array.isArray(data.products)) {
+          DataStore.saveProducts(data.products);
+          setProducts(data.products);
+        }
         if (data && Array.isArray(data.investments)) {
           setInvestments(data.investments);
         }
@@ -1973,6 +2012,11 @@ export default function AdminPanel({
         body: JSON.stringify({ productId: editingProduct.id, updatedP: payload })
       });
       if (resp.ok) {
+        const resData = await resp.json();
+        if (resData && Array.isArray(resData.products)) {
+          DataStore.saveProducts(resData.products);
+          setProducts(resData.products);
+        }
         await executeDirectCentralSync();
       }
     } catch (e) {

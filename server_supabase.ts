@@ -1209,6 +1209,108 @@ export async function deleteSupabaseForumPost(postId: string): Promise<boolean> 
 }
 
 /**
+ * Permanently upserts/updates a product in Supabase (relational products table + public.store)
+ */
+export async function upsertSupabaseProduct(product: any): Promise<boolean> {
+  const client = getSupabaseAdminClient();
+  if (!client || !product || !product.id) return false;
+
+  try {
+    const prodIdStr = String(product.id).trim();
+    const dailyReturn = Number(product.dailyReturn !== undefined ? product.dailyReturn : (product.daily_return || 0));
+    const durationDays = Number(product.durationDays !== undefined ? product.durationDays : (product.duration_days || 30));
+    const totalReturn = Number(
+      product.totalReturn !== undefined 
+        ? product.totalReturn 
+        : (product.total_return !== undefined ? product.total_return : dailyReturn * durationDays)
+    );
+    const now = Date.now();
+
+    const cleanRawData = {
+      ...(product.raw_data && typeof product.raw_data === 'object' ? product.raw_data : {}),
+      ...product,
+      id: prodIdStr,
+      dailyReturn,
+      durationDays,
+      totalReturn,
+      lastModified: now
+    };
+
+    const payload = {
+      id: prodIdStr,
+      name: String(product.name || 'Produit').trim(),
+      price: Number(product.price || 0),
+      daily_return: dailyReturn,
+      duration_days: durationDays,
+      category: product.category || 'stability',
+      is_cyclic: Boolean(product.isCyclic !== undefined ? product.isCyclic : product.is_cyclic),
+      is_blocked: Boolean(product.isBlocked !== undefined ? product.isBlocked : product.is_blocked),
+      total_return: totalReturn,
+      last_modified: now,
+      raw_data: cleanRawData
+    };
+
+    // 1. Direct upsert to dedicated relational 'products' table
+    const { error: relErr } = await client
+      .from('products')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (relErr) {
+      console.warn('[SUPABASE PRODUCTS TABLE UPSERT WARN]', relErr.message);
+    } else {
+      console.log(`[SUPABASE PRODUCTS TABLE] Successfully persisted product "${payload.name}" (${prodIdStr})`);
+    }
+
+    // 2. Also update in public.store 'gi_products' table
+    try {
+      const { data: storeRow } = await client
+        .from('store')
+        .select('value')
+        .eq('key', 'gi_products')
+        .maybeSingle();
+
+      let prods = (storeRow && Array.isArray(storeRow.value)) ? storeRow.value : [];
+      const idx = prods.findIndex((p: any) => p && String(p.id).trim() === prodIdStr);
+      if (idx !== -1) {
+        prods[idx] = { ...prods[idx], ...cleanRawData };
+      } else {
+        prods.push(cleanRawData);
+      }
+      await client.from('store').upsert({
+        key: 'gi_products',
+        value: prods,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+    } catch (storeErr: any) {
+      console.warn('[SUPABASE STORE PRODUCTS UPSERT WARN]', storeErr?.message || storeErr);
+    }
+
+    // 3. Make sure it is not in 'gi_deleted_products'
+    try {
+      const { data: delRow } = await client
+        .from('store')
+        .select('value')
+        .eq('key', 'gi_deleted_products')
+        .maybeSingle();
+
+      if (delRow && Array.isArray(delRow.value) && delRow.value.map(String).includes(prodIdStr)) {
+        const cleaned = delRow.value.filter((id: any) => String(id).trim() !== prodIdStr);
+        await client.from('store').upsert({
+          key: 'gi_deleted_products',
+          value: cleaned,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+      }
+    } catch {}
+
+    return true;
+  } catch (err: any) {
+    console.warn('[SUPABASE PRODUCT UPSERT EXCEPTION]', err?.message || err);
+    return false;
+  }
+}
+
+/**
  * Permanently deletes a product from Supabase (relational products table + public.store)
  */
 export async function deleteSupabaseProduct(productId: string): Promise<boolean> {

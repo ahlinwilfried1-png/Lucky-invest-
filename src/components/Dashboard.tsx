@@ -87,7 +87,7 @@ import CountdownTimer from './CountdownTimer';
 import { InvestmentItem } from './InvestmentItem';
 import { OnlineSupportPage } from './OnlineSupportPage';
 import { getMaskedAnonymousId, deduplicateForumPosts } from '../lib/forumUtils';
-import { supabaseUpsertDeposit, supabaseGetInvestments, supabaseUpsertInvestment } from '../supabase';
+import { supabaseUpsertDeposit, supabaseGetInvestments, supabaseUpsertInvestment, subscribeToSupabaseRealtime } from '../supabase';
 
 
 const compressImage = (file: File, maxWidth: number = 500, quality: number = 0.45): Promise<string> => {
@@ -1507,6 +1507,9 @@ export default function Dashboard({
 
   useEffect(() => {
     syncDashboardData();
+    DataStore.fetchProductsFromServer().then((prods) => {
+      if (prods && prods.length > 0) setProducts(prods);
+    }).catch(() => {});
 
     // Check if we just completed a WestPay transaction successfully
     let wpNotif: string | null = null;
@@ -1572,7 +1575,7 @@ export default function Dashboard({
       } else if (
         (fresh && (fresh.balance !== oldBal || fresh.dailyEarnings !== oldDailyEarnings)) || 
         freshUsers.length !== oldUsersLen ||
-        freshProducts.length !== productsRef.current.length ||
+        JSON.stringify(freshProducts) !== JSON.stringify(productsRef.current) ||
         freshManualNums.length !== manualDepositNumbersRef.current.length ||
         freshForumPosts.length !== forumPostsRef.current.length ||
         freshInvs.length !== activeInvestmentsRef.current.length
@@ -1613,6 +1616,21 @@ export default function Dashboard({
       }
     } catch (e) {}
 
+    // Active direct Supabase Realtime listener for cross-client instant synchronization
+    let unsubSupabase = () => {};
+    try {
+      unsubSupabase = subscribeToSupabaseRealtime((table) => {
+        if (table === 'products' || table === 'store') {
+          DataStore.fetchProductsFromServer().then((fresh) => {
+            if (fresh && fresh.length > 0) setProducts(fresh);
+          }).catch(() => {});
+        }
+        syncWithBackend(true).then(() => {
+          syncDashboardData();
+        });
+      });
+    } catch (e) {}
+
     // Real-time server-sent events for instantaneous user balance and transaction updates
     let eventSource: EventSource | null = null;
     try {
@@ -1621,6 +1639,11 @@ export default function Dashboard({
         try {
           const payload = JSON.parse(event.data);
           if (payload && payload.type !== 'connected') {
+            if (payload.type === 'products') {
+              DataStore.fetchProductsFromServer().then((fresh) => {
+                if (fresh && fresh.length > 0) setProducts(fresh);
+              }).catch(() => {});
+            }
             syncWithBackend(true).then(() => {
               syncDashboardData();
             });
@@ -1631,6 +1654,7 @@ export default function Dashboard({
 
     return () => {
       clearInterval(interval);
+      unsubSupabase();
       if (eventSource) {
         try { eventSource.close(); } catch {}
       }
@@ -1673,6 +1697,12 @@ export default function Dashboard({
     } else if (activeTab === 'forum') {
       syncWithBackend().then(() => {
         setForumPosts(DataStore.getForumPosts());
+      }).catch(() => {});
+    } else if (activeTab === 'products') {
+      DataStore.fetchProductsFromServer().then((prods) => {
+        if (prods && prods.length > 0) {
+          setProducts(prods);
+        }
       }).catch(() => {});
     }
   }, [activeTab]);
