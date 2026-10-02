@@ -53,6 +53,9 @@ export const PointageView: React.FC<PointageViewProps> = ({
     if (!v && inv.productId?.startsWith('stab-')) {
       v = parseInt(inv.productId.replace('stab-', ''), 10) || 0;
     }
+    if (!v && inv.productId?.startsWith('airprods-vip-')) {
+      v = parseInt(inv.productId.replace('airprods-vip-', ''), 10) || 0;
+    }
     if (v > userVipLevel) {
       userVipLevel = v;
       userVipName = prod?.tag || prod?.name || `VIP ${v}`;

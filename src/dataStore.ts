@@ -2202,6 +2202,19 @@ export class DataStore {
     setToStore<WithdrawalProof[]>('gi_withdrawal_proofs', proofs);
   }
 
+  static notifyForumUpdated(posts: any[]): void {
+    try {
+      window.dispatchEvent(new CustomEvent('gi_forum_updated', { detail: posts }));
+    } catch (e) {}
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('gi_forum_sync');
+        bc.postMessage({ type: 'FORUM_UPDATED', time: Date.now() });
+        bc.close();
+      }
+    } catch (e) {}
+  }
+
   static getForumPosts(): any[] {
     const val = getFromStore<any[]>('gi_forum_posts', []);
     const deletedList = getFromStore<string[]>('gi_deleted_forum_posts', []);
@@ -2220,10 +2233,8 @@ export class DataStore {
             data.posts.filter((p: any) => p && p.id && !deletedList.includes(String(p.id)))
           );
           setToStore<any[]>('gi_forum_posts', validPosts);
-          try {
-            localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(validPosts));
-          } catch (e) {}
           dispatchStoreUpdated();
+          this.notifyForumUpdated(validPosts);
           return validPosts;
         }
       }
@@ -2237,10 +2248,8 @@ export class DataStore {
     const current = this.getForumPosts();
     const updated = deduplicateForumPosts([post, ...current]);
     setToStore<any[]>('gi_forum_posts', updated);
-    try {
-      localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(updated));
-    } catch (e) {}
     dispatchStoreUpdated();
+    this.notifyForumUpdated(updated);
 
     try {
       const resp = await apiFetch(getApiUrl('/api/forum/create'), {
@@ -2251,7 +2260,6 @@ export class DataStore {
       if (resp.ok) {
         const data = await resp.json();
         if (data.success && data.post) {
-          // Re-sync with server to ensure authoritative cross-user state
           await this.fetchForumPostsFromServer();
           return data.post;
         }
@@ -2263,12 +2271,86 @@ export class DataStore {
     return post;
   }
 
+  static async editForumPost(postId: string, fields: { text?: string; authorName?: string; title?: string; image1?: string | null; image2?: string | null }): Promise<any> {
+    const posts = this.getForumPosts();
+    const updated = posts.map(p => {
+      if (p && String(p.id) === String(postId)) {
+        const newText = fields.text !== undefined ? fields.text : (p.text || p.message || '');
+        return {
+          ...p,
+          ...fields,
+          text: newText,
+          message: newText,
+          authorName: fields.authorName !== undefined ? fields.authorName : p.authorName,
+          lastModified: Date.now()
+        };
+      }
+      return p;
+    });
+    setToStore<any[]>('gi_forum_posts', updated);
+    dispatchStoreUpdated();
+    this.notifyForumUpdated(updated);
+
+    try {
+      const resp = await apiFetch(getApiUrl('/api/forum/edit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, ...fields })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.post) {
+          await this.fetchForumPostsFromServer();
+          return data.post;
+        }
+      }
+    } catch (err) {
+      console.warn("Direct /api/forum/edit error:", err);
+    }
+    return null;
+  }
+
+  static async addForumComment(postId: string, comment: any): Promise<any> {
+    const posts = this.getForumPosts();
+    const updated = posts.map(p => {
+      if (p && String(p.id) === String(postId)) {
+        const comments = Array.isArray(p.comments) ? p.comments : [];
+        return {
+          ...p,
+          comments: [...comments, comment],
+          lastModified: Date.now()
+        };
+      }
+      return p;
+    });
+    setToStore<any[]>('gi_forum_posts', updated);
+    dispatchStoreUpdated();
+    this.notifyForumUpdated(updated);
+
+    try {
+      const resp = await apiFetch(getApiUrl('/api/forum/comment'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, comment })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.post) {
+          await this.fetchForumPostsFromServer();
+          return data.post;
+        }
+      }
+    } catch (err) {
+      console.warn("Direct /api/forum/comment failed:", err);
+      await this.saveForumPosts(updated);
+    }
+    return null;
+  }
+
   static async clearAllForumPosts(): Promise<void> {
     setToStore<any[]>('gi_forum_posts', []);
-    try {
-      localStorage.removeItem('rockygold_forum_posts_v3');
-    } catch (e) {}
     dispatchStoreUpdated();
+    this.notifyForumUpdated([]);
 
     try {
       await apiFetch(getApiUrl('/api/forum/clear-all'), {
@@ -2276,6 +2358,7 @@ export class DataStore {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       });
+      await this.fetchForumPostsFromServer();
     } catch (e) {
       await this.saveForumPosts([]);
     }
@@ -2283,9 +2366,7 @@ export class DataStore {
 
   static async saveForumPosts(posts: any[]): Promise<void> {
     setToStore<any[]>('gi_forum_posts', posts);
-    try {
-      localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(posts));
-    } catch (e) {}
+    this.notifyForumUpdated(posts);
 
     let activeUserId = 'u-guest';
     let activeUserRole = 'user';
@@ -2324,12 +2405,10 @@ export class DataStore {
       setToStore<string[]>('gi_deleted_forum_posts', deletedList);
     }
     const posts = this.getForumPosts();
-    const updated = posts.filter((p: any) => p && p.id !== postId);
+    const updated = posts.filter((p: any) => p && String(p.id) !== String(postId));
     setToStore<any[]>('gi_forum_posts', updated);
-    try {
-      localStorage.setItem('rockygold_forum_posts_v3', JSON.stringify(updated));
-    } catch (e) {}
     dispatchStoreUpdated();
+    this.notifyForumUpdated(updated);
 
     try {
       await apiFetch(getApiUrl('/api/forum/delete'), {
@@ -2337,6 +2416,7 @@ export class DataStore {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId })
       });
+      await this.fetchForumPostsFromServer();
     } catch (e) {
       await this.saveForumPosts(updated);
     }
@@ -2365,6 +2445,7 @@ export class DataStore {
 
     setToStore<any[]>('gi_forum_posts', updated);
     dispatchStoreUpdated();
+    this.notifyForumUpdated(updated);
 
     try {
       const resp = await apiFetch(getApiUrl('/api/forum/like'), {

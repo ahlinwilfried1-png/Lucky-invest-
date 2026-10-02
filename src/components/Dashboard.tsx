@@ -1631,7 +1631,7 @@ export default function Dashboard({
       });
     } catch (e) {}
 
-    // Real-time server-sent events for instantaneous user balance and transaction updates
+    // Real-time server-sent events for instantaneous user balance, transaction and forum updates
     let eventSource: EventSource | null = null;
     try {
       eventSource = new EventSource('/api/realtime-stream');
@@ -1644,6 +1644,22 @@ export default function Dashboard({
                 if (fresh && fresh.length > 0) setProducts(fresh);
               }).catch(() => {});
             }
+            if (payload.type === 'forum') {
+              if (payload.action === 'create' && payload.post) {
+                setForumPosts(prev => deduplicateForumPosts([payload.post, ...prev]));
+              } else if (payload.action === 'edit' && payload.post) {
+                setForumPosts(prev => prev.map(p => String(p.id) === String(payload.post.id) ? { ...p, ...payload.post } : p));
+              } else if (payload.action === 'delete' && payload.postId) {
+                setForumPosts(prev => prev.filter(p => String(p.id) !== String(payload.postId)));
+              } else if (payload.action === 'clear-all') {
+                setForumPosts([]);
+              }
+              DataStore.fetchForumPostsFromServer().then((fresh) => {
+                if (fresh && Array.isArray(fresh)) {
+                  setForumPosts(fresh);
+                }
+              }).catch(() => {});
+            }
             syncWithBackend(true).then(() => {
               syncDashboardData();
             });
@@ -1651,6 +1667,26 @@ export default function Dashboard({
         } catch {}
       };
     } catch {}
+
+    const handleForumUpdated = (e: any) => {
+      const fresh = e?.detail || DataStore.getForumPosts();
+      setForumPosts(fresh);
+    };
+    window.addEventListener('gi_forum_updated', handleForumUpdated);
+
+    let forumBc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        forumBc = new BroadcastChannel('gi_forum_sync');
+        forumBc.onmessage = (ev) => {
+          if (ev.data && ev.data.type === 'FORUM_UPDATED') {
+            DataStore.fetchForumPostsFromServer().then((fresh) => {
+              if (fresh && Array.isArray(fresh)) setForumPosts(fresh);
+            }).catch(() => {});
+          }
+        };
+      }
+    } catch (e) {}
 
     return () => {
       clearInterval(interval);
@@ -1663,8 +1699,12 @@ export default function Dashboard({
       window.removeEventListener('gi_category_schedules_updated', handleStoreUpdated);
       window.removeEventListener('gi_announcements_updated', handleStoreUpdated);
       window.removeEventListener('gi_read_announcements_updated', handleStoreUpdated);
+      window.removeEventListener('gi_forum_updated', handleForumUpdated);
       if (bc) {
         try { bc.close(); } catch (e) {}
+      }
+      if (forumBc) {
+        try { forumBc.close(); } catch (e) {}
       }
     };
   }, [currentUser.id]);
@@ -1695,9 +1735,15 @@ export default function Dashboard({
     if (activeTab === 'dashboard') {
       setShowAnnouncementDismissible(true);
     } else if (activeTab === 'forum') {
-      syncWithBackend().then(() => {
-        setForumPosts(DataStore.getForumPosts());
+      DataStore.fetchForumPostsFromServer().then((fresh) => {
+        if (fresh && Array.isArray(fresh)) setForumPosts(fresh);
       }).catch(() => {});
+      const forumInterval = setInterval(() => {
+        DataStore.fetchForumPostsFromServer().then((fresh) => {
+          if (fresh && Array.isArray(fresh)) setForumPosts(fresh);
+        }).catch(() => {});
+      }, 2500);
+      return () => clearInterval(forumInterval);
     } else if (activeTab === 'products') {
       DataStore.fetchProductsFromServer().then((prods) => {
         if (prods && prods.length > 0) {
@@ -1859,14 +1905,18 @@ export default function Dashboard({
       return;
     }
 
+    const postContent = forumMessageInput.trim() || "📸 Capture d'écran partagée sur le forum.";
     const maskedId = getMaskedAnonymousId(userState.id || userState.phone || userState.name);
     const newPost = {
       id: 'f-user-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
       authorId: userState.id || ('u-' + Date.now()),
       authorPhone: userState.phone || '',
-      authorName: maskedId,
-      avatarLetter: '★',
-      text: forumMessageInput.trim() || "📸 Capture d'écran partagée sur le forum.",
+      authorName: userState.role === 'admin' ? '🛡️ Administration' : maskedId,
+      authorRole: userState.role || 'user',
+      isAdmin: userState.role === 'admin',
+      avatarLetter: userState.role === 'admin' ? '🛡️' : '★',
+      text: postContent,
+      message: postContent,
       image1: forumImage1 || undefined,
       image2: forumImage2 || undefined,
       likes: 0,
@@ -1885,6 +1935,20 @@ export default function Dashboard({
     
     await DataStore.createForumPost(newPost);
     triggerToast("Votre publication a été enregistrée et publiée sur le Forum !", "success");
+  };
+
+  const handleDeleteForumPost = async (postId: string) => {
+    setForumPosts(prev => prev.filter(p => String(p.id) !== String(postId)));
+    await DataStore.deleteForumPost(postId);
+    triggerToast("🗑️ Publication retirée du forum.", "info");
+  };
+
+  const handleEditForumPost = async (postId: string, text: string) => {
+    const cleanText = text.trim();
+    if (!cleanText) return;
+    setForumPosts(prev => prev.map(p => String(p.id) === String(postId) ? { ...p, text: cleanText, message: cleanText, lastModified: Date.now() } : p));
+    await DataStore.editForumPost(postId, { text: cleanText });
+    triggerToast("✅ Publication modifiée avec succès !", "success");
   };
 
   const handleLikeForumPost = async (postId: string) => {
@@ -1909,35 +1973,22 @@ export default function Dashboard({
     await DataStore.likeForumPost(postId, userState.id);
   };
 
-  const handlePostForumComment = (postId: string) => {
+  const handlePostForumComment = async (postId: string) => {
     const commentText = (forumCommentInputs[postId] || '').trim();
     if (!commentText) {
       triggerToast("⚠️ Veuillez écrire un commentaire avant d'envoyer.", "error");
       return;
     }
 
-    const updated = forumPosts.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          comments: [
-            ...(p.comments || []),
-            { 
-              id: 'c-' + Date.now(),
-              author: (userState.name || 'Membre') + ' ' + (userState.country === 'Cameroun' ? '🇨🇲' : userState.country === 'Togo' ? '🇹🇬' : userState.country === 'Bénin' ? '🇧🇯' : userState.country === 'Côte d’Ivoire' ? '🇨🇮' : userState.country === 'Burkina Faso' ? '🇧🇫' : userState.country === 'Sénégal' ? '🇸🇳' : userState.country === 'Mali' ? '🇲🇱' : userState.country === 'Niger' ? '🇳🇪' : '🌍'),
-              text: commentText,
-              date: new Date().toISOString()
-            }
-          ],
-          lastModified: Date.now()
-        };
-      }
-      return p;
-    });
+    const commentObj = { 
+      id: 'c-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      author: (userState.name || 'Membre') + ' ' + (userState.country === 'Cameroun' ? '🇨🇲' : userState.country === 'Togo' ? '🇹🇬' : userState.country === 'Bénin' ? '🇧🇯' : userState.country === 'Côte d’Ivoire' ? '🇨🇮' : userState.country === 'Burkina Faso' ? '🇧🇫' : userState.country === 'Sénégal' ? '🇸🇳' : userState.country === 'Mali' ? '🇲🇱' : userState.country === 'Niger' ? '🇳🇪' : '🌍'),
+      text: commentText,
+      date: new Date().toISOString()
+    };
 
-    setForumPosts(updated);
     setForumCommentInputs(prev => ({ ...prev, [postId]: '' }));
-    DataStore.saveForumPosts(updated);
+    await DataStore.addForumComment(postId, commentObj);
     triggerToast("Commentaire publié sur le forum !", "success");
   };
 
@@ -5655,6 +5706,8 @@ export default function Dashboard({
               setForumCommentInputs={setForumCommentInputs}
               triggerToast={triggerToast}
               maskUserPhone={maskUserPhone}
+              onDeletePost={handleDeleteForumPost}
+              onEditPost={handleEditForumPost}
               t={t}
             />
           )}

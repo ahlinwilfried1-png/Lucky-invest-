@@ -6,7 +6,9 @@ import {
   Image as ImageIcon,
   X,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import { User } from '../types';
 import { getMaskedAnonymousId, deduplicateForumPosts } from '../lib/forumUtils';
@@ -28,6 +30,8 @@ interface ForumTabViewProps {
   setForumCommentInputs?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   triggerToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   maskUserPhone: (val: string) => string;
+  onDeletePost?: (postId: string) => Promise<void>;
+  onEditPost?: (postId: string, text: string) => Promise<void>;
   t: (fr: string, en: string) => string;
 }
 
@@ -47,10 +51,14 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
   setForumCommentInputs,
   triggerToast,
   maskUserPhone,
+  onDeletePost,
+  onEditPost,
   t
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState<boolean>(true);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingPostText, setEditingPostText] = useState<string>('');
 
   const categories = [
     { id: 'all', label: t('⭐ Toutes', '⭐ All') },
@@ -448,13 +456,46 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Post Content Text (Title/Text in Midnight Blue, pleasant readability) */}
-                  {post.text && (
-                    <div className="bg-[#FAF8F2] border border-[#E8D8B0]/60 p-3.5 rounded-2xl">
-                      <p className="text-xs sm:text-sm text-[#102A43] leading-relaxed font-medium whitespace-pre-wrap">
-                        {maskUserPhone(post.text)}
-                      </p>
+                  {/* Post Content Text or Inline Edit Form */}
+                  {editingPostId === post.id ? (
+                    <div className="bg-[#FAF8F2] border border-[#D49A22] p-3 rounded-2xl space-y-2">
+                      <textarea
+                        rows={3}
+                        value={editingPostText}
+                        onChange={(e) => setEditingPostText(e.target.value)}
+                        className="w-full bg-white border border-[#E8D8B0] rounded-xl p-2.5 text-xs text-[#102A43] focus:outline-none focus:ring-1 focus:ring-[#D49A22] resize-none"
+                        maxLength={500}
+                      />
+                      <div className="flex justify-end gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setEditingPostId(null)}
+                          className="px-3 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 font-bold text-[11px]"
+                        >
+                          {t('Annuler', 'Cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (onEditPost && editingPostText.trim()) {
+                              await onEditPost(post.id, editingPostText.trim());
+                              setEditingPostId(null);
+                            }
+                          }}
+                          className="px-3 py-1 rounded-lg bg-gradient-to-r from-[#B8790B] to-[#D49A22] text-white font-bold text-[11px] shadow-2xs"
+                        >
+                          {t('Enregistrer', 'Save')}
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    (post.text || post.message) && (
+                      <div className="bg-[#FAF8F2] border border-[#E8D8B0]/60 p-3.5 rounded-2xl">
+                        <p className="text-xs sm:text-sm text-[#102A43] leading-relaxed font-medium whitespace-pre-wrap">
+                          {maskUserPhone(post.text || post.message)}
+                        </p>
+                      </div>
+                    )
                   )}
 
                   {/* Inline Attached Screenshots / Proof Images */}
@@ -476,7 +517,7 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
                     </div>
                   )}
 
-                  {/* Post Footer Action Bar: Likes */}
+                  {/* Post Footer Action Bar: Likes + Moderation */}
                   <div className="flex items-center justify-between border-t border-[#E8D8B0]/50 pt-2.5">
                     {/* Left: Like Button with Golden Accent */}
                     <button
@@ -492,6 +533,39 @@ export const ForumTabView: React.FC<ForumTabViewProps> = ({
                       <ThumbsUp className={`w-3.5 h-3.5 ${hasLiked ? 'fill-[#D49A22] stroke-[#D49A22]' : 'stroke-[#607D9A]'}`} />
                       <span>{post.likes || 0} {t('J\'aime', 'Likes')}</span>
                     </button>
+
+                    {/* Right: Author or Admin Edit & Delete Actions */}
+                    {(userState.role === 'admin' || post.authorId === userState.id) && (
+                      <div className="flex items-center gap-1.5">
+                        {onEditPost && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPostId(post.id);
+                              setEditingPostText(post.text || post.message || '');
+                            }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                            title={t('Modifier la publication', 'Edit post')}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeletePost && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(t("Voulez-vous vraiment supprimer cette publication du Forum ?", "Are you sure you want to delete this post?"))) {
+                                onDeletePost(post.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title={t('Supprimer du forum', 'Delete post')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                 </div>

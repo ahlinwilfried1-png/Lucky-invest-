@@ -2364,9 +2364,12 @@ const SERVER_DEFAULT_PRODUCTS = [
           } else if ((item.status === 'approved' || item.status === 'rejected') && existing.status === 'pending') {
             finalStatus = item.status;
           }
+          const existingMod = Number(existing.lastModified || 0);
+          const itemMod = Number(item.lastModified || 0);
+          const useExisting = existingMod > itemMod;
           map.set(id, {
-            ...existing,
-            ...item,
+            ...(useExisting ? item : existing),
+            ...(useExisting ? existing : item),
             status: finalStatus,
             credited: Boolean(existing.credited || item.credited || finalStatus === 'approved')
           });
@@ -5486,7 +5489,10 @@ const SERVER_DEFAULT_PRODUCTS = [
   // Dedicated Forum endpoints for immediate cross-user synchronization
   app.get("/api/forum/posts", async (req, res) => {
     try {
-      await syncFromSupabaseIfAvailable(false);
+      const forceFresh = req.query.fresh === 'true';
+      if (forceFresh || (Date.now() - lastSupabasePullTime >= SUPABASE_MIN_PULL_INTERVAL)) {
+        await syncFromSupabaseIfAvailable(forceFresh);
+      }
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
       const rawPosts = storeData["gi_forum_posts"] || [];
@@ -5533,10 +5539,16 @@ const SERVER_DEFAULT_PRODUCTS = [
 
       // Add to front of array or replace existing if duplicate
       forumPosts = forumPosts.filter((p: any) => p && p.id !== post.id);
+      const postText = (post.text || post.message || '').trim();
       const enrichedPost = {
         ...post,
+        text: postText,
+        message: postText,
         authorId: post.authorId || ('u-' + Date.now()),
-        avatarLetter: post.avatarLetter || '★',
+        authorName: post.authorName || 'Membre',
+        authorRole: post.authorRole || (post.isAdmin ? 'admin' : 'user'),
+        isAdmin: Boolean(post.isAdmin || post.authorRole === 'admin'),
+        avatarLetter: post.avatarLetter || (post.isAdmin ? '🛡️' : '★'),
         likes: typeof post.likes === 'number' ? post.likes : 0,
         likedBy: Array.isArray(post.likedBy) ? post.likedBy : [],
         comments: Array.isArray(post.comments) ? post.comments : [],
@@ -5567,9 +5579,63 @@ const SERVER_DEFAULT_PRODUCTS = [
       await saveStore(["gi_forum_posts", "gi_deleted_forum_posts"]);
 
       console.log(`[API FORUM] New post published: ${post.id}. Total posts: ${deduped.length}`);
+      
+      // Instant SSE broadcast to all connected clients and user accounts
+      broadcastRealtimeEvent({ type: "forum", action: "create", post: enrichedPost, time: Date.now() });
+
       res.json({ success: true, post: enrichedPost });
     } catch (err: any) {
       console.error("[API FORUM] Error creating forum post:", err);
+      res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+    }
+  });
+
+  // Dedicated endpoint to edit an existing forum post
+  app.post("/api/forum/edit", async (req, res) => {
+    try {
+      const { postId, text, authorName, title, image1, image2 } = req.body;
+      if (!postId) {
+        return res.status(400).json({ success: false, message: "ID de publication manquant." });
+      }
+
+      let forumPosts = storeData["gi_forum_posts"] || [];
+      let updatedPost: any = null;
+
+      forumPosts = forumPosts.map((p: any) => {
+        if (p && String(p.id) === String(postId)) {
+          const newText = text !== undefined ? text : (p.text || p.message || '');
+          updatedPost = {
+            ...p,
+            text: newText,
+            message: newText,
+            authorName: authorName !== undefined ? authorName : p.authorName,
+            title: title !== undefined ? title : p.title,
+            image1: image1 !== undefined ? image1 : p.image1,
+            image2: image2 !== undefined ? image2 : p.image2,
+            lastModified: Date.now()
+          };
+          return updatedPost;
+        }
+        return p;
+      });
+
+      if (!updatedPost) {
+        return res.status(404).json({ success: false, message: "Publication introuvable." });
+      }
+
+      storeData["gi_forum_posts"] = forumPosts;
+      await insertSupabaseForumPost(updatedPost).catch((e) => {
+        console.warn("[SUPABASE FORUM EDIT BG WARN]", e);
+      });
+      await saveStore(["gi_forum_posts"]);
+
+      // Instant SSE broadcast to all connected clients and user accounts
+      broadcastRealtimeEvent({ type: "forum", action: "edit", post: updatedPost, time: Date.now() });
+
+      console.log(`[API FORUM] Post ${postId} edited. Broadcasted to all connected users.`);
+      res.json({ success: true, post: updatedPost });
+    } catch (err: any) {
+      console.error("[API FORUM] Error editing forum post:", err);
       res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
     }
   });
@@ -5598,7 +5664,10 @@ const SERVER_DEFAULT_PRODUCTS = [
 
       await saveStore(["gi_forum_posts", "gi_deleted_forum_posts"]);
 
-      console.log(`[API FORUM] Post deleted: ${postId}`);
+      // Instant SSE broadcast to all connected clients and user accounts
+      broadcastRealtimeEvent({ type: "forum", action: "delete", postId, time: Date.now() });
+
+      console.log(`[API FORUM] Post deleted: ${postId}. Broadcasted to all connected users.`);
       res.json({ success: true, postId });
     } catch (err: any) {
       console.error("[API FORUM] Error deleting forum post:", err);
@@ -5610,6 +5679,9 @@ const SERVER_DEFAULT_PRODUCTS = [
     try {
       storeData["gi_forum_posts"] = [];
       await saveStore(["gi_forum_posts"]);
+      
+      broadcastRealtimeEvent({ type: "forum", action: "clear-all", time: Date.now() });
+
       console.log(`[API FORUM] All forum posts cleared by admin.`);
       res.json({ success: true });
     } catch (err: any) {
@@ -5650,6 +5722,9 @@ const SERVER_DEFAULT_PRODUCTS = [
 
       storeData["gi_forum_posts"] = forumPosts;
       await saveStore(["gi_forum_posts"]);
+
+      broadcastRealtimeEvent({ type: "forum", action: "like", post: updatedPost, time: Date.now() });
+
       res.json({ success: true, post: updatedPost });
     } catch (err: any) {
       console.error("[API FORUM] Error liking forum post:", err);
@@ -5682,6 +5757,9 @@ const SERVER_DEFAULT_PRODUCTS = [
 
       storeData["gi_forum_posts"] = forumPosts;
       await saveStore(["gi_forum_posts"]);
+
+      broadcastRealtimeEvent({ type: "forum", action: "comment", post: updatedPost, time: Date.now() });
+
       res.json({ success: true, post: updatedPost });
     } catch (err: any) {
       console.error("[API FORUM] Error commenting on forum post:", err);

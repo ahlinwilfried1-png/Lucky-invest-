@@ -10,6 +10,22 @@
 export function getMaskedAnonymousId(userOrIdentifier: any): string {
   if (!userOrIdentifier) return "1★7";
 
+  // If this post was created by administration or is an official announcement
+  if (typeof userOrIdentifier === "object") {
+    if (userOrIdentifier.isAdmin || userOrIdentifier.authorRole === 'admin' || userOrIdentifier.role === 'admin') {
+      return userOrIdentifier.authorName || "🛡️ Administration";
+    }
+    const rawName = String(userOrIdentifier.authorName || '').trim();
+    if (rawName && (rawName.toLowerCase().includes('admin') || rawName.toLowerCase().includes('officiel') || rawName.startsWith('🛡️'))) {
+      return rawName;
+    }
+  } else if (typeof userOrIdentifier === "string") {
+    const s = userOrIdentifier.trim();
+    if (s.toLowerCase().includes('admin') || s.toLowerCase().includes('officiel') || s.startsWith('🛡️')) {
+      return s;
+    }
+  }
+
   let seed = "";
   if (typeof userOrIdentifier === "string") {
     seed = userOrIdentifier.trim();
@@ -60,24 +76,24 @@ export function deduplicateForumPosts(posts: any[]): any[] {
     const idStr = String(post.id);
     if (seenIds.has(idStr)) continue;
 
-    // Content signature to guard against accidental double submissions
-    const textNorm = (post.text || '').trim().toLowerCase();
+    // Content signature to guard against accidental rapid double-click submissions (3s window)
+    const textNorm = ((post.text || post.message || '')).trim().toLowerCase();
     const author = String(post.authorId || post.authorPhone || post.authorName || '');
-    const timeBucket = Math.floor(new Date(post.createdAt || 0).getTime() / 20000); // 20s window
+    const timeBucket = Math.floor(new Date(post.createdAt || 0).getTime() / 3000); // 3s window
     const contentKey = `${author}_${textNorm}_${timeBucket}`;
 
-    if (textNorm && textNorm.length > 5 && seenContent.has(contentKey)) {
+    if (textNorm && textNorm.length > 5 && author && seenContent.has(contentKey)) {
       continue;
     }
 
     seenIds.add(idStr);
-    if (textNorm && textNorm.length > 5) {
+    if (textNorm && textNorm.length > 5 && author) {
       seenContent.add(contentKey);
     }
     result.push(post);
   }
 
-  // Sort descending by creation date (newest first)
+  // Sort descending by creation date or lastModified (newest first)
   return result.sort((a, b) => {
     const timeA = new Date(a.createdAt || a.lastModified || 0).getTime();
     const timeB = new Date(b.createdAt || b.lastModified || 0).getTime();

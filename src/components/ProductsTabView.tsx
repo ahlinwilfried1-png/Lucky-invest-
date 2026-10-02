@@ -142,10 +142,10 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
             </div>
             <div>
               <h1 className="font-serif font-black text-base sm:text-lg tracking-wider text-amber-700 uppercase leading-none">
-                GOLD AVENUE
+                AirProds® • ÉNERGIE & AVENIR
               </h1>
               <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium mt-1 leading-tight whitespace-pre-line">
-                Investir aujourd'hui,{"\n"}construire demain.
+                Revenus de Placement VIP • 15 Niveaux
               </p>
             </div>
           </div>
@@ -154,10 +154,10 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
         {/* TWO-COLUMN LAYOUT: VERTICAL TABS (LEFT) + VIP CARDS (RIGHT) */}
         <div className="flex flex-row gap-2.5 sm:gap-4 items-start">
           
-          {/* LEFT SIDEBAR: STABILITÉ & BIEN-ÊTRE TABS */}
+          {/* LEFT SIDEBAR: AIRPRODS VIP & BIEN-ÊTRE TABS */}
           <div className="w-[74px] min-[375px]:w-[82px] sm:w-28 shrink-0 flex flex-col gap-2.5 select-none pt-0.5">
             
-            {/* TAB 1: STABILITÉ */}
+            {/* TAB 1: AIRPRODS VIP */}
             <button
               type="button"
               onClick={() => setProductSubTab('stability')}
@@ -175,8 +175,8 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
               }`}>
                 <TrendingUp className="w-4.5 h-4.5 stroke-[2.4]" />
               </div>
-              <span className="font-sans font-black text-[9.5px] min-[375px]:text-[10.5px] uppercase tracking-wider block leading-tight">
-                {t('STABILITÉ', 'STABILITY')}
+              <span className="font-sans font-black text-[9px] min-[375px]:text-[10px] uppercase tracking-wider block leading-tight">
+                {t('AirProds VIP', 'AirProds VIP')}
               </span>
             </button>
 
@@ -245,10 +245,10 @@ export const ProductsTabView: React.FC<ProductsTabViewProps> = ({
                 const displayName = (p.name && p.name.trim() !== '')
                   ? p.name.trim()
                   : isWellbeing
-                    ? `Gold Avenue Bien-être ${vipLevel}`
+                    ? `Bien-être VIP ${vipLevel}`
                     : isActivity
-                      ? `Gold Avenue Activité ${vipLevel}`
-                      : `Option VIP ${vipLevel}`;
+                      ? `Activité VIP ${vipLevel}`
+                      : `AirProds® VIP ${vipLevel}`;
 
                 const totalExpectedProductPayout = p.totalReturn || (p.price + (p.dailyReturn * p.durationDays));
                 const imgSrc = (p.imageUrl && p.imageUrl.trim() !== '') ? p.imageUrl : defaultGoldImage;

@@ -232,9 +232,28 @@ export default function AdminPanel({
   // Forum sub-tab state
   const [proofsSubTab, setProofsSubTab] = useState<'avis' | 'forum'>('avis');
   const [forumPosts, setForumPosts] = useState<any[]>(() => DataStore.getForumPosts());
+  const [adminForumText, setAdminForumText] = useState('');
+  const [adminForumAuthor, setAdminForumAuthor] = useState('Administration');
+  const [adminForumImage1, setAdminForumImage1] = useState<string | null>(null);
+  const [adminForumImage2, setAdminForumImage2] = useState<string | null>(null);
+  const [isAdminCreatingForumPost, setIsAdminCreatingForumPost] = useState(false);
+  const [isSubmittingForumPost, setIsSubmittingForumPost] = useState(false);
+
+  // Edit Forum Post state
+  const [editingForumPost, setEditingForumPost] = useState<any | null>(null);
+  const [editForumText, setEditForumText] = useState('');
+  const [editForumAuthor, setEditForumAuthor] = useState('');
+  const [editForumImage1, setEditForumImage1] = useState<string | null>(null);
+  const [editForumImage2, setEditForumImage2] = useState<string | null>(null);
+  const [isSubmittingEditForum, setIsSubmittingEditForum] = useState(false);
 
   React.useEffect(() => {
     setForumPosts(DataStore.getForumPosts());
+    if (proofsSubTab === 'forum') {
+      DataStore.fetchForumPostsFromServer().then(fresh => {
+        if (fresh && Array.isArray(fresh)) setForumPosts(fresh);
+      }).catch(() => {});
+    }
   }, [proofsSubTab]);
 
   // Category & Operations Schedules Management (Bien-être & Retraits)
@@ -570,6 +589,105 @@ export default function AdminPanel({
         }
       }
     });
+  };
+
+  const openEditForumModal = (post: any) => {
+    setEditingForumPost(post);
+    setEditForumText(post.text || post.message || '');
+    setEditForumAuthor(post.authorName || post.author || '');
+    setEditForumImage1(post.image1 || null);
+    setEditForumImage2(post.image2 || null);
+  };
+
+  const handleSaveEditForumPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingForumPost) return;
+
+    const trimmedText = editForumText.trim();
+    if (!trimmedText && !editForumImage1 && !editForumImage2) {
+      alert("Veuillez saisir un message ou joindre au moins une image.");
+      return;
+    }
+
+    setIsSubmittingEditForum(true);
+    try {
+      await DataStore.editForumPost(editingForumPost.id, {
+        text: trimmedText,
+        authorName: editForumAuthor.trim() || editingForumPost.authorName,
+        image1: editForumImage1,
+        image2: editForumImage2
+      });
+
+      const updated = DataStore.getForumPosts();
+      setForumPosts(updated);
+      setEditingForumPost(null);
+      setNotification({
+        message: "✅ Publication du Forum modifiée et synchronisée pour tous les utilisateurs !",
+        type: "success"
+      });
+      onRefreshData();
+    } catch (err: any) {
+      console.error("Error editing forum post:", err);
+      setNotification({
+        message: "Erreur lors de la modification: " + (err.message || String(err)),
+        type: "error"
+      });
+    } finally {
+      setIsSubmittingEditForum(false);
+    }
+  };
+
+  const handleAdminCreateForumPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedText = adminForumText.trim();
+    if (!trimmedText && !adminForumImage1 && !adminForumImage2) {
+      alert("Veuillez saisir un message ou joindre au moins une image.");
+      return;
+    }
+
+    setIsSubmittingForumPost(true);
+    try {
+      const newPost = {
+        id: 'f-admin-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        authorId: currentUser?.id || 'u-admin',
+        authorPhone: currentUser?.phone || 'admin',
+        authorName: adminForumAuthor.trim() || 'Administration',
+        authorRole: 'admin',
+        isAdmin: true,
+        avatarLetter: '🛡️',
+        text: trimmedText || "Annonce officielle de l'administration",
+        message: trimmedText || "Annonce officielle de l'administration",
+        image1: adminForumImage1 || undefined,
+        image2: adminForumImage2 || undefined,
+        likes: 0,
+        likedBy: [],
+        hasLiked: false,
+        createdAt: new Date().toISOString(),
+        lastModified: Date.now(),
+        comments: []
+      };
+
+      await DataStore.createForumPost(newPost);
+      const updated = DataStore.getForumPosts();
+      setForumPosts(updated);
+      setAdminForumText('');
+      setAdminForumImage1(null);
+      setAdminForumImage2(null);
+      setIsAdminCreatingForumPost(false);
+      setNotification({
+        message: "📢 Nouvelle publication diffusée immédiatement sur le Forum de tous les membres !",
+        type: "success"
+      });
+      onRefreshData();
+    } catch (err: any) {
+      console.error("Error creating forum post from admin:", err);
+      setNotification({
+        message: "Erreur lors de la publication: " + (err.message || String(err)),
+        type: "error"
+      });
+    } finally {
+      setIsSubmittingForumPost(false);
+    }
   };
 
   const handleUpdateProofStatus = async (proofId: string, status: 'approved' | 'rejected') => {
@@ -1084,7 +1202,7 @@ export default function AdminPanel({
       onRefreshData();
     });
 
-    // Instant Server-Sent Events (SSE) stream listener for real-time pushed deposits & messages
+    // Instant Server-Sent Events (SSE) stream listener for real-time pushed deposits, messages & forum
     let eventSource: EventSource | null = null;
     try {
       eventSource = new EventSource('/api/realtime-stream');
@@ -1093,6 +1211,20 @@ export default function AdminPanel({
           const payload = JSON.parse(event.data);
           if (payload && payload.type !== 'connected') {
             console.log('[SSE EVENT]', payload);
+            if (payload.type === 'forum') {
+              if (payload.action === 'create' && payload.post) {
+                setForumPosts(prev => [payload.post, ...prev.filter(p => String(p.id) !== String(payload.post.id))]);
+              } else if (payload.action === 'edit' && payload.post) {
+                setForumPosts(prev => prev.map(p => String(p.id) === String(payload.post.id) ? { ...p, ...payload.post } : p));
+              } else if (payload.action === 'delete' && payload.postId) {
+                setForumPosts(prev => prev.filter(p => String(p.id) !== String(payload.postId)));
+              } else if (payload.action === 'clear-all') {
+                setForumPosts([]);
+              }
+              DataStore.fetchForumPostsFromServer().then(fresh => {
+                if (fresh && Array.isArray(fresh)) setForumPosts(fresh);
+              }).catch(() => {});
+            }
             executeDirectCentralSync(true);
             onRefreshData();
           }
@@ -1108,11 +1240,18 @@ export default function AdminPanel({
     };
     window.addEventListener('gi_store_updated', handleStoreUpdated);
 
+    const handleForumUpdated = (e: any) => {
+      const fresh = e?.detail || DataStore.getForumPosts();
+      if (Array.isArray(fresh)) setForumPosts(fresh);
+    };
+    window.addEventListener('gi_forum_updated', handleForumUpdated);
+
     return () => {
       unsubSupabase();
       if (eventSource) eventSource.close();
       clearInterval(interval);
       window.removeEventListener('gi_store_updated', handleStoreUpdated);
+      window.removeEventListener('gi_forum_updated', handleForumUpdated);
     };
   }, []);
 
@@ -2577,6 +2716,193 @@ export default function AdminPanel({
                 Enregistrer les modifications
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Editing Forum Post Modal Overlay */}
+      {editingForumPost && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-7 relative max-h-[92vh] flex flex-col shadow-2xl shadow-black/80">
+            <button 
+              type="button"
+              onClick={() => setEditingForumPost(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white z-10 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 mb-4 shrink-0 border-b border-slate-800 pb-3">
+              <span className="text-lg">💬</span>
+              <h3 className="font-display font-bold text-base md:text-lg text-white">
+                Modifier la Publication du Forum
+              </h3>
+            </div>
+            
+            <form onSubmit={handleSaveEditForumPost} className="flex-1 overflow-y-auto pr-1 space-y-4 my-1 scrollbar-thin scrollbar-thumb-slate-800">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Nom d'affichage / Auteur
+                </label>
+                <input
+                  type="text"
+                  value={editForumAuthor}
+                  onChange={(e) => setEditForumAuthor(e.target.value)}
+                  placeholder="Ex: Administration, Membre VIP..."
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs text-white focus:border-yellow-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Message de la publication
+                </label>
+                <textarea
+                  rows={4}
+                  value={editForumText}
+                  onChange={(e) => setEditForumText(e.target.value)}
+                  placeholder="Texte de la publication..."
+                  maxLength={600}
+                  className="w-full bg-slate-950/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-yellow-500 focus:outline-none resize-none"
+                />
+                <div className="text-right text-[10px] text-slate-500">
+                  {editForumText.length}/600
+                </div>
+              </div>
+
+              {/* Attachments preview & modifications */}
+              <div className="space-y-2 bg-slate-950/50 border border-slate-800/80 p-3 rounded-xl">
+                <label className="text-[10px] font-bold text-yellow-500 uppercase tracking-wider block">
+                  Captures d'écran jointes
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Image 1 */}
+                  <div className="border border-slate-800 rounded-xl p-2 bg-slate-900/60 flex flex-col items-center justify-center min-h-[90px] relative">
+                    {editForumImage1 ? (
+                      <div className="w-full h-full relative">
+                        <img src={editForumImage1} alt="Attachment 1" className="w-full h-20 object-cover rounded-lg" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={() => setEditForumImage1(null)}
+                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px] hover:bg-red-700"
+                          title="Supprimer la photo 1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer py-2 text-slate-500 hover:text-slate-300">
+                        <span className="text-xs">📷 + Photo 1</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                  const canvas = document.createElement('canvas');
+                                  let w = img.width, h = img.height;
+                                  const maxD = 900;
+                                  if (w > maxD || h > maxD) {
+                                    if (w > h) { h = Math.round((h * maxD) / w); w = maxD; }
+                                    else { w = Math.round((w * maxD) / h); h = maxD; }
+                                  }
+                                  canvas.width = w; canvas.height = h;
+                                  const ctx = canvas.getContext('2d');
+                                  if (ctx) {
+                                    ctx.drawImage(img, 0, 0, w, h);
+                                    setEditForumImage1(canvas.toDataURL('image/jpeg', 0.75));
+                                  } else {
+                                    setEditForumImage1(ev.target?.result as string);
+                                  }
+                                };
+                                img.src = ev.target?.result as string;
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Image 2 */}
+                  <div className="border border-slate-800 rounded-xl p-2 bg-slate-900/60 flex flex-col items-center justify-center min-h-[90px] relative">
+                    {editForumImage2 ? (
+                      <div className="w-full h-full relative">
+                        <img src={editForumImage2} alt="Attachment 2" className="w-full h-20 object-cover rounded-lg" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={() => setEditForumImage2(null)}
+                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px] hover:bg-red-700"
+                          title="Supprimer la photo 2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer py-2 text-slate-500 hover:text-slate-300">
+                        <span className="text-xs">📷 + Photo 2</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                  const canvas = document.createElement('canvas');
+                                  let w = img.width, h = img.height;
+                                  const maxD = 900;
+                                  if (w > maxD || h > maxD) {
+                                    if (w > h) { h = Math.round((h * maxD) / w); w = maxD; }
+                                    else { w = Math.round((w * maxD) / h); h = maxD; }
+                                  }
+                                  canvas.width = w; canvas.height = h;
+                                  const ctx = canvas.getContext('2d');
+                                  if (ctx) {
+                                    ctx.drawImage(img, 0, 0, w, h);
+                                    setEditForumImage2(canvas.toDataURL('image/jpeg', 0.75));
+                                  } else {
+                                    setEditForumImage2(ev.target?.result as string);
+                                  }
+                                };
+                                img.src = ev.target?.result as string;
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-3 border-t border-slate-800 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingForumPost(null)}
+                  className="flex-1 py-2.5 text-xs font-bold border border-slate-800 rounded-xl text-slate-400 hover:bg-slate-800 cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEditForum}
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl gold-bg-gradient text-slate-950 shadow-md shadow-yellow-500/10 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingEditForum ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -5498,10 +5824,19 @@ export default function AdminPanel({
             {proofsSubTab === 'forum' && (
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-800 gap-2">
-                  <h4 className="text-xs text-slate-400 font-bold uppercase tracking-wider pl-1">
-                    Publications Actuelles sur le Forum Public
-                  </h4>
                   <div className="flex items-center gap-2">
+                    <h4 className="text-xs text-slate-400 font-bold uppercase tracking-wider pl-1">
+                      Publications Actuelles sur le Forum Public
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAdminCreatingForumPost(!isAdminCreatingForumPost)}
+                      className="px-3 py-1 bg-yellow-500/20 hover:bg-yellow-500 text-yellow-400 hover:text-slate-950 border border-yellow-500/30 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>{isAdminCreatingForumPost ? '✕ Masquer' : '➕ Publier sur le Forum'}</span>
+                    </button>
                     {forumPosts.length > 0 && (
                       <button
                         onClick={handleClearAllForumPosts}
@@ -5516,6 +5851,139 @@ export default function AdminPanel({
                     </div>
                   </div>
                 </div>
+
+                {/* ADMIN FORUM CREATION FORM CARD */}
+                {isAdminCreatingForumPost && (
+                  <div className="bg-slate-950 border border-yellow-500/40 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xl animate-fadeIn">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">📢</span>
+                        <h5 className="font-bold text-xs text-yellow-400 uppercase tracking-wider">
+                          Nouvelle Publication Officielle sur le Forum
+                        </h5>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 font-mono">
+                        Visible par tous les membres instantanément ⚡
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleAdminCreateForumPost} className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Nom affiché de l'auteur
+                        </label>
+                        <input
+                          type="text"
+                          value={adminForumAuthor}
+                          onChange={(e) => setAdminForumAuthor(e.target.value)}
+                          placeholder="Administration AirProds"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:border-yellow-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Message de la publication
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={adminForumText}
+                          onChange={(e) => setAdminForumText(e.target.value)}
+                          placeholder="Écrivez le message qui apparaîtra sur le forum pour tous les utilisateurs..."
+                          maxLength={500}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-yellow-500 focus:outline-none resize-none"
+                        />
+                        <div className="text-right text-[10px] text-slate-500">
+                          {adminForumText.length}/500
+                        </div>
+                      </div>
+
+                      {/* Optional Images */}
+                      <div className="grid grid-cols-2 gap-3 bg-slate-900/50 p-2.5 rounded-xl border border-slate-850">
+                        <div className="border border-slate-800 rounded-xl p-2 bg-slate-900 flex flex-col items-center justify-center min-h-[75px] relative">
+                          {adminForumImage1 ? (
+                            <div className="w-full h-full relative">
+                              <img src={adminForumImage1} alt="Preview 1" className="w-full h-16 object-cover rounded-lg" referrerPolicy="no-referrer" />
+                              <button
+                                type="button"
+                                onClick={() => setAdminForumImage1(null)}
+                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px]"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer py-1 text-slate-500 hover:text-slate-300">
+                              <span className="text-[11px]">📷 + Photo 1</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => setAdminForumImage1(ev.target?.result as string);
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="border border-slate-800 rounded-xl p-2 bg-slate-900 flex flex-col items-center justify-center min-h-[75px] relative">
+                          {adminForumImage2 ? (
+                            <div className="w-full h-full relative">
+                              <img src={adminForumImage2} alt="Preview 2" className="w-full h-16 object-cover rounded-lg" referrerPolicy="no-referrer" />
+                              <button
+                                type="button"
+                                onClick={() => setAdminForumImage2(null)}
+                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px]"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer py-1 text-slate-500 hover:text-slate-300">
+                              <span className="text-[11px]">📷 + Photo 2</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => setAdminForumImage2(ev.target?.result as string);
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsAdminCreatingForumPost(false)}
+                          className="px-4 py-2 border border-slate-800 rounded-xl text-xs text-slate-400 hover:bg-slate-900 cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSubmittingForumPost}
+                          className="px-5 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md uppercase tracking-wider cursor-pointer disabled:opacity-50"
+                        >
+                          {isSubmittingForumPost ? 'Diffusion...' : '🚀 Diffuser sur le Forum'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {forumPosts.map((post) => {
@@ -5726,13 +6194,24 @@ export default function AdminPanel({
 
                           <div className="border-t border-slate-850/60 pt-3 flex justify-between items-center text-[10px]">
                             <span className="text-slate-500 font-mono text-[9px]">{post.id}</span>
-                            <button
-                              onClick={() => handleDeleteForumPost(post.id)}
-                              className="px-3 py-1.5 bg-red-600/15 text-red-400 hover:bg-red-600 hover:text-white border border-red-600/20 hover:border-transparent rounded-xl font-bold transition-all flex items-center space-x-1 duration-150 cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Supprimer du Forum</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEditForumModal(post)}
+                                className="px-3 py-1.5 bg-amber-500/15 text-amber-400 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/20 hover:border-transparent rounded-xl font-bold transition-all flex items-center space-x-1 duration-150 cursor-pointer"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                                <span>Modifier</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteForumPost(post.id)}
+                                className="px-3 py-1.5 bg-red-600/15 text-red-400 hover:bg-red-600 hover:text-white border border-red-600/20 hover:border-transparent rounded-xl font-bold transition-all flex items-center space-x-1 duration-150 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Supprimer</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
